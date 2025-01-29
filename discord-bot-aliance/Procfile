@@ -1,1 +1,1 @@
-web: dotnet discord-bot-aliance.dll
+worker: dotnet run --project discord-bot-aliance.csproj
