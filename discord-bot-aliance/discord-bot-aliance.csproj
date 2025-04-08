@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <PackageReference Include="Discord.Net" Version="3.17.1" />
+    <PackageReference Include="System.Runtime.Extensions" Version="4.3.1" />
   </ItemGroup>
 
 </Project>
