@@ -11,6 +11,7 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using static System.Collections.Specialized.BitVector32;
 using Color = Discord.Color;
 
 class Program
@@ -29,9 +30,9 @@ class Program
         // Přidání intents
         var config = new DiscordSocketConfig
         {
-            GatewayIntents = 
-            GatewayIntents.Guilds | 
-            GatewayIntents.GuildMessages | 
+            GatewayIntents =
+            GatewayIntents.Guilds |
+            GatewayIntents.GuildMessages |
             GatewayIntents.MessageContent |
             GatewayIntents.GuildMessageReactions |
             GatewayIntents.GuildMembers
@@ -71,19 +72,20 @@ class Program
         await _client.LoginAsync(TokenType.Bot, botToken);
         await _client.StartAsync();
 
-        Console.WriteLine("Bot je spuštěn!");
         await Task.Delay(-1); // Keep the program running
     }
 
     private async Task SaveBotDataAsync(BotData botData)
     {
-        Console.WriteLine("Ukladam bot data..");
+        Console.WriteLine("(SAVE CONFIG) Ukládám konfig");
         var json = JsonConvert.SerializeObject(botData);
         await File.WriteAllTextAsync(dataFilePath, json);
+        Console.WriteLine("(SAVE CONFIG) Konfigurace uložena");
     }
 
     private async Task EnsureRoleSelectionMessage(SocketGuild guild, ITextChannel channel)
     {
+        Console.WriteLine("(ROLE-EMOJIS) Kontroluju jestli existuje zpráva pro vybrání role.");
         var botData = await LoadBotDataAsync();
 
         if (botData.RoleMessageId != null)
@@ -92,37 +94,22 @@ class Program
             var oldMessage = await channel.GetMessageAsync(botData.RoleMessageId.Value) as IUserMessage;
             if (oldMessage != null)
             {
-                Console.WriteLine("Zpráva pro výběr role už existuje, nepřidávám novou.");
+                Console.WriteLine("(ROLE-EMOJIS) Zpráva pro výběr role už existuje, nepřidávám novou.");
                 reactionMessageId = botData.RoleMessageId; // Načteme ID zprávy
                 return;
             }
         }
 
         // Pokud zpráva neexistuje, vytvoříme ji
-        Console.WriteLine("Zpráva neexistuje, vytvářím novou...");
+        Console.WriteLine("(ROLE-EMOJIS) Zpráva neexistuje, vytvářím novou...");
         await SendRoleSelectionMessage(guild, channel);
     }
 
     private async Task SendRoleSelectionMessage(SocketGuild guild, ITextChannel channel)
     {
-        var embed = new EmbedBuilder()
-        {
-            Title = "Vyber si svůj tým! ⚔️",
-            Description = "Reaguj na odpovídající emoji a získáš roli svého týmu.\n\n",
-            Color = Color.Green
-        };
-
-        var teamEmojis = new Dictionary<string, string>(); // Mapování tým -> emoji
-        string[] emojis = { "⚔️", "🏹", "🛡️", "🔥", "⚡", "💀", "🌿", "❄️", "🔮", "🦅" }; // Náhodná emoji
-        int i = 0;
-
-        foreach (var team in teams)
-        {
-            string emoji = emojis[i % emojis.Length]; // Přiřazení emoji
-            teamEmojis[team.Name] = emoji;
-            embed.Description += $"{emoji} - **{team.Name}**\n";
-            i++;
-        }
+        EmbedBuilder embed;
+        Dictionary<string, string> teamEmojis;
+        CreateRoleSelectionMessage(out embed, out teamEmojis);
 
         var message = await channel.SendMessageAsync(embed: embed.Build());
         reactionMessageId = message.Id;
@@ -141,26 +128,50 @@ class Program
         reactionMessageId = message.Id;
         teamEmojiMap = teamEmojis;
 
-        Console.WriteLine("Zpráva pro výběr týmu byla odeslána!");
+        Console.WriteLine("(ROLE-EMOJIS) Zpráva pro výběr týmu byla odeslána!");
     }
 
+    private void CreateRoleSelectionMessage(out EmbedBuilder embed, out Dictionary<string, string> teamEmojis)
+    {
+        embed = new EmbedBuilder()
+        {
+            Title = "Vyber si svůj tým! ⚔️",
+            Description = "Reaguj na odpovídající emoji a získáš roli svého týmu.\n\n",
+            Color = Color.Green
+        };
+        teamEmojis = new Dictionary<string, string>();
+        string[] emojis = { "⚔️", "🏹", "🛡️", "🔥", "⚡", "💀", "🌿", "❄️", "🔮", "🦅" }; // Náhodná emoji
+        int i = 0;
+
+        foreach (var team in teams)
+        {
+            string emoji = emojis[i % emojis.Length]; // Přiřazení emoji
+            teamEmojis[team.Name] = emoji;
+            embed.Description += $"{emoji} - **{team.Name}**\n";
+            i++;
+        }
+    }
 
     private async Task<BotData> LoadBotDataAsync()
     {
+        Console.WriteLine("(LOAD CONFIG) Hledám konfiguraci");
         if (File.Exists(dataFilePath))
         {
-            Console.WriteLine("Našel jsem bot data.. parsuju..");
+            Console.WriteLine("(LOAD CONFIG) Parsuju konfiguraci");
             try
             {
                 var json = await File.ReadAllTextAsync(dataFilePath);
-                return JsonConvert.DeserializeObject<BotData>(json);
+                var botData = JsonConvert.DeserializeObject<BotData>(json);
+                Console.WriteLine("Zparsováno");
+                return botData;
             }
             catch (Exception)
             {
-                Console.WriteLine("Chyba při parsovani.. kurva");
+                Console.WriteLine("(LOAD CONFIG) Chyba při parsovani.. kurva");
                 throw;
             }
         }
+        Console.WriteLine("(LOAD CONFIG) Konfigurace není, vracím novou prázdnou..");
         return new BotData();  // Pokud soubor neexistuje, vrátíme nový objekt s prázdným ID
     }
 
@@ -170,6 +181,7 @@ class Program
     {
         if (reaction.User.IsSpecified && !reaction.User.Value.IsBot)
         {
+            Console.WriteLine("(ROLE-EMOJIS-REACTION-ADDED)");
             var guild = (reaction.Channel as SocketGuildChannel)?.Guild;
             if (guild == null) return;
 
@@ -194,7 +206,7 @@ class Program
                             if (role.Id != newRole.Id)
                             {
                                 await user.RemoveRoleAsync(role);
-                                Console.WriteLine($"Uživatel {user.Username} byl odebrán z týmu {role.Name}.");
+                                Console.WriteLine($"(ROLE-EMOJIS-REACTION-ADDED) Uživatel {user.Username} byl odebrán z týmu {role.Name}.");
                             }
                         }
 
@@ -203,7 +215,7 @@ class Program
                         {
                             await user.AddRoleAsync(newRole);
                             await user.SendMessageAsync($"Byla ti přiřazena role **{newRole.Name}**!");
-                            Console.WriteLine($"Uživatel {user.Username} si vybral tým {newRole.Name}.");
+                            Console.WriteLine($"(ROLE-EMOJIS-REACTION-ADDED) Uživatel {user.Username} si vybral tým {newRole.Name}.");
                         }
 
                         break; // už jsme našli odpovídající emoji
@@ -217,6 +229,7 @@ class Program
     {
         if (reaction.User.IsSpecified && !reaction.User.Value.IsBot)
         {
+            Console.WriteLine("(ROLE-EMOJIS-REACTION-REMOVED)");
             var guild = (reaction.Channel as SocketGuildChannel)?.Guild;
             if (guild == null) return;
 
@@ -234,7 +247,7 @@ class Program
                         {
                             await user.RemoveRoleAsync(role);
                             await user.SendMessageAsync($"Byla ti odebrána role **{role.Name}**.");
-                            Console.WriteLine($"Uživatel {user.Username} si odebral tým {role.Name}.");
+                            Console.WriteLine($"(ROLE-EMOJIS-REACTION-REMOVED) Uživatel {user.Username} si odebral tým {role.Name}.");
                         }
                     }
                 }
@@ -244,55 +257,31 @@ class Program
 
     private async Task UpdateReactionRoleMessage(SocketTextChannel channel)
     {
-        if (reactionMessageId == null)
+        Console.WriteLine("(ROLE-EMOJIS-UPDATE MESSAGE)");
+        var message = await channel.GetMessageAsync(reactionMessageId.Value) as IUserMessage;
+        if (message != null)
         {
-            // Vytvoření nové embed zprávy
-            var embed = new EmbedBuilder
+            Console.WriteLine("(ROLE-EMOJIS-UPDATE MESSAGE) Message is not null");
+            EmbedBuilder embed;
+            var teamEmojis = new Dictionary<string, string>();
+            CreateRoleSelectionMessage(out embed, out teamEmojis);
+            Console.WriteLine("(ROLE-EMOJIS-UPDATE MESSAGE) Created embed message");
+            await message.ModifyAsync(m => m.Embed = embed.Build());
+            Console.WriteLine("(ROLE-EMOJIS-UPDATE MESSAGE) Modifying async...");
+            var existingReactions = message.Reactions.Select(kv => kv.Key.Name).ToList();
+            foreach (var reaction in existingReactions)
             {
-                Title = "Vyber si tým reakcí!",
-                Color = Color.Orange,
-                Description = string.Join("\n", teamEmojiMap.Select(kvp => $"{kvp.Value} → **{kvp.Key}**"))
-            };
+                Console.WriteLine("(ROLE-EMOJIS-UPDATE MESSAGE) Removing reaction " + reaction);
+                await message.RemoveAllReactionsForEmoteAsync(new Emoji(reaction));
+            }
 
-            var msg = await channel.SendMessageAsync(embed: embed.Build());
-
-            reactionMessageId = msg.Id;
-            await SaveBotDataAsync(new BotData { TeamsMessageId = teamsMessageId, RoleMessageId = reactionMessageId });
-
-            // Přidání emoji jako reakcí
             foreach (var emoji in teamEmojiMap.Values)
             {
-                await msg.AddReactionAsync(new Emoji(emoji));
+                Console.WriteLine("(ROLE-EMOJIS-UPDATE MESSAGE) Adding reaction " + emoji);
+                await message.AddReactionAsync(new Emoji(emoji));
             }
-        }
-        else
-        {
-            var message = await channel.GetMessageAsync(reactionMessageId.Value) as IUserMessage;
-            if (message != null)
-            {
-                var embed = new EmbedBuilder
-                {
-                    Title = "Vyber si tým reakcí!",
-                    Color = Color.Orange,
-                    Description = string.Join("\n", teamEmojiMap.Select(kvp => $"{kvp.Value} → **{kvp.Key}**"))
-                };
 
-                await message.ModifyAsync(m => m.Embed = embed.Build());
-
-                // Vymaž staré a přidej aktuální reakce
-                var existingReactions = message.Reactions.Select(kv => kv.Key.Name).ToList();
-                foreach (var reaction in existingReactions)
-                {
-                    await message.RemoveAllReactionsForEmoteAsync(new Emoji(reaction));
-                }
-
-                foreach (var emoji in teamEmojiMap.Values)
-                {
-                    await message.AddReactionAsync(new Emoji(emoji));
-                }
-
-                Console.WriteLine("Zpráva s emoji byla aktualizována.");
-            }
+            Console.WriteLine("(ROLE-EMOJIS-UPDATE MESSAGE) Zpráva s emoji byla aktualizována.");
         }
     }
 
@@ -352,7 +341,7 @@ class Program
                     await UpdateReactionRoleMessage(channel);
                 }
 
-                await message.DeleteAsync();    
+                await message.DeleteAsync();
             }
 
             // Příkaz: Odebrání týmu
@@ -469,6 +458,7 @@ class Program
 
     private async Task EnsureTeamsRolesExist(SocketGuild guild)
     {
+        Console.WriteLine("Kontroluju jestli existují všechny týmové role");
         foreach (var team in teams)
         {
             // Zkontrolujeme, jestli role s názvem týmu už existuje
@@ -482,11 +472,11 @@ class Program
     }
 
     private static async Task CreateRole(SocketGuild guild, Team team)
-    { 
-        Console.WriteLine("Vytvářím roli " +  team.Name);
+    {
+        Console.WriteLine("Vytvářím roli " + team.Name);
         var randomizer = new Random();
         var randomColor = new Color(randomizer.Next(256), randomizer.Next(256), randomizer.Next(256));
-        var newRole = await guild.CreateRoleAsync(team.Name, GuildPermissions.None, randomColor, false, true);
+        var newRole = await guild.CreateRoleAsync(team.Name, GuildPermissions.None, randomColor, true, true);
     }
 
     private Task Log(LogMessage msg)
