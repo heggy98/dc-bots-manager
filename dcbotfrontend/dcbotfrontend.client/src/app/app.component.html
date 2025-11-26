@@ -1,0 +1,5 @@
+<router-outlet *ngIf="!isLoggedIn; else dashboard"></router-outlet>
+
+<ng-template #dashboard>
+  <router-outlet></router-outlet>
+</ng-template>

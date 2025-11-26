@@ -13,5 +13,6 @@
         }
         public ulong? TeamsMessageId { get; set; }
         public ulong? RoleMessageId { get; set; } // ID zprávy pro výběr role
+        public ulong? ReactionChannelId { get; set; }
     }
 }

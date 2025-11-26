@@ -1,9 +1,13 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.12.35707.178 d17.12
+VisualStudioVersion = 17.12.35707.178
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "discord-bot-aliance", "discord-bot-aliance\discord-bot-aliance.csproj", "{B6C9EA0A-216D-4D94-9D42-EDCE5D65D0B8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "dcbotfrontend.Server", "dcbotfrontend\dcbotfrontend.Server\dcbotfrontend.Server.csproj", "{99C68CFC-63F6-4F0D-991F-E80E51A8F699}"
+EndProject
+Project("{54A90642-561A-4BB1-A94E-469ADEE60C69}") = "dcbotfrontend.client", "dcbotfrontend\dcbotfrontend.client\dcbotfrontend.client.esproj", "{84946819-4F59-490E-AFFE-C3CB5C586FF8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +19,16 @@ Global
 		{B6C9EA0A-216D-4D94-9D42-EDCE5D65D0B8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B6C9EA0A-216D-4D94-9D42-EDCE5D65D0B8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B6C9EA0A-216D-4D94-9D42-EDCE5D65D0B8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{99C68CFC-63F6-4F0D-991F-E80E51A8F699}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{99C68CFC-63F6-4F0D-991F-E80E51A8F699}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{99C68CFC-63F6-4F0D-991F-E80E51A8F699}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{99C68CFC-63F6-4F0D-991F-E80E51A8F699}.Release|Any CPU.Build.0 = Release|Any CPU
+		{84946819-4F59-490E-AFFE-C3CB5C586FF8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{84946819-4F59-490E-AFFE-C3CB5C586FF8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{84946819-4F59-490E-AFFE-C3CB5C586FF8}.Debug|Any CPU.Deploy.0 = Debug|Any CPU
+		{84946819-4F59-490E-AFFE-C3CB5C586FF8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{84946819-4F59-490E-AFFE-C3CB5C586FF8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{84946819-4F59-490E-AFFE-C3CB5C586FF8}.Release|Any CPU.Deploy.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
