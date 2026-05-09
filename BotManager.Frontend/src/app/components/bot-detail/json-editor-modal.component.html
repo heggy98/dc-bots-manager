@@ -1,0 +1,19 @@
+<div class="modal-overlay" *ngIf="isOpen" (click)="closeModal()">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Edit {{ type === 'teams' ? 'Teams' : 'Emojis' }} JSON</h3>
+      <button class="close-btn" (click)="closeModal()">✕</button>
+    </div>
+
+    <div class="modal-body">
+      <div *ngIf="error" class="error-alert">{{ error }}</div>
+      <textarea class="json-editor" [(ngModel)]="jsonText" (ngModelChange)="onJsonInput()" placeholder="Paste your JSON here"></textarea>
+      <p class="text-muted" [class.text-danger]="!isJsonValid">{{ hint || 'Ensure the JSON is valid before saving' }}</p>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-primary" (click)="saveJson()" [disabled]="!isJsonValid">Save</button>
+      <button class="btn btn-outline" (click)="closeModal()">Cancel</button>
+    </div>
+  </div>
+</div>

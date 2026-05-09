@@ -1,0 +1,24 @@
+<nav class="navbar">
+    <div class="nav-brand">
+        <a routerLink="/">🤖 BotManager</a>
+    </div>
+    <div class="nav-links">
+        <a routerLink="/admin" class="nav-link" *ngIf="authService.isLoggedIn()">{{ i18n.t('nav.dashboard') }}</a>
+        <a routerLink="/admin/logs" class="nav-link" *ngIf="authService.isLoggedIn()">{{ i18n.t('nav.logs') }}</a>
+        <a routerLink="/admin/config" class="nav-link" *ngIf="authService.isLoggedIn()">{{ i18n.t('nav.config') }}</a>
+
+        <div class="nav-controls">
+            <button class="btn-icon" (click)="toggleTheme()"
+                [title]="themeService.currentTheme === 'dark' ? 'Light mode' : 'Dark mode'">
+                {{ themeService.currentTheme === 'dark' ? '☀️' : '🌙' }}
+            </button>
+            <button class="btn-icon flag-btn" (click)="setLang('cs')" [class.active]="i18n.currentLang === 'cs'"
+                title="Čeština">🇨🇿</button>
+            <button class="btn-icon flag-btn" (click)="setLang('en')" [class.active]="i18n.currentLang === 'en'"
+                title="English">🇺🇸</button>
+        </div>
+
+        <a routerLink="/login" class="btn btn-primary btn-sm" *ngIf="!authService.isLoggedIn()">{{ i18n.t('nav.login')
+            }}</a>
+    </div>
+</nav>

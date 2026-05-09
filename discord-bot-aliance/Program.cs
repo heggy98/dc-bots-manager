@@ -35,6 +35,7 @@ class Program
     private BotData? _cachedBotData;
     private const ulong adminAlertChannelId = 1406933203851284570;
     private const ulong adminUserId = 347490212097687552;
+    private bool commandsRegistered = false;
 
     static async Task Main(string[] args) => await new Program().RunBotAsync();
     public async Task RunBotAsync()
@@ -100,12 +101,12 @@ class Program
         await LoadTeamsAsync();
         await SyncTeamEmojis();
 
-        string botToken = "MTMzMzg4NjI5ODgyMTQ5NjkyNw.GHw_VE.79Fm7vudy3voePPrcq9UxdqS7XBvaJekPkGnYI";
-
-        await _client.LoginAsync(TokenType.Bot, botToken);
-        await _client.StartAsync();
-
-        await Task.Delay(-1);
+        // NOTE: Bot token should now be provided by BotManager API
+        // This instance is deprecated - use BotManager.Api to manage this bot instead
+        throw new InvalidOperationException(
+            "This discord-bot-aliance instance is now deprecated. " +
+            "Use BotManager.Api to start/manage this bot. " +
+            "Register the bot in the BotManager database and use the API endpoints to control it.");
     }
 
     private async Task Client_SlashCommandExecuted(SocketSlashCommand command)
@@ -171,6 +172,11 @@ class Program
 
     private async Task RegisterCommandsAsync()
     {
+        if (commandsRegistered)
+        {
+            await _logger.Consol($"(RegisterCommandsAsync) Commands jsou již zaregistrované.", Logger.LogLevel.Info);
+            return;
+        }
         var guild = _client.Guilds.FirstOrDefault(); // Měl bys mít ID svého serveru
         if (guild == null) return;
 
@@ -223,6 +229,7 @@ class Program
         {
             await guild.BulkOverwriteApplicationCommandAsync(commands.ToArray());
             await _logger.Consol($"(RegisterCommandsAsync) Úspěšně registrováno {commands.Count} slash commands.");
+            commandsRegistered = true;
         }
         catch (Exception ex)
         {
@@ -271,7 +278,8 @@ class Program
 
     private async Task EnsureRoleSelectionMessage(SocketGuild guild, ITextChannel channel)
     {
-        await _logger.Consol("(ROLE-EMOJIS) Kontroluju jestli existuje zpráva pro vybrání role.", Logger.LogLevel.Info);
+        var sb = new StringBuilder();
+        sb.AppendLine("(ENSURE ROLE SELECTION MESSAGE) Začínám kontrolovat existenci zprávy pro výběr role...");
         var botData = await LoadBotDataAsync();
 
         if (botData.RoleMessageId != null)
@@ -280,14 +288,16 @@ class Program
             var oldMessage = await channel.GetMessageAsync(botData.RoleMessageId.Value) as IUserMessage;
             if (oldMessage != null)
             {
-                await _logger.Consol("(ROLE-EMOJIS) Zpráva pro výběr role už existuje, nepřidávám novou.", Logger.LogLevel.Info);
+                sb.Append(" -> Zpráva pro výběr role již existuje.");
+                await _logger.Consol(sb.ToString(), Logger.LogLevel.Info);
                 reactionMessageId = botData.RoleMessageId; // Načteme ID zprávy
                 return;
             }
         }
 
         // Pokud zpráva neexistuje
-        await _logger.Consol("(ROLE-EMOJIS) Zpráva neexistuje", Logger.LogLevel.Warning);
+        sb.AppendLine(" -> Zpráva neexistuje nebo nebyla nalezena! RoleMessageId: " + botData.RoleMessageId);
+        await _logger.Consol(sb.ToString(), Logger.LogLevel.Warning);
     }
 
     private async Task SendRoleSelectionMessage(SocketGuild guild, ITextChannel channel)
@@ -422,47 +432,51 @@ class Program
 
     private async Task<BotData> LoadBotDataAsync()
     {
+        var sb = new StringBuilder();
         if (_cachedBotData != null)
         {
-            await _logger.Consol("(Load bot data) Data načtena z cache.", Logger.LogLevel.Debug);
             return _cachedBotData;
         }
 
-        await _logger.Consol("(Load bot data) Hledám konfiguraci", Logger.LogLevel.Debug);
+        sb.AppendLine("(Load bot data) Hledám konfiguraci...");
 
         if (!File.Exists(dataFilePath))
         {
-            await _logger.Consol($"(Load bot data) Konfigurace není - neexistuje soubor: {dataFilePath}", Logger.LogLevel.Error);
+            sb.AppendLine($" -> Konfigurace není - neexistuje soubor: {dataFilePath}");
+            await _logger.Consol(sb.ToString(), Logger.LogLevel.Error);
             throw new FileNotFoundException("Konfigurační soubor BotData nebyl nalezen.", dataFilePath);
         }
 
         try
         {
-            await _logger.Consol("(Load bot data) Načítám a parsuji konfiguraci.", Logger.LogLevel.Debug);
+            sb.Append(" -> Soubor nalezen, načítám obsah...");
             var json = await File.ReadAllTextAsync(dataFilePath);
             var botData = JsonConvert.DeserializeObject<BotData>(json);
 
             if (botData == null)
             {
-                await _logger.Consol("(Load bot data) Chyba: Parsování vrátilo null (soubor je pravděpodobně prázdný nebo poškozený).", Logger.LogLevel.Error);
+                sb.AppendLine(" -> Chyba: Parsování vrátilo null (soubor je pravděpodobně prázdný nebo poškozený).");
+                await _logger.Consol(sb.ToString(), Logger.LogLevel.Error);
                 throw new InvalidOperationException("Chyba při parsování BotData: Deserializace vrátila null.");
             }
 
             _cachedBotData = botData;
 
-            await _logger.Consol("(Load bot data) Konfigurace úspěšně načtena a uložena do cache.", Logger.LogLevel.Debug);
-            await _logger.Consol($"Teams Message ID: {botData.TeamsMessageId}, Role Message ID: {botData.RoleMessageId}", Logger.LogLevel.Debug);
-
+            sb.Append(" -> Konfigurace úspěšně načtena a uložena do cache.");
+            sb.AppendLine($"Teams Message ID: {botData.TeamsMessageId}, Role Message ID: {botData.RoleMessageId}");
+            await _logger.Consol(sb.ToString(), Logger.LogLevel.Info);
             return botData;
         }
         catch (JsonException ex)
         {
-            await _logger.Consol($"(Load bot data) Chyba při parsování JSON souboru: {ex.Message}", Logger.LogLevel.Error);
+            sb.AppendLine(" -> Chyba: Výjimka při parsování JSON. Error:\n" + ex.Message);
+            await _logger.Consol(sb.ToString(), Logger.LogLevel.Error);
             throw;
         }
         catch (Exception ex)
         {
-            await _logger.Consol($"(Load bot data) Neočekávaná chyba při načítání: {ex.Message}", Logger.LogLevel.Error);
+            sb.AppendLine($" -> Neočekávaná chyba při načítání:\n{ex.Message}");
+            await _logger.Consol(sb.ToString(), Logger.LogLevel.Error);
             throw;
         }
     }
@@ -894,39 +908,46 @@ class Program
     private async Task UpdateTeamsList(ITextChannel channel)
     {
         await _logger.Consol("(UPDATE TEAMS LIST) Aktualizuji zprávu se seznamem týmů...", Logger.LogLevel.Info);
+
         if (teamsMessageId != null)
         {
-            // Získání zprávy jako IUserMessage, což je typ, který podporuje ModifyAsync
-            var message = await channel.GetMessageAsync(teamsMessageId.Value) as IUserMessage;
-
-            if (message != null)
+            try
             {
+                // POUŽITÍ PARAMETRU mode: CacheMode.AllowDownload
+                var message = await channel.GetMessageAsync(teamsMessageId.Value, mode: CacheMode.AllowDownload) as IUserMessage;
+
+                if (message == null)
+                {
+                    await _logger.Consol($"(UPDATE TEAMS LIST) Chyba: Zpráva s ID {teamsMessageId.Value} nebyla nalezena na Discordu.", Logger.LogLevel.Error);
+                    return;
+                }
+
                 var embed = new EmbedBuilder()
                 {
                     Title = "Seznam týmů",
-                    Color = Color.Blue
+                    Color = Color.Blue,
+                    Timestamp = DateTimeOffset.Now
                 };
 
-                string teamsList = "Název týmu | Velitel | Kontakt\n" +
-                                   "-------------------------\n";
+                StringBuilder sb = new StringBuilder();
+                sb.AppendLine("Název týmu | Velitel | Kontakt");
+                sb.AppendLine("------------------------------------");
 
                 foreach (var team in teams)
                 {
-                    teamsList += $"{team.Name} | {team.Leader} | {team.Contact}\n";
+                    sb.AppendLine($"**{team.Name}** | {team.Leader} | {team.Contact}");
                 }
 
-                await _logger.Consol($"(UPDATE TEAMS LIST) Počet týmů: {teams.Count}", Logger.LogLevel.Debug);
+                embed.Description = sb.ToString();
 
-                embed.Description = teamsList;
-
-                // Upravení existující zprávy
+                // Úprava zprávy
                 await message.ModifyAsync(msg => msg.Embed = embed.Build());
 
-                // Uložení ID zprávy po každé změně
-                var botData = await LoadBotDataAsync();
-                botData.TeamsMessageId = teamsMessageId;
-                await SaveBotDataAsync(botData);
-                await _logger.Consol("(UPDATE TEAMS LIST) Zpráva se seznamem týmů byla aktualizována.", Logger.LogLevel.Success);
+                await _logger.Consol("(UPDATE TEAMS LIST) Zpráva úspěšně aktualizována.", Logger.LogLevel.Success);
+            }
+            catch (Exception ex)
+            {
+                await _logger.Consol($"(UPDATE TEAMS LIST) Kritická chyba: {ex.Message}", Logger.LogLevel.Error);
             }
         }
     }
@@ -1013,13 +1034,35 @@ class Program
         {
             if(messageContent.Contains("GatewayReconnectException"))
             {
-                await _logger.Consol("DISCORD SERVER LOG: Server requested a reconnect", Logger.LogLevel.DiscordClientLog);
+                await _logger.Consol("Server requested a reconnect", Logger.LogLevel.DiscordClientLog);
             }
             return;
         }
 
-        await _logger.Consol("DISCORD SERVER LOG: " + messageContent, Logger.LogLevel.DiscordClientLog);
+        await _logger.Consol(GetLastWord(messageContent), Logger.LogLevel.DiscordClientLog);
         await Task.CompletedTask;
+    }
+
+    public string GetLastWord(string logMessage)
+    {
+        // Zkontrolujeme, zda zpráva není prázdná nebo null
+        if (string.IsNullOrEmpty(logMessage))
+        {
+            return string.Empty;
+        }
+
+        // 1. Rozděl string na pole slov pomocí mezery jako oddělovače.
+        //    Používáme StringSplitOptions.RemoveEmptyEntries pro odstranění vícenásobných mezer.
+        string[] parts = logMessage.Split("  ");
+
+        // 2. Zkontrolujeme, zda pole není prázdné
+        if (parts.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        // 3. Vrátíme poslední prvek v poli (poslední slovo)
+        return parts[parts.Length - 1].Trim();
     }
 
     private string GetRandomEmoji()

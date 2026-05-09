@@ -1,0 +1,61 @@
+<div class="page-header">
+    <div>
+        <h2>{{ i18n.t('admin.title') }}</h2>
+        <p class="text-muted">{{ i18n.t('admin.subtitle') }}</p>
+    </div>
+    <div class="header-actions">
+        <button class="btn btn-primary" (click)="toggleAddBot()">
+            {{ showForm ? i18n.t('admin.cancel') : i18n.t('admin.add_bot') }}
+        </button>
+        <button class="btn btn-outline" (click)="logout()">{{ i18n.t('nav.logout') }}</button>
+    </div>
+</div>
+
+<div class="panel form-panel" *ngIf="showForm">
+    <h3>{{ i18n.t('admin.register_bot') }}</h3>
+    <div *ngIf="formError" class="error-alert">{{ formError }}</div>
+    <form (ngSubmit)="createBot()">
+        <div class="form-group">
+            <label>{{ i18n.t('admin.bot_name') }}</label>
+            <input type="text" [(ngModel)]="newBotName" name="botName" placeholder="My Discord Bot" required />
+        </div>
+        <div class="form-group">
+            <label>{{ i18n.t('admin.bot_token') }}</label>
+            <input type="password" [(ngModel)]="newBotToken" name="botToken" placeholder="Discord developer token"
+                required />
+        </div>
+        <button type="submit" class="btn btn-primary w-100" [disabled]="formLoading">
+            {{ formLoading ? i18n.t('admin.creating') : i18n.t('admin.register') }}
+        </button>
+    </form>
+</div>
+
+<div *ngIf="loading" class="loading-spinner">{{ i18n.t('admin.loading') }}</div>
+
+<div *ngIf="!loading && bots.length === 0" class="loading-spinner">{{ i18n.t('admin.no_bots') }}</div>
+
+<div class="bot-grid" *ngIf="!loading && bots.length > 0">
+    <div class="card bot-admin-card" *ngFor="let bot of bots">
+        <div class="bot-card-top">
+            <div class="bot-avatar">🤖</div>
+            <div class="bot-name-status">
+                <h3>{{ bot.name }}</h3>
+                <span class="status-badge" [ngClass]="bot.status.toLowerCase()">{{ i18n.t('status.' + bot.status)
+                    }}</span>
+                <span class="uptime-label" *ngIf="bot.status === 'Online'">{{ getBotUptime(bot) }}</span>
+            </div>
+        </div>
+        <div class="bot-stats-row">
+            <div class="stat-box">
+                <span class="stat-label">{{ i18n.t('admin.requests_24h') }}</span>
+                <span class="stat-value text-blue">{{ bot.requests24h | number }}</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-label">{{ i18n.t('admin.errors_24h') }}</span>
+                <span class="stat-value text-red">{{ bot.errors24h | number }}</span>
+            </div>
+        </div>
+        <button class="btn btn-outline w-100" [routerLink]="['/admin/bot', bot.botId]">{{ i18n.t('admin.manage')
+            }}</button>
+    </div>
+</div>

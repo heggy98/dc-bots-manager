@@ -1,0 +1,323 @@
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  max-width: 700px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.3rem;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+
+.close-btn:hover {
+  color: var(--text-primary);
+}
+
+.modal-body {
+  padding: 20px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.section {
+  margin-bottom: 30px;
+}
+
+.section h4 {
+  margin: 0 0 15px 0;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+  border-bottom: 2px solid var(--border-color);
+  padding-bottom: 10px;
+}
+
+.teams-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.team-item {
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 12px;
+  background: var(--bg-glass);
+}
+
+.team-display {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.team-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.emoji-display {
+  font-size: 1.6rem;
+  flex-shrink: 0;
+}
+
+.team-name {
+  flex: 1;
+  font-size: 1.1rem;
+}
+
+.emoji-edit-btn {
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+.emoji-edit-btn:hover {
+  background: var(--bg-card-hover);
+}
+
+.team-details {
+  display: flex;
+  gap: 20px;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.detail {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.team-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.team-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.form-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.form-row input {
+  flex: 1;
+  padding: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.emoji-select {
+  flex-shrink: 0;
+}
+
+.emoji-btn {
+  background: var(--bg-secondary);
+  border: 2px solid var(--border-color);
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.emoji-btn:hover {
+  border-color: var(--border-hover);
+  background: var(--bg-card-hover);
+}
+
+.team-edit-form input {
+  padding: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.new-team-form {
+  background: var(--bg-card);
+  border: 2px dashed var(--success);
+}
+
+.new-team-form input {
+  padding: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+/* Emoji Picker Styles */
+.emoji-picker-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.emoji-picker {
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  width: 90%;
+  max-width: 500px;
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.emoji-picker-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.emoji-picker-header h4 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
+  gap: 8px;
+  padding: 15px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.emoji-option {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 8px;
+  font-size: 1.5rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.emoji-option:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-hover);
+  transform: scale(1.1);
+}
+
+.modal-footer {
+  padding: 15px 20px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: white;
+}
+
+.btn-primary:hover {
+  background: var(--primary-hover);
+}
+
+.btn-outline {
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.btn-outline:hover {
+  background: var(--bg-card-hover);
+}
+
+.btn-outline-red {
+  border: 1px solid var(--danger);
+  background: var(--bg-secondary);
+  color: var(--danger);
+}
+
+.btn-outline-red:hover {
+  background: var(--danger-bg);
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 0.85rem;
+}
+
+.w-100 {
+  width: 100%;
+}
+

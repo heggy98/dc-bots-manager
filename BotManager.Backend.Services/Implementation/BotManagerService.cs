@@ -1,17 +1,19 @@
-﻿namespace dcbotfrontend.Server.Services;
+﻿namespace BotManager.Backend.Services.Implementation;
+
+using BotManager.Backend.Services.Interfaces;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Diagnostics;
 using System.IO;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
 
-public class BotManager
+public class BotManagerService : IBotManagerService
 {
-    private readonly ILogger<BotManager> _logger;
+    private readonly ILogger<BotManagerService> _logger;
     private readonly IConfiguration _configuration;
     private Process _botProcess;
 
-    public BotManager(ILogger<BotManager> logger, IConfiguration configuration)
+    public BotManagerService(ILogger<BotManagerService> logger, IConfiguration configuration)
     {
         _logger = logger;
         _configuration = configuration;

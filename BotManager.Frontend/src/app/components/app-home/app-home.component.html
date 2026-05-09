@@ -1,0 +1,26 @@
+<div class="home-header">
+    <h1>{{ i18n.t('home.title') }}</h1>
+    <p>{{ i18n.t('home.subtitle') }}</p>
+</div>
+
+<div *ngIf="loading" class="loading-spinner">
+    {{ i18n.t('admin.loading') }}
+</div>
+
+<div *ngIf="!loading && bots.length === 0" class="loading-spinner">
+    {{ i18n.t('home.no_bots') }}
+</div>
+
+<div class="bot-grid" *ngIf="!loading && bots.length > 0">
+    <div class="card bot-card" *ngFor="let bot of bots">
+        <div class="bot-card-header">
+            <div class="bot-avatar">🤖</div>
+            <div>
+                <h3>{{ bot.name }}</h3>
+                <span class="status-badge" [ngClass]="bot.status.toLowerCase()">
+                    {{ i18n.t('status.' + bot.status) }}
+                </span>
+            </div>
+        </div>
+    </div>
+</div>

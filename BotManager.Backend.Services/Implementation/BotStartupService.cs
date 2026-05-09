@@ -1,4 +1,4 @@
-﻿namespace dcbotfrontend.Server.Services
+﻿namespace BotManager.Backend.Services.Implementation
 {
     using Microsoft.Extensions.Hosting;
     using Microsoft.Extensions.Logging;
@@ -7,10 +7,10 @@
 
     public class BotStartupService : IHostedService
     {
-        private readonly BotManager _botManager;
+        private readonly BotManagerService _botManager;
         private readonly ILogger<BotStartupService> _logger;
 
-        public BotStartupService(BotManager botManager, ILogger<BotStartupService> logger)
+        public BotStartupService(BotManagerService botManager, ILogger<BotStartupService> logger)
         {
             _botManager = botManager;
             _logger = logger;

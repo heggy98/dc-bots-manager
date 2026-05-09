@@ -1,0 +1,14 @@
+.login-container { display: flex; justify-content: center; align-items: center; min-height: calc(100vh - 180px); }
+.login-card { max-width: 420px; width: 100%; padding: 40px; }
+.login-card h2 { text-align: center; margin-bottom: 8px; }
+.login-card p { text-align: center; margin-bottom: 28px; }
+
+.divider { display: flex; align-items: center; margin: 24px 0; }
+.divider::before, .divider::after { content: ''; flex: 1; border-bottom: 1px solid var(--border-color); }
+.divider span { padding: 0 12px; color: var(--text-muted); font-size: 0.82rem; font-weight: 600; }
+
+.recaptcha-placeholder {
+  display: flex; justify-content: center; align-items: center;
+  height: 58px; background: var(--bg-glass); border: 1px dashed var(--border-color);
+  border-radius: 8px; color: var(--text-muted); font-size: 0.82rem;
+}

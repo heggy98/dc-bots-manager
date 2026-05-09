@@ -1,13 +1,17 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.12.35707.178
+# Visual Studio Version 18
+VisualStudioVersion = 18.3.11222.16 d18.3
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "discord-bot-aliance", "discord-bot-aliance\discord-bot-aliance.csproj", "{B6C9EA0A-216D-4D94-9D42-EDCE5D65D0B8}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "dcbotfrontend.Server", "dcbotfrontend\dcbotfrontend.Server\dcbotfrontend.Server.csproj", "{99C68CFC-63F6-4F0D-991F-E80E51A8F699}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BotManager.Backend", "dcbotfrontend\dcbotfrontend.Server\BotManager.Backend.csproj", "{99C68CFC-63F6-4F0D-991F-E80E51A8F699}"
 EndProject
 Project("{54A90642-561A-4BB1-A94E-469ADEE60C69}") = "dcbotfrontend.client", "dcbotfrontend\dcbotfrontend.client\dcbotfrontend.client.esproj", "{84946819-4F59-490E-AFFE-C3CB5C586FF8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BotManager.Backend.Entities", "BotManager.Backend.Entitites\BotManager.Backend.Entities.csproj", "{717C8970-AC36-4846-AAA2-5AC7C9144D46}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BotManager.Backend.Services", "BotManager.Backend.Services\BotManager.Backend.Services.csproj", "{B25595B9-A042-465D-BF7E-62EDB6A4CF76}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -29,8 +33,19 @@ Global
 		{84946819-4F59-490E-AFFE-C3CB5C586FF8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{84946819-4F59-490E-AFFE-C3CB5C586FF8}.Release|Any CPU.Build.0 = Release|Any CPU
 		{84946819-4F59-490E-AFFE-C3CB5C586FF8}.Release|Any CPU.Deploy.0 = Release|Any CPU
+		{717C8970-AC36-4846-AAA2-5AC7C9144D46}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{717C8970-AC36-4846-AAA2-5AC7C9144D46}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{717C8970-AC36-4846-AAA2-5AC7C9144D46}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{717C8970-AC36-4846-AAA2-5AC7C9144D46}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B25595B9-A042-465D-BF7E-62EDB6A4CF76}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B25595B9-A042-465D-BF7E-62EDB6A4CF76}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B25595B9-A042-465D-BF7E-62EDB6A4CF76}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B25595B9-A042-465D-BF7E-62EDB6A4CF76}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {FEE1370D-F7D6-45D2-B95B-F758AFAE0AA0}
 	EndGlobalSection
 EndGlobal

@@ -1,0 +1,17 @@
+.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; padding-bottom: 18px; border-bottom: 1px solid var(--border-color); }
+.page-header h2 { margin: 0 0 6px 0; font-size: 1.8rem; font-weight: 700; }
+.header-actions { display: flex; gap: 10px; }
+.form-panel { max-width: 550px; margin-bottom: 28px; }
+.form-panel h3 { margin: 0 0 18px; }
+
+.bot-admin-card { display: flex; flex-direction: column; gap: 16px; }
+.bot-card-top { display: flex; align-items: center; gap: 14px; }
+.bot-avatar { width: 48px; height: 48px; border-radius: 12px; background: var(--primary-glow); display: flex; align-items: center; justify-content: center; font-size: 1.4rem; flex-shrink: 0; }
+.bot-name-status { display: flex; flex-direction: column; gap: 4px; }
+.bot-name-status h3 { margin: 0; font-size: 1.1rem; }
+.uptime-label { font-size: 0.78rem; color: var(--text-muted); }
+
+.bot-stats-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.stat-box { background: var(--bg-glass); padding: 12px; border-radius: 10px; text-align: center; border: 1px solid var(--border-color); }
+.stat-label { font-size: 0.78rem; color: var(--text-muted); display: block; margin-bottom: 4px; }
+.stat-value { font-size: 1.2rem; font-weight: 700; }

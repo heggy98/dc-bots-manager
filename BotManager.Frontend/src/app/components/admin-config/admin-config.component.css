@@ -1,0 +1,9 @@
+.page-header { margin-bottom: 28px; padding-bottom: 16px; border-bottom: 1px solid var(--border-color); }
+.page-header h2 { margin: 0 0 6px; }
+.config-grid { display: flex; flex-direction: column; gap: 16px; }
+.config-item { display: flex; justify-content: space-between; align-items: center; gap: 20px; }
+.config-meta { flex: 1; }
+.config-meta h4 { margin: 0 0 4px; font-family: 'JetBrains Mono', monospace; font-size: 0.92rem; }
+.config-control { display: flex; gap: 8px; align-items: center; }
+.config-control input { width: 120px; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-input); color: var(--text-primary); font-family: var(--font-family); text-align: center; }
+.config-control input:focus { outline: none; border-color: var(--primary); }

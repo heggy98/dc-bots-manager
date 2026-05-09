@@ -1,62 +1,74 @@
 [
   {
     "Name": "10th SFG",
-    "Leader": "Daniel Kr\u00E1l (Fox)",
-    "Contact": "608 433 993"
+    "Leader": "Daniel Kráľ (Fox)",
+    "Contact": "608 433 993",
+    "Emoji": "⚔️"
   },
   {
     "Name": "ODA-965",
-    "Leader": "Honza Eli\u00E1\u0161 (Eli)",
-    "Contact": "774298570"
+    "Leader": "Honza Eliáš (Eli)",
+    "Contact": "774298570",
+    "Emoji": "🏹"
   },
   {
     "Name": "ODA-561",
-    "Leader": "V\u00E1clav Posp\u00ED\u0161il (Pospa)",
-    "Contact": "737-311-542"
+    "Leader": "Václav Pospíšil (Pospa)",
+    "Contact": "737-311-542",
+    "Emoji": "🛡️"
   },
   {
     "Name": "B/3-75 RGR",
     "Leader": "Martin Pohludka (Steele)",
-    "Contact": "774 697 006"
+    "Contact": "774 697 006",
+    "Emoji": "🔥"
   },
   {
     "Name": "CAG",
-    "Leader": "Ji\u0159\u00ED Jungman (Gary)",
-    "Contact": "\u002B420773791245"
+    "Leader": "Jiří Jungman (Gary)",
+    "Contact": "+420773791245",
+    "Emoji": "❄️"
   },
   {
     "Name": "MSOT 8333",
     "Leader": "Milan Doubek (Duby)",
-    "Contact": "775 504 338"
+    "Contact": "775 504 338",
+    "Emoji": "🦅"
   },
   {
     "Name": "1st Recon Bn",
     "Leader": "Filip Hofmann (Nexten)",
-    "Contact": "736  415 788"
+    "Contact": "736  415 788",
+    "Emoji": "🌿"
   },
   {
     "Name": "MSOT Neptune",
     "Leader": "Marek Kirner (Marcus)",
-    "Contact": "\u002B421 911 956 686"
+    "Contact": "+421 911 956 686",
+    "Emoji": "⚡"
   },
   {
     "Name": "MSOT8231",
-    "Leader": "Tom\u00E1\u0161 Kloz (Thomas)",
-    "Contact": "\u002B420 736 528 179"
+    "Leader": "Tomáš Kloz (Thomas)",
+    "Contact": "+420 736 528 179",
+    "Emoji": "💀"
   },
   {
     "Name": "2/2 MARINES",
     "Leader": "Miroslav Sojka (MJay)",
-    "Contact": "773583843"
+    "Contact": "773583843",
+    "Emoji": "🌑"
   },
   {
     "Name": "4BCT/2ID",
-    "Leader": "Ond\u0159ej \u010Cern\u00FD",
-    "Contact": "\u002B420 720 052 695"
+    "Leader": "Ondřej Černý",
+    "Contact": "+420 720 052 695",
+    "Emoji": "🌊"
   },
   {
     "Name": "DEV (SOCOM)",
     "Leader": "Rendy",
-    "Contact": "607 342 707"
+    "Contact": "607 342 707",
+    "Emoji": "🐺"
   }
 ]

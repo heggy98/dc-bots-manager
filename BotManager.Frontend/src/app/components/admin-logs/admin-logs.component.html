@@ -1,0 +1,60 @@
+<div class="page-header">
+    <div>
+        <h2>{{ i18n.t('logs.title') }}</h2>
+        <p class="text-muted">{{ i18n.t('logs.subtitle') }}</p>
+    </div>
+    <button class="btn btn-outline" (click)="loadLogs()">{{ i18n.t('logs.refresh') }}</button>
+</div>
+
+<div class="tabs">
+    <button class="tab" [class.active]="activeTab === 'system'" (click)="setTab('system')">{{ i18n.t('logs.system_tab')
+        }}</button>
+    <button class="tab" [class.active]="activeTab === 'login'" (click)="setTab('login')">{{ i18n.t('logs.login_tab')
+        }}</button>
+</div>
+
+<div *ngIf="activeTab === 'system'">
+    <div *ngIf="loading" class="loading-spinner">Loading...</div>
+    <div class="logger-box" *ngIf="!loading && systemLogs.length > 0">
+        <div class="log-entry" *ngFor="let log of systemLogs">
+            <span class="log-time">[{{ log.timestamp | date:'dd.MM HH:mm:ss' }}]</span>
+            <span class="log-level" [ngClass]="log.level.toLowerCase()">[{{ log.level }}]</span>
+            <span class="log-message">{{ log.message }}</span>
+        </div>
+    </div>
+    <p *ngIf="!loading && systemLogs.length === 0" class="text-muted" style="text-align:center; padding:28px;">{{
+        i18n.t('logs.no_logs') }}</p>
+</div>
+
+<div *ngIf="activeTab === 'login'">
+    <div class="login-audit-table" *ngIf="loginLogs.length > 0">
+        <table>
+            <thead>
+                <tr>
+                    <th>Čas</th>
+                    <th>E-mail</th>
+                    <th>IP</th>
+                    <th>Výsledek</th>
+                    <th>Důvod</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr *ngFor="let l of loginLogs" [class.row-fail]="!l.success"
+                    [class.row-bruteforce]="l.isBruteforceBlock">
+                    <td>{{ l.timestamp | date:'dd.MM.yyyy HH:mm:ss' }}</td>
+                    <td>{{ l.email }}</td>
+                    <td>{{ l.ipAddress }}</td>
+                    <td>
+                        <span class="status-badge" [ngClass]="l.success ? 'online' : 'offline'">{{ l.success ? '✓' : '✗'
+                            }}</span>
+                        <span *ngIf="l.isBruteforceBlock" class="status-badge" style="margin-left:4px;"
+                            ngClass="offline">🛡️</span>
+                    </td>
+                    <td class="text-muted">{{ l.failReason || '—' }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <p *ngIf="loginLogs.length === 0" class="text-muted" style="text-align:center; padding:28px;">{{
+        i18n.t('logs.no_login_logs') }}</p>
+</div>

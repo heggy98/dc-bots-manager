@@ -1,0 +1,153 @@
+<div *ngIf="loading" class="loading-spinner">Loading...</div>
+<div *ngIf="error" class="error-alert">{{ error }} <a routerLink="/admin">← Back</a></div>
+
+<div *ngIf="!loading && bot">
+    <div class="page-header">
+        <div>
+            <a routerLink="/admin" class="breadcrumb">{{ i18n.t('bot.back') }}</a>
+            <h2>{{ bot.name }}</h2>
+            <div class="bot-meta">
+                <span class="status-badge" [ngClass]="bot.status.toLowerCase()">{{ i18n.t('status.' + bot.status)
+                    }}</span>
+                <span class="text-muted" *ngIf="bot.lastStartedAt" style="margin-left:8px; font-size:0.82rem;">
+                    {{ i18n.t('bot.running') }}: {{ bot.lastStartedAt | date:'dd.MM.yyyy HH:mm' }}
+                </span>
+            </div>
+        </div>
+        <div class="header-actions">
+            <button class="btn btn-primary btn-sm" *ngIf="bot.status.toLowerCase() !== 'online'" (click)="startBot()">{{ i18n.t('bot.start') }}</button>
+            <button class="btn btn-outline-red btn-sm" *ngIf="bot.status.toLowerCase() === 'online'" (click)="stopBot()">{{ i18n.t('bot.stop') }}</button>
+            <button class="btn btn-outline btn-sm" (click)="restartBot()">{{ i18n.t('bot.restart') }}</button>
+        </div>
+    </div>
+
+    <div class="detail-grid mt-4">
+        <!-- Left: Config -->
+        <div class="panel">
+            <h3>{{ i18n.t('bot.config') }}</h3>
+            <p class="text-muted" style="font-size:0.85rem; margin-bottom:18px">{{ i18n.t('bot.config_desc') }}</p>
+            <div *ngIf="configMessage" class="success-alert">{{ configMessage }}</div>
+            <form (ngSubmit)="saveConfig()">
+                <div class="form-group">
+                    <label>{{ i18n.t('bot.teams_msg') }}</label>
+                    <input type="number" [(ngModel)]="bot.configuration.teamsMessageId" name="teamsMsg" />
+                </div>
+                <div class="form-group">
+                    <label>{{ i18n.t('bot.role_msg') }}</label>
+                    <input type="number" [(ngModel)]="bot.configuration.roleMessageId" name="roleMsg" />
+                </div>
+                <div class="form-group">
+                    <label>{{ i18n.t('bot.reaction_ch') }}</label>
+                    <input type="number" [(ngModel)]="bot.configuration.reactionChannelId" name="reactionCh" />
+                </div>
+                <button type="submit" class="btn btn-primary w-100" [disabled]="configLoading">
+                    {{ configLoading ? i18n.t('bot.saving') : i18n.t('bot.save_config') }}
+                </button>
+            </form>
+        </div>
+
+        <!-- Right: Stats + Logs + History -->
+        <div class="right-col">
+            <div class="panel">
+                <h3>{{ i18n.t('bot.activity') }}</h3>
+                <div class="stats-row">
+                    <div class="stat-box"><span class="stat-label">{{ i18n.t('bot.total_req') }}</span><span
+                            class="stat-value text-blue">{{ bot.requests24h | number }}</span></div>
+                    <div class="stat-box"><span class="stat-label">{{ i18n.t('bot.total_err') }}</span><span
+                            class="stat-value text-red">{{ bot.errors24h | number }}</span></div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h3>{{ i18n.t('bot.history') }}</h3>
+                <div class="history-table" *ngIf="bot.histories && bot.histories.length > 0">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>{{ i18n.t('bot.history_start') }}</th>
+                                <th>{{ i18n.t('bot.history_stop') }}</th>
+                                <th>{{ i18n.t('bot.history_duration') }}</th>
+                                <th>{{ i18n.t('bot.history_reason') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let h of bot.histories">
+                                <td>{{ h.startedAt | date:'dd.MM HH:mm' }}</td>
+                                <td>{{ h.stoppedAt ? (h.stoppedAt | date:'dd.MM HH:mm') : '—' }}</td>
+                                <td>{{ formatDuration(h.durationSeconds) }}</td>
+                                <td>
+                                    <span [class.text-red]="h.stopReason?.includes('chyba') || h.errorDetails">{{
+                                        h.stopReason || '—' }}</span>
+                                    <div *ngIf="h.errorDetails" class="error-detail">{{ h.errorDetails }}</div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p *ngIf="!bot.histories || bot.histories.length === 0" class="text-muted">—</p>
+            </div>
+
+            <div class="panel">
+                <h3>{{ i18n.t('bot.logs') }}</h3>
+                <div class="logger-box">
+                    <div *ngIf="!bot.logs || bot.logs.length === 0" class="log-entry">{{ i18n.t('bot.no_logs') }}</div>
+                    <div class="log-entry" *ngFor="let log of bot.logs">
+                        <span class="log-time">[{{ log.timestamp | date:'HH:mm:ss' }}]</span>
+                        <span class="log-level" [ngClass]="log.level.toLowerCase()">[{{ log.level }}]</span>
+                        <span class="log-message">{{ log.message }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+        <!-- Teams and Emojis Section (only for Discord Bot Aliance) -->
+    <div *ngIf="isDiscordBotAliance()" class="teams-section">
+        <div class="panel teams-panel">
+            <div class="panel-header">
+                <h3>Teams</h3>
+                <button class="btn btn-primary btn-sm" (click)="openTeamsModal()" [disabled]="teamsLoading">
+                    {{ teamsLoading ? 'Loading...' : 'Edit' }}
+                </button>
+            </div>
+
+            <div *ngIf="teamsLoading" class="loading-spinner-small">Loading teams...</div>
+
+            <div *ngIf="!teamsLoading && teamsData" class="teams-display">
+                <!-- Teams Container -->
+                <div class="container">
+                    <h4>Teams ({{ teamsData.teams.length }})</h4>
+                    <div class="teams-grid">
+                        <div *ngFor="let team of teamsData.teams" class="team-card">
+                            <div class="team-emoji">
+                                {{ team.emoji || '🎯' }}
+                            </div>
+                            <div class="team-details-card">
+                                <strong>{{ team.name }}</strong>
+                                <span class="team-leader">👤 {{ team.leaderName }}</span>
+                                <span class="team-contact">📱 {{ team.contact }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modals -->
+<app-teams-edit-modal 
+  [isOpen]="showTeamsModal"
+  [teamsData]="teamsData"
+  (close)="closeTeamsModal()"
+  (save)="saveTeamsAndEmojis($event)"
+  (openJsonEditor)="openJsonEditor($event)">
+</app-teams-edit-modal>
+
+<app-json-editor-modal
+  [isOpen]="showJsonEditor"
+  [type]="jsonEditorType"
+  [data]="jsonEditorData"
+  (close)="closeJsonEditor()"
+  (save)="saveJsonData($event)">
+</app-json-editor-modal>

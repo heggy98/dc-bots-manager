@@ -1,0 +1,21 @@
+<div class="page-header">
+    <div>
+        <h2>{{ i18n.t('config.title') }}</h2>
+        <p class="text-muted">{{ i18n.t('config.subtitle') }}</p>
+    </div>
+</div>
+
+<div class="config-grid">
+    <div class="panel config-item" *ngFor="let cfg of configs">
+        <div class="config-meta">
+            <h4>{{ cfg.key }}</h4>
+            <p class="text-muted" *ngIf="cfg.description">{{ cfg.description }}</p>
+        </div>
+        <div class="config-control">
+            <input type="text" [(ngModel)]="editValues[cfg.key]" />
+            <button class="btn btn-primary btn-sm" (click)="save(cfg)">
+                {{ savedKey === cfg.key ? '✓' : i18n.t('config.save') }}
+            </button>
+        </div>
+    </div>
+</div>

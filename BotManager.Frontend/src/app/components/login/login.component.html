@@ -1,0 +1,41 @@
+<div class="login-container">
+    <div class="login-card card">
+        <h2>{{ i18n.t('login.title') }}</h2>
+        <p class="text-muted">{{ i18n.t('login.subtitle') }}</p>
+
+        <div *ngIf="errorMessage" class="error-alert">
+            {{ errorMessage }}
+        </div>
+
+        <form (ngSubmit)="onSubmit()">
+            <div class="form-group">
+                <label for="email">{{ i18n.t('login.email') }}</label>
+                <input type="email" id="email" name="email" [(ngModel)]="email" required
+                    placeholder="admin@example.com" />
+            </div>
+
+            <div class="form-group">
+                <label for="password">{{ i18n.t('login.password') }}</label>
+                <input type="password" id="password" name="password" [(ngModel)]="password" required
+                    placeholder="••••••••" />
+            </div>
+
+            <div class="form-group recaptcha-placeholder" *ngIf="showCaptcha">
+                <span>🛡️ [reCAPTCHA - {{ i18n.currentLang === 'cs' ? 'Aktivováno po neúspěšných pokusech' : 'Activated
+                    after failed attempts' }}]</span>
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100" [disabled]="isLoading">
+                {{ isLoading ? i18n.t('login.signing_in') : i18n.t('login.signin') }}
+            </button>
+        </form>
+
+        <div class="divider">
+            <span>{{ i18n.t('login.or') }}</span>
+        </div>
+
+        <button type="button" class="btn btn-outline w-100" (click)="onGoogleLogin()">
+            {{ i18n.t('login.google') }}
+        </button>
+    </div>
+</div>
