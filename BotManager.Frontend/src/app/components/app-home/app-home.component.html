@@ -14,12 +14,21 @@
 <div class="bot-grid" *ngIf="!loading && bots.length > 0">
     <div class="card bot-card" *ngFor="let bot of bots">
         <div class="bot-card-header">
-            <div class="bot-avatar">🤖</div>
+            <div class="bot-avatar">
+                <img *ngIf="bot.discordBotAvatarUrl; else publicFallbackAvatar" [src]="bot.discordBotAvatarUrl" [alt]="bot.name" />
+                <ng-template #publicFallbackAvatar>🤖</ng-template>
+            </div>
             <div>
                 <h3>{{ bot.name }}</h3>
+                <p class="discord-subtitle" *ngIf="bot.discordBotName">{{ bot.discordBotName }}</p>
+                <p class="server-count" *ngIf="bot.serverCount">{{ i18n.t('bot.servers') }}: {{ bot.serverCount }}</p>
                 <span class="status-badge" [ngClass]="bot.status.toLowerCase()">
                     {{ i18n.t('status.' + bot.status) }}
                 </span>
+                <p class="status-time" *ngIf="getStatusTimestamp(bot)">
+                    {{ i18n.t(isOnline(bot) ? 'bot.running' : 'bot.last_online') }}:
+                    {{ getStatusTimestamp(bot) | date:'dd.MM.yyyy HH:mm' }}
+                </p>
             </div>
         </div>
     </div>

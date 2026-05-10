@@ -47,6 +47,7 @@ try
 
     builder.Services.AddControllers();
     builder.Services.AddOpenApi();
+    builder.Services.AddHttpClient();
 
     builder.Services.AddDbContext<BotManagerDbContext>(options =>
         options.UseSqlServer(connectionString));
@@ -63,6 +64,7 @@ try
     builder.Services.AddScoped<AuthService>();
     builder.Services.AddScoped<BotManagementService>();
     builder.Services.AddScoped<SystemConfigService>();
+    builder.Services.AddScoped<DiscordBotIdentityService>();
 
     builder.Services.AddCors(options =>
     {

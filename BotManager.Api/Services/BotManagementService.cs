@@ -13,19 +13,22 @@ namespace BotManager.Api.Services
         private readonly IDiscordBotService _discordBotService;
         private readonly ITeamsDataService _teamsDataService;
         private readonly IBotDataService _botDataService;
+        private readonly CommandManagementService _commandManagementService;
 
         public BotManagementService(
             BotManagerDbContext db, 
             ILogger<BotManagementService> logger,
             IDiscordBotService discordBotService,
             ITeamsDataService teamsDataService,
-            IBotDataService botDataService)
+            IBotDataService botDataService,
+            CommandManagementService commandManagementService)
         {
             _db = db;
             _logger = logger;
             _discordBotService = discordBotService;
             _teamsDataService = teamsDataService;
             _botDataService = botDataService;
+            _commandManagementService = commandManagementService;
         }
 
         public async Task<bool> StartBotAsync(int botId)
@@ -56,7 +59,10 @@ namespace BotManager.Api.Services
                 await _db.SaveChangesAsync();
 
                 // Start the actual bot service
-                await _discordBotService.StartAsync(bot.BotToken);
+                await _discordBotService.StartAsync(bot.BotId, bot.BotToken);
+
+                // Ensure command metadata exists for usage/error tracking.
+                await EnsureDefaultCommandsRegisteredAsync(bot.BotId);
 
                 _logger.LogInformation("Bot {BotId} ({Name}) started successfully", bot.BotId, bot.Name);
                 return true;
@@ -160,6 +166,69 @@ namespace BotManager.Api.Services
                 _logger.LogError(ex, "Error saving bot data for bot {BotId}", botId);
                 return false;
             }
+        }
+
+        private async Task EnsureDefaultCommandsRegisteredAsync(int botId)
+        {
+            await _commandManagementService.RegisterCommandAsync(
+                botId,
+                "pridat-tym",
+                "Přidá nový tým do seznamu.",
+                minPermissionLevel: 0,
+                userHint: "Zadej název týmu, jméno velitele a kontakt.",
+                successMessage: "✓ Tým '{0}' byl úspěšně přidán!",
+                permissionMessage: "Pro spuštění tohoto příkazu nemáš oprávnění.",
+                errorMessage: "Chyba: {0}");
+
+            await _commandManagementService.RegisterCommandAsync(
+                botId,
+                "odebrat-tym",
+                "Odebere tým ze seznamu (včetně role).",
+                minPermissionLevel: 0,
+                userHint: "Zadej název týmu ke smazání.",
+                successMessage: "✓ Tým '{0}' byl úspěšně odstraněn!",
+                permissionMessage: "Pro spuštění tohoto příkazu nemáš oprávnění.",
+                errorMessage: "Chyba: {0}");
+
+            await _commandManagementService.RegisterCommandAsync(
+                botId,
+                "upravit-tym",
+                "Upraví data týmu.",
+                minPermissionLevel: 0,
+                userHint: "Zadej název týmu a nová data.",
+                successMessage: "✓ Tým '{0}' byl upraven!",
+                permissionMessage: "Pro spuštění tohoto příkazu nemáš oprávnění.",
+                errorMessage: "Chyba: {0}");
+
+            await _commandManagementService.RegisterCommandAsync(
+                botId,
+                "seznam-tymu",
+                "Zobrazí seznam všech týmů.",
+                minPermissionLevel: 1,
+                userHint: "Použij /seznam-tymu.",
+                successMessage: "✓ Seznam týmů byl aktualizován!",
+                permissionMessage: "Tento příkaz je pouze pro administrátory!",
+                errorMessage: "Chyba: {0}");
+
+            await _commandManagementService.RegisterCommandAsync(
+                botId,
+                "reorganizeemojis",
+                "Reorganizuje emoji týmů.",
+                minPermissionLevel: 1,
+                userHint: "Použij /reorganizeemojis.",
+                successMessage: "✓ Emojis byly úspěšně reorganizovány!",
+                permissionMessage: "Tento příkaz je pouze pro administrátory!",
+                errorMessage: "Chyba: {0}");
+
+            await _commandManagementService.RegisterCommandAsync(
+                botId,
+                "presun-reakce",
+                "Přesune zprávu pro reakční role.",
+                minPermissionLevel: 1,
+                userHint: "Zadej cílový kanál pro zprávu.",
+                successMessage: "✓ Zpráva byla úspěšně přesunuta!",
+                permissionMessage: "Tento příkaz je pouze pro administrátory!",
+                errorMessage: "Chyba: {0}");
         }
     }
 }

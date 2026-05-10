@@ -5,6 +5,10 @@ namespace BotManager.Api.Models
         public int BotId { get; set; }
         public string Name { get; set; } = string.Empty;
         public string BotToken { get; set; } = string.Empty;
+        public string? DiscordBotName { get; set; }
+        public string? DiscordBotAvatarUrl { get; set; }
+        public int? ServerCount { get; set; }
+        public List<string> Guilds { get; set; } = new();
         public string Status { get; set; } = string.Empty;
         public int Requests24h { get; set; }
         public int Errors24h { get; set; }
@@ -18,9 +22,8 @@ namespace BotManager.Api.Models
 
     public class BotConfigurationDto
     {
-        public ulong? TeamsMessageId { get; set; }
-        public ulong? RoleMessageId { get; set; }
-        public ulong? ReactionChannelId { get; set; }
+        public string? BoardChannelId { get; set; }
+        public string? BoardMessageId { get; set; }
     }
 
     public class BotLogDto

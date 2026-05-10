@@ -23,8 +23,6 @@ namespace BotManager.Api.BotPlugins.DiscordBotAlliancePlugin
         private readonly ReactionsCommandHandler _reactionsHandler = new();
 
         private SocketGuild? _cachedGuild;
-        private readonly string _channelNameTabule = "seznam-týmů";
-        private readonly ulong _adminUserId = 347490212097687552;
         private bool _commandsRegistered = false;
 
         public async Task InitializeAsync(PluginContext context)

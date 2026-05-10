@@ -7,9 +7,8 @@ namespace BotManager.Backend.Entities.Entities
         [Key]
         public int BotId { get; set; }
 
-        public ulong? TeamsMessageId { get; set; }
-        public ulong? RoleMessageId { get; set; }
-        public ulong? ReactionChannelId { get; set; }
+        public ulong? BoardChannelId { get; set; }
+        public ulong? BoardMessageId { get; set; }
 
         public virtual Bot Bot { get; set; }
     }

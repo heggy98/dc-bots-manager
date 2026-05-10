@@ -3,6 +3,7 @@ using Discord.WebSocket;
 using BotManager.Api.Services;
 using BotManager.Api.Models;
 using BotManager.Backend.Entities.Entities;
+using Microsoft.EntityFrameworkCore;
 
 namespace BotManager.Api.BotPlugins.DiscordBotAlliancePlugin.Handlers
 {
@@ -11,6 +12,8 @@ namespace BotManager.Api.BotPlugins.DiscordBotAlliancePlugin.Handlers
     /// </summary>
     public class TeamsCommandHandler
     {
+        private const string BoardMessageMarker = "[DBA_BOARD]";
+
         /// <summary>
         /// Handle /pridat-tym command - add a new team
         /// </summary>
@@ -244,6 +247,24 @@ namespace BotManager.Api.BotPlugins.DiscordBotAlliancePlugin.Handlers
                 // Load teams
                 var teamsData = await context.TeamsDataService.GetAsync(context.Bot.BotId);
 
+                var botConfig = await context.DbContext.BotConfigurations
+                    .FirstOrDefaultAsync(c => c.BotId == context.Bot.BotId);
+
+                if (botConfig?.BoardChannelId == null)
+                {
+                    await command.FollowupAsync("BoardChannelId není nastaven v konfiguraci bota.", ephemeral: true);
+                    await LogCommandUsageAsync(teamCommand, command.User, false, "Missing BoardChannelId", context);
+                    return;
+                }
+
+                var boardChannel = guild.GetTextChannel(botConfig.BoardChannelId.Value);
+                if (boardChannel == null)
+                {
+                    await command.FollowupAsync($"Kanál s ID {botConfig.BoardChannelId.Value} nebyl nalezen na serveru.", ephemeral: true);
+                    await LogCommandUsageAsync(teamCommand, command.User, false, "Board channel not found", context);
+                    return;
+                }
+
                 if (!teamsData.Teams.Any())
                 {
                     var emptyMsg = teamCommand?.SuccessMessage ?? "Nejsou registrovány žádné týmy.";
@@ -268,7 +289,35 @@ namespace BotManager.Api.BotPlugins.DiscordBotAlliancePlugin.Handlers
                     embed.AddField(fieldName, fieldValue, inline: false);
                 }
 
-                await command.FollowupAsync(embed: embed.Build());
+                var shouldDiscover = !botConfig.BoardMessageId.HasValue;
+                if (shouldDiscover)
+                {
+                    botConfig.BoardMessageId = await FindBotBoardMessageAsync(boardChannel, guild.CurrentUser.Id);
+                    if (botConfig.BoardMessageId.HasValue)
+                    {
+                        await context.DbContext.SaveChangesAsync();
+                    }
+                }
+
+                IUserMessage? targetMessage = null;
+                if (botConfig.BoardMessageId.HasValue)
+                {
+                    targetMessage = await boardChannel.GetMessageAsync(botConfig.BoardMessageId.Value) as IUserMessage;
+                }
+
+                if (targetMessage != null)
+                {
+                    await targetMessage.ModifyAsync(m => m.Content = BoardMessageMarker);
+                    await targetMessage.ModifyAsync(m => m.Embed = embed.Build());
+                }
+                else
+                {
+                    var newMessage = await boardChannel.SendMessageAsync(BoardMessageMarker, embed: embed.Build());
+                    botConfig.BoardMessageId = newMessage.Id;
+                    await context.DbContext.SaveChangesAsync();
+                }
+
+                await command.FollowupAsync($"Seznam týmů byl publikován do kanálu <#{boardChannel.Id}>.", ephemeral: true);
                 context.Logger.LogInformation("Teams list displayed, total: {TeamCount}", teamsData.Teams.Count);
                 await LogCommandUsageAsync(teamCommand, command.User, true, null, context);
             }
@@ -317,6 +366,26 @@ namespace BotManager.Api.BotPlugins.DiscordBotAlliancePlugin.Handlers
             {
                 context.Logger.LogWarning(ex, "Failed to log command usage for command '{CommandId}'", command?.CommandId);
             }
+        }
+
+        private static async Task<ulong?> FindBotBoardMessageAsync(SocketTextChannel channel, ulong botUserId)
+        {
+            var messages = await channel.GetMessagesAsync(limit: 100).FlattenAsync();
+            var byMarker = messages
+                .OfType<IUserMessage>()
+                .FirstOrDefault(m => m.Author.Id == botUserId && string.Equals(m.Content, BoardMessageMarker, StringComparison.Ordinal));
+
+            if (byMarker != null)
+            {
+                return byMarker.Id;
+            }
+
+            // Backward compatibility for older board posts before marker was introduced.
+            var fallback = messages
+                .OfType<IUserMessage>()
+                .FirstOrDefault(m => m.Author.Id == botUserId && m.Embeds.Count > 0);
+
+            return fallback?.Id;
         }
     }
 }

@@ -28,7 +28,7 @@ export class AdminLogsComponent implements OnInit {
         // Convert ISO date strings to Date objects for local timezone display
         this.systemLogs.forEach(log => {
           if (log.timestamp && typeof log.timestamp === 'string') {
-            log.timestamp = new Date(log.timestamp);
+            log.timestamp = new Date(log.timestamp).toString();
           }
         });
         this.loading = false;
@@ -41,7 +41,7 @@ export class AdminLogsComponent implements OnInit {
         // Convert ISO date strings to Date objects for local timezone display
         this.loginLogs.forEach(log => {
           if (log.timestamp && typeof log.timestamp === 'string') {
-            log.timestamp = new Date(log.timestamp);
+            log.timestamp = new Date(log.timestamp).toString();
           }
         });
       }

@@ -14,12 +14,18 @@ namespace BotManager.Api.Controllers
     {
         private readonly BotManagerDbContext _db;
         private readonly BotManagementService _botService;
+        private readonly DiscordBotIdentityService _discordBotIdentityService;
         private readonly ILogger<BotController> _logger;
 
-        public BotController(BotManagerDbContext db, BotManagementService botService, ILogger<BotController> logger)
+        public BotController(
+            BotManagerDbContext db,
+            BotManagementService botService,
+            DiscordBotIdentityService discordBotIdentityService,
+            ILogger<BotController> logger)
         {
             _db = db;
             _botService = botService;
+            _discordBotIdentityService = discordBotIdentityService;
             _logger = logger;
         }
 
@@ -27,12 +33,28 @@ namespace BotManager.Api.Controllers
         public async Task<IActionResult> GetPublicBots()
         {
             var bots = await _db.Bots.ToListAsync();
-            var dto = bots.Select(b => new BotPublicDto
+
+            var dtoTasks = bots.Select(async b =>
             {
-                BotId = b.BotId,
-                Name = b.Name,
-                Status = b.Status.ToString()
+                var identityTask = _discordBotIdentityService.GetIdentityAsync(b.BotToken);
+                var guildsTask = _discordBotIdentityService.GetGuildNamesAsync(b.BotToken);
+                await Task.WhenAll(identityTask, guildsTask);
+                var identity = identityTask.Result;
+                var guilds = guildsTask.Result;
+                return new BotPublicDto
+                {
+                    BotId = b.BotId,
+                    Name = b.Name,
+                    DiscordBotName = identity?.Name,
+                    DiscordBotAvatarUrl = identity?.AvatarUrl,
+                    ServerCount = guilds.Count > 0 ? guilds.Count : null,
+                    Status = b.Status.ToString(),
+                    LastStartedAt = b.LastStartedAt,
+                    LastStoppedAt = b.LastStoppedAt
+                };
             });
+
+            var dto = await Task.WhenAll(dtoTasks);
             return Ok(dto);
         }
 
@@ -41,17 +63,31 @@ namespace BotManager.Api.Controllers
         public async Task<IActionResult> GetAdminBots()
         {
             var bots = await _db.Bots.Include(b => b.Histories).ToListAsync();
-            var dto = bots.Select(b => new AdminBotDto
+
+            var dtoTasks = bots.Select(async b =>
             {
-                BotId = b.BotId,
-                Name = b.Name,
-                BotToken = b.BotToken,
-                Status = b.Status.ToString(),
-                LastStartedAt = b.LastStartedAt,
-                LastStoppedAt = b.LastStoppedAt,
-                Requests24h = 0,
-                Errors24h = 0
+                var identityTask = _discordBotIdentityService.GetIdentityAsync(b.BotToken);
+                var guildsTask = _discordBotIdentityService.GetGuildNamesAsync(b.BotToken);
+                await Task.WhenAll(identityTask, guildsTask);
+                var identity = identityTask.Result;
+                var guilds = guildsTask.Result;
+                return new AdminBotDto
+                {
+                    BotId = b.BotId,
+                    Name = b.Name,
+                    BotToken = b.BotToken,
+                    DiscordBotName = identity?.Name,
+                    DiscordBotAvatarUrl = identity?.AvatarUrl,
+                    ServerCount = guilds.Count > 0 ? guilds.Count : null,
+                    Status = b.Status.ToString(),
+                    LastStartedAt = b.LastStartedAt,
+                    LastStoppedAt = b.LastStoppedAt,
+                    Requests24h = 0,
+                    Errors24h = 0
+                };
             });
+
+            var dto = await Task.WhenAll(dtoTasks);
             return Ok(dto);
         }
 
@@ -85,20 +121,49 @@ namespace BotManager.Api.Controllers
             if (bot == null) return NotFound();
 
             // Get real system logs for this bot
-            var logs = await _db.SystemLogs
+            var systemLogs = await _db.SystemLogs
                 .Where(l => l.Category.Contains("Bot") || l.Message.Contains(bot.Name))
                 .OrderByDescending(l => l.Timestamp)
                 .Take(50)
                 .Select(l => new BotLogDto { Timestamp = l.Timestamp, Level = l.Level, Message = l.Message })
                 .ToListAsync();
 
+            var commandLogs = await _db.CommandUsageLogs
+                .Where(l => l.BotCommand != null && l.BotCommand.BotId == bot.BotId)
+                .OrderByDescending(l => l.ExecutedAt)
+                .Take(50)
+                .Select(l => new BotLogDto
+                {
+                    Timestamp = l.ExecutedAt,
+                    Level = l.IsSuccess ? "Information" : "Warning",
+                    Message = l.IsSuccess
+                        ? $"/{l.BotCommand!.CommandName} by {l.UserName ?? l.UserId.ToString()} - OK"
+                        : $"/{l.BotCommand!.CommandName} by {l.UserName ?? l.UserId.ToString()} - FAILED: {l.ErrorMessage ?? "Unknown error"}"
+                })
+                .ToListAsync();
+
+            var logs = systemLogs
+                .Concat(commandLogs)
+                .OrderByDescending(l => l.Timestamp)
+                .Take(80)
+                .ToList();
+
             var botConfig = await _botService.GetBotDataAsync(id);
+            var identityTask = _discordBotIdentityService.GetIdentityAsync(bot.BotToken);
+            var guildsTask = _discordBotIdentityService.GetGuildNamesAsync(bot.BotToken);
+            await Task.WhenAll(identityTask, guildsTask);
+            var identity = identityTask.Result;
+            var guilds = guildsTask.Result;
 
             var dto = new AdminBotDetailDto
             {
                 BotId = bot.BotId,
                 Name = bot.Name,
                 BotToken = bot.BotToken,
+                DiscordBotName = identity?.Name,
+                DiscordBotAvatarUrl = identity?.AvatarUrl,
+                ServerCount = guilds.Count > 0 ? guilds.Count : null,
+                Guilds = guilds,
                 Status = bot.Status.ToString(),
                 LastStartedAt = bot.LastStartedAt,
                 LastStoppedAt = bot.LastStoppedAt,

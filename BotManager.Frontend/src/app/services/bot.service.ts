@@ -5,13 +5,21 @@ import { Observable } from 'rxjs';
 export interface BotPublicDto {
   botId: number;
   name: string;
+  discordBotName?: string;
+  discordBotAvatarUrl?: string;
+  serverCount?: number;
   status: string;
+  lastStartedAt?: string;
+  lastStoppedAt?: string;
 }
 
 export interface AdminBotDto {
   botId: number;
   name: string;
   botToken: string;
+  discordBotName?: string;
+  discordBotAvatarUrl?: string;
+  serverCount?: number;
   status: string;
   requests24h: number;
   errors24h: number;
@@ -20,9 +28,8 @@ export interface AdminBotDto {
 }
 
 export interface BotConfigurationDto {
-  teamsMessageId?: number;
-  roleMessageId?: number;
-  reactionChannelId?: number;
+  boardChannelId?: string;
+  boardMessageId?: string;
 }
 
 export interface BotLogDto {
@@ -54,6 +61,7 @@ export interface BotTeamsDto {
 
 export interface AdminBotDetailDto extends AdminBotDto {
   configuration: BotConfigurationDto;
+  guilds: string[];
   logs: BotLogDto[];
   histories: BotHistoryDto[];
 }

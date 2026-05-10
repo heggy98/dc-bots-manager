@@ -25,9 +25,8 @@ namespace BotManager.Api.Services
 
             return new BotConfigurationDto
             {
-                TeamsMessageId = config.TeamsMessageId,
-                RoleMessageId = config.RoleMessageId,
-                ReactionChannelId = config.ReactionChannelId
+                BoardChannelId = config.BoardChannelId?.ToString(),
+                BoardMessageId = config.BoardMessageId?.ToString()
             };
         }
 
@@ -40,17 +39,15 @@ namespace BotManager.Api.Services
                 config = new BotConfiguration
                 {
                     BotId = botId,
-                    TeamsMessageId = data.TeamsMessageId,
-                    RoleMessageId = data.RoleMessageId,
-                    ReactionChannelId = data.ReactionChannelId
+                    BoardChannelId = ulong.TryParse(data.BoardChannelId, out var chId) ? chId : null,
+                    BoardMessageId = ulong.TryParse(data.BoardMessageId, out var msgId) ? msgId : null
                 };
                 _db.BotConfigurations.Add(config);
             }
             else
             {
-                config.TeamsMessageId = data.TeamsMessageId;
-                config.RoleMessageId = data.RoleMessageId;
-                config.ReactionChannelId = data.ReactionChannelId;
+                config.BoardChannelId = ulong.TryParse(data.BoardChannelId, out var chId) ? chId : null;
+                config.BoardMessageId = ulong.TryParse(data.BoardMessageId, out var msgId) ? msgId : null;
             }
 
             await _db.SaveChangesAsync();

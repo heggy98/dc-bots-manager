@@ -16,6 +16,17 @@
   align-items: center;
   justify-content: center;
   font-size: 1.5rem;
+  overflow: hidden;
+}
+
+.bot-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .bot-card h3 { margin: 0 0 6px 0; font-size: 1.15rem; }
+.discord-subtitle { margin: 0 0 6px 0; font-size: 0.82rem; color: var(--text-muted); }
+.server-count { margin: 0 0 6px 0; font-size: 0.78rem; color: var(--text-muted); }
+.status-time { margin: 4px 0 0; font-size: 0.78rem; color: var(--text-muted); }

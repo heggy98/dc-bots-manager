@@ -18,9 +18,6 @@ export class BotDetailComponent implements OnInit {
   bot: AdminBotDetailDto | null = null;
   loading = true;
   error = '';  // Change from Singleton to allow multiple connections
-  services.AddScoped<IDiscordBotService, DiscordBotAllianceService>();
-  // OR: Singleton factory that manages connection pool
-  services.AddSingleton<DiscordBotConnectionPool>();
   configLoading = false;
   configMessage = '';
 
@@ -46,10 +43,6 @@ export class BotDetailComponent implements OnInit {
       next: (data) => {
         this.bot = data;
         if (!this.bot.configuration) this.bot.configuration = {};
-        // Convert ISO date strings to Date objects for local timezone display
-        if (this.bot.lastStartedAt && typeof this.bot.lastStartedAt === 'string') {
-          this.bot.lastStartedAt = new Date(this.bot.lastStartedAt).toString();
-        }
         if (this.bot.histories) {
           this.bot.histories.forEach(history => {
             if (history.startedAt && typeof history.startedAt === 'string') {
@@ -168,9 +161,74 @@ export class BotDetailComponent implements OnInit {
   stopBot(): void { if (confirm(this.i18n.t('bot.confirm_stop'))) this.botService.stopBot(this.botId).subscribe(() => this.loadBotDetails()); }
   restartBot(): void { if (confirm(this.i18n.t('bot.confirm_restart'))) this.botService.restartBot(this.botId).subscribe(() => this.loadBotDetails()); }
 
+  getStatusLabelKey(): string {
+    return this.isOnline() ? 'bot.running' : 'bot.last_online';
+  }
+
+  getStatusTimestamp(): Date | null {
+    if (!this.bot) {
+      return null;
+    }
+
+    if (this.isOnline()) {
+      return this.toDate(this.bot.lastStartedAt);
+    }
+
+    return this.toDate(this.bot.lastStoppedAt ?? this.bot.lastStartedAt);
+  }
+
+  getStatusDurationText(): string {
+    if (!this.bot) {
+      return '—';
+    }
+
+    if (this.isOnline()) {
+      const startedAt = this.toDate(this.bot.lastStartedAt);
+      if (!startedAt) {
+        return '—';
+      }
+
+      const seconds = Math.floor((Date.now() - startedAt.getTime()) / 1000);
+      return this.formatDuration(seconds);
+    }
+
+    const stoppedAt = this.toDate(this.bot.lastStoppedAt);
+    if (!stoppedAt) {
+      return '—';
+    }
+
+    const seconds = Math.floor((Date.now() - stoppedAt.getTime()) / 1000);
+    if (seconds < 0) {
+      return '—';
+    }
+
+    return this.formatDuration(seconds);
+  }
+
+  private isOnline(): boolean {
+    return this.bot?.status?.toLowerCase() === 'online';
+  }
+
+  private toDate(value?: string): Date | null {
+    if (!value) {
+      return null;
+    }
+
+    // Backend stores UTC in SQL datetime2; when timezone suffix is missing,
+    // force UTC parsing so the browser converts correctly to local time.
+    const hasZone = /[zZ]|[+-]\d\d:\d\d$/.test(value);
+    const normalized = hasZone ? value : `${value}Z`;
+    const parsed = new Date(normalized);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
   formatDuration(seconds?: number): string {
     if (!seconds) return '—';
-    const h = Math.floor(seconds / 3600); const m = Math.floor((seconds % 3600) / 60); const s = seconds % 60;
+    const d = Math.floor(seconds / 86400);
+    const h = Math.floor((seconds % 86400) / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    if (d > 0) return `${d}d ${h}h ${m}m ${s}s`;
     if (h > 0) return `${h}h ${m}m ${s}s`;
     if (m > 0) return `${m}m ${s}s`;
     return `${s}s`;

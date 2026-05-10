@@ -4,6 +4,7 @@ using BotManager.Backend.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BotManager.Backend.Entities.Migrations
 {
     [DbContext(typeof(BotManagerDbContext))]
-    partial class BotManagerDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260509230839_MergeBoardMessageId")]
+    partial class MergeBoardMessageId
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -130,6 +133,12 @@ namespace BotManager.Backend.Entities.Migrations
                         .HasColumnType("decimal(20,0)");
 
                     b.Property<decimal?>("BoardMessageId")
+                        .HasColumnType("decimal(20,0)");
+
+                    b.Property<decimal?>("ReactionChannelId")
+                        .HasColumnType("decimal(20,0)");
+
+                    b.Property<decimal?>("RoleMessageId")
                         .HasColumnType("decimal(20,0)");
 
                     b.HasKey("BotId");

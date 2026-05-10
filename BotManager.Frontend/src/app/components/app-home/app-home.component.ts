@@ -22,4 +22,22 @@ export class AppHomeComponent implements OnInit {
       error: () => { this.loading = false; }
     });
   }
+
+  toDate(value?: string): Date | null {
+    if (!value) return null;
+    const hasZone = /[zZ]|[+-]\d\d:\d\d$/.test(value);
+    const normalized = hasZone ? value : `${value}Z`;
+    const parsed = new Date(normalized);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  isOnline(bot: BotPublicDto): boolean {
+    return bot.status?.toLowerCase() === 'online';
+  }
+
+  getStatusTimestamp(bot: BotPublicDto): Date | null {
+    return this.isOnline(bot)
+      ? this.toDate(bot.lastStartedAt)
+      : this.toDate(bot.lastStoppedAt ?? bot.lastStartedAt);
+  }
 }

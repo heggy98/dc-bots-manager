@@ -5,7 +5,7 @@ namespace BotManager.Backend.Services.Interfaces
         /// <summary>
         /// Starts the bot with the given token
         /// </summary>
-        Task StartAsync(string botToken);
+        Task StartAsync(int botId, string botToken);
 
         /// <summary>
         /// Stops the running bot

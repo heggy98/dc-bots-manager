@@ -3,21 +3,31 @@
 
 <div *ngIf="!loading && bot">
     <div class="page-header">
-        <div>
-            <a routerLink="/admin" class="breadcrumb">{{ i18n.t('bot.back') }}</a>
-            <h2>{{ bot.name }}</h2>
-            <div class="bot-meta">
-                <span class="status-badge" [ngClass]="bot.status.toLowerCase()">{{ i18n.t('status.' + bot.status)
-                    }}</span>
-                <span class="text-muted" *ngIf="bot.lastStartedAt" style="margin-left:8px; font-size:0.82rem;">
-                    {{ i18n.t('bot.running') }}: {{ bot.lastStartedAt | date:'dd.MM.yyyy HH:mm' }}
-                </span>
+        <a routerLink="/admin" class="breadcrumb">{{ i18n.t('bot.back') }}</a>
+        <div class="page-header-main">
+            <div class="bot-title-row">
+                <div class="detail-avatar">
+                    <img *ngIf="bot.discordBotAvatarUrl; else detailFallbackAvatar" [src]="bot.discordBotAvatarUrl" [alt]="bot.name" />
+                    <ng-template #detailFallbackAvatar>🤖</ng-template>
+                </div>
+                <div class="bot-info">
+                    <h2>{{ bot.name }}</h2>
+                    <p class="discord-subtitle" *ngIf="bot.discordBotName">{{ bot.discordBotName }}</p>
+                    <p class="server-count" *ngIf="bot.serverCount">{{ i18n.t('bot.servers') }}: {{ bot.serverCount }}</p>
+                    <div class="bot-meta">
+                        <span class="status-badge" [ngClass]="bot.status.toLowerCase()">{{ i18n.t('status.' + bot.status) }}</span>
+                        <span class="text-muted" *ngIf="getStatusTimestamp()" style="font-size:0.82rem;">
+                            {{ i18n.t(getStatusLabelKey()) }}: {{ getStatusTimestamp() | date:'dd.MM.yyyy HH:mm' }}
+                            <span *ngIf="getStatusDurationText() !== '—'">({{ getStatusDurationText() }})</span>
+                        </span>
+                    </div>
+                </div>
             </div>
-        </div>
-        <div class="header-actions">
-            <button class="btn btn-primary btn-sm" *ngIf="bot.status.toLowerCase() !== 'online'" (click)="startBot()">{{ i18n.t('bot.start') }}</button>
-            <button class="btn btn-outline-red btn-sm" *ngIf="bot.status.toLowerCase() === 'online'" (click)="stopBot()">{{ i18n.t('bot.stop') }}</button>
-            <button class="btn btn-outline btn-sm" (click)="restartBot()">{{ i18n.t('bot.restart') }}</button>
+            <div class="header-actions">
+                <button class="btn btn-primary btn-sm" *ngIf="bot.status.toLowerCase() !== 'online'" (click)="startBot()">{{ i18n.t('bot.start') }}</button>
+                <button class="btn btn-outline-red btn-sm" *ngIf="bot.status.toLowerCase() === 'online'" (click)="stopBot()">{{ i18n.t('bot.stop') }}</button>
+                <button class="btn btn-outline btn-sm" (click)="restartBot()">{{ i18n.t('bot.restart') }}</button>
+            </div>
         </div>
     </div>
 
@@ -25,20 +35,24 @@
         <!-- Left: Config -->
         <div class="panel">
             <h3>{{ i18n.t('bot.config') }}</h3>
+            <p class="text-muted" style="font-size:0.8rem; margin-bottom:8px" *ngIf="bot.discordBotName">{{ i18n.t('bot.discord_name') }}: {{ bot.discordBotName }}</p>
+            <p class="text-muted" style="font-size:0.8rem; margin-bottom:8px" *ngIf="bot.serverCount">{{ i18n.t('bot.servers') }}: {{ bot.serverCount }}</p>
+            <div *ngIf="bot.guilds && bot.guilds.length > 0" style="margin-bottom:14px;">
+                <p class="text-muted" style="font-size:0.8rem; margin-bottom:4px">{{ i18n.t('bot.guilds') }}:</p>
+                <ul style="margin:0; padding-left:18px; font-size:0.8rem; color:var(--text-muted);">
+                    <li *ngFor="let g of bot.guilds">{{ g }}</li>
+                </ul>
+            </div>
             <p class="text-muted" style="font-size:0.85rem; margin-bottom:18px">{{ i18n.t('bot.config_desc') }}</p>
             <div *ngIf="configMessage" class="success-alert">{{ configMessage }}</div>
             <form (ngSubmit)="saveConfig()">
                 <div class="form-group">
-                    <label>{{ i18n.t('bot.teams_msg') }}</label>
-                    <input type="number" [(ngModel)]="bot.configuration.teamsMessageId" name="teamsMsg" />
+                    <label>{{ i18n.t('bot.board_channel') }}</label>
+                    <input type="text" inputmode="numeric" pattern="[0-9]*" [(ngModel)]="bot.configuration.boardChannelId" name="boardChannel" />
                 </div>
                 <div class="form-group">
-                    <label>{{ i18n.t('bot.role_msg') }}</label>
-                    <input type="number" [(ngModel)]="bot.configuration.roleMessageId" name="roleMsg" />
-                </div>
-                <div class="form-group">
-                    <label>{{ i18n.t('bot.reaction_ch') }}</label>
-                    <input type="number" [(ngModel)]="bot.configuration.reactionChannelId" name="reactionCh" />
+                    <label>{{ i18n.t('bot.board_msg') }}</label>
+                    <input type="text" inputmode="numeric" pattern="[0-9]*" [(ngModel)]="bot.configuration.boardMessageId" name="boardMsg" />
                 </div>
                 <button type="submit" class="btn btn-primary w-100" [disabled]="configLoading">
                     {{ configLoading ? i18n.t('bot.saving') : i18n.t('bot.save_config') }}

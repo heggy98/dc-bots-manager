@@ -37,9 +37,14 @@
 <div class="bot-grid" *ngIf="!loading && bots.length > 0">
     <div class="card bot-admin-card" *ngFor="let bot of bots">
         <div class="bot-card-top">
-            <div class="bot-avatar">🤖</div>
+            <div class="bot-avatar">
+                <img *ngIf="bot.discordBotAvatarUrl; else fallbackAvatar" [src]="bot.discordBotAvatarUrl" [alt]="bot.name" />
+                <ng-template #fallbackAvatar>🤖</ng-template>
+            </div>
             <div class="bot-name-status">
                 <h3>{{ bot.name }}</h3>
+                <p class="discord-subtitle" *ngIf="bot.discordBotName">{{ bot.discordBotName }}</p>
+                <p class="server-count" *ngIf="bot.serverCount">{{ i18n.t('bot.servers') }}: {{ bot.serverCount }}</p>
                 <span class="status-badge" [ngClass]="bot.status.toLowerCase()">{{ i18n.t('status.' + bot.status)
                     }}</span>
                 <span class="uptime-label" *ngIf="bot.status === 'Online'">{{ getBotUptime(bot) }}</span>
