@@ -1,9 +1,11 @@
 using System.Text.Json;
-using BotManager.Api.Models;
+using BotManager.Backend.Bots.Services.Implementations;
+using BotManager.Backend.Contracts.Models;
+using BotManager.Backend.Contracts.Services;
 
 namespace BotManager.Api.Services
 {
-    public class FileTeamsDataService : ITeamsDataService
+    public class FileTeamsDataService : ITeamsDataService, IGroupDataService
     {
         public async Task<BotTeamsDto> GetAsync(int botId)
         {
@@ -29,6 +31,17 @@ namespace BotManager.Api.Services
 
             var teamsJson = JsonSerializer.Serialize(data.Teams, options);
             await File.WriteAllTextAsync(teamsPath, teamsJson);
+        }
+
+        async Task<BotGroupsDto> IGroupDataService.GetAsync(int botId)
+        {
+            var teams = await GetAsync(botId);
+            return GroupContractMapper.FromTeams(teams);
+        }
+
+        async Task IGroupDataService.SaveAsync(int botId, BotGroupsDto data)
+        {
+            await SaveAsync(botId, GroupContractMapper.ToTeams(data));
         }
     }
 }

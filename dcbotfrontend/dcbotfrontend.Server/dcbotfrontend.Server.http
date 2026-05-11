@@ -1,6 +1,0 @@
-@dcbotfrontend.Server_HostAddress = http://localhost:5083
-
-GET {{dcbotfrontend.Server_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###

@@ -1,19 +1,18 @@
 using Discord;
 using Discord.WebSocket;
-using BotManager.Api.Services;
-using BotManager.Api.Models;
+using BotManager.Backend.Bots.Services.Contracts;
+using BotManager.Backend.Bots.Services.Implementations;
+using BotManager.Backend.Contracts.Models;
 using BotManager.Backend.Entities.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace BotManager.Api.BotPlugins.DiscordBotAlliancePlugin.Handlers
 {
     /// <summary>
-    /// Handles emoji-related commands: /reorganizeemojis
+    /// Handles emoji-related commands: /reorganize-emojis
     /// </summary>
     public class EmojisCommandHandler
     {
-        private const string BoardMessageMarker = "[DBA_BOARD]";
-
         private static readonly List<string> AvailableEmojis = new List<string>
         {
             "🔴", "🟠", "🟡", "🟢", "🔵", "🟣", "🟤", "⚪", "⚫",
@@ -23,12 +22,12 @@ namespace BotManager.Api.BotPlugins.DiscordBotAlliancePlugin.Handlers
         };
 
         /// <summary>
-        /// Handle /reorganizeemojis command - reorganize team emojis
+        /// Handle /reorganize-emojis command - reorganize team emojis
         /// </summary>
         public async Task HandleReorganizeEmojisAsync(SocketSlashCommand command, SocketGuild guild, SocketTextChannel channel, PluginContext context)
         {
             // Get command definition from database for localized strings
-            var emojiCommand = await GetCommandAsync("reorganizeemojis", context);
+            var emojiCommand = await GetCommandAsync("reorganize-emojis", context);
             var adminOnlyMsg = emojiCommand?.AdminOnlyMessage ?? "Tento příkaz je pouze pro administrátory!";
             var successMsg = emojiCommand?.SuccessMessage ?? "✓ Emojis byly úspěšně reorganizovány!";
             var errorMsg = emojiCommand?.ErrorMessage ?? "Chyba: {0}";
@@ -44,24 +43,6 @@ namespace BotManager.Api.BotPlugins.DiscordBotAlliancePlugin.Handlers
 
             try
             {
-                var botConfig = await context.DbContext.BotConfigurations
-                    .FirstOrDefaultAsync(c => c.BotId == context.Bot.BotId);
-
-                if (botConfig?.BoardChannelId == null)
-                {
-                    await command.FollowupAsync("BoardChannelId není nastaven v konfiguraci bota.", ephemeral: true);
-                    await LogCommandUsageAsync(emojiCommand, command.User, false, "Missing BoardChannelId", context);
-                    return;
-                }
-
-                var boardChannel = guild.GetTextChannel(botConfig.BoardChannelId.Value);
-                if (boardChannel == null)
-                {
-                    await command.FollowupAsync($"Kanál s ID {botConfig.BoardChannelId.Value} nebyl nalezen na serveru.", ephemeral: true);
-                    await LogCommandUsageAsync(emojiCommand, command.User, false, "Board channel not found", context);
-                    return;
-                }
-
                 // Load teams
                 var teamsData = await context.TeamsDataService.GetAsync(context.Bot.BotId);
 
@@ -94,47 +75,19 @@ namespace BotManager.Api.BotPlugins.DiscordBotAlliancePlugin.Handlers
                 // Save updated teams
                 await context.TeamsDataService.SaveAsync(context.Bot.BotId, teamsData);
 
-                // Create embed showing emoji assignments
-                var embed = new EmbedBuilder()
-                    .WithTitle("📋 Seznam všech týmů")
-                    .WithColor(Color.Blue)
-                    .WithDescription($"Celkem registrovaných týmů: {teamsData.Teams.Count}")
-                    .WithFooter($"Aktualizováno: {DateTime.Now:dd.MM.yyyy HH:mm:ss}");
-
-                foreach (var team in teamsData.Teams)
+                var discordBotService = context.ServiceProvider.GetService(typeof(IDiscordBotService)) as IDiscordBotService;
+                if (discordBotService == null)
                 {
-                    var emoji = string.IsNullOrEmpty(team.Emoji) ? "🎯" : team.Emoji;
-                    embed.AddField($"{emoji} {team.Name}", $"**Velitel:** {team.LeaderName}\n**Kontakt:** {team.Contact}", inline: false);
+                    await command.FollowupAsync("Discord bot service není dostupná, board zprávu nelze aktualizovat.", ephemeral: true);
+                    await LogCommandUsageAsync(emojiCommand, command.User, false, "Discord bot service unavailable", context);
+                    return;
                 }
 
-                if (!botConfig.BoardMessageId.HasValue)
-                {
-                    botConfig.BoardMessageId = await FindBotBoardMessageAsync(boardChannel, guild.CurrentUser.Id);
-                    if (botConfig.BoardMessageId.HasValue)
-                    {
-                        await context.DbContext.SaveChangesAsync();
-                    }
-                }
+                var boardUpdated = await discordBotService.RefreshBoardMessageAsync(context.Bot.BotId, BoardMessageFactory.FromTeams(teamsData));
 
-                IUserMessage? targetMessage = null;
-                if (botConfig.BoardMessageId.HasValue)
-                {
-                    targetMessage = await boardChannel.GetMessageAsync(botConfig.BoardMessageId.Value) as IUserMessage;
-                }
-
-                if (targetMessage != null)
-                {
-                    await targetMessage.ModifyAsync(m => m.Content = BoardMessageMarker);
-                    await targetMessage.ModifyAsync(m => m.Embed = embed.Build());
-                }
-                else
-                {
-                    var newMessage = await boardChannel.SendMessageAsync(BoardMessageMarker, embed: embed.Build());
-                    botConfig.BoardMessageId = newMessage.Id;
-                    await context.DbContext.SaveChangesAsync();
-                }
-
-                await command.FollowupAsync($"Board zpráva byla aktualizována v kanálu <#{boardChannel.Id}>.", ephemeral: true);
+                await command.FollowupAsync(boardUpdated
+                    ? "Board zpráva byla aktualizována."
+                    : "Board zprávu se nepodařilo aktualizovat.", ephemeral: true);
                 context.Logger.LogInformation("Emojis reorganized for {TeamCount} teams", teamsData.Teams.Count);
                 await LogCommandUsageAsync(emojiCommand, command.User, true, null, context);
             }
@@ -205,24 +158,5 @@ namespace BotManager.Api.BotPlugins.DiscordBotAlliancePlugin.Handlers
             }
         }
 
-        private static async Task<ulong?> FindBotBoardMessageAsync(SocketTextChannel channel, ulong botUserId)
-        {
-            var messages = await channel.GetMessagesAsync(limit: 100).FlattenAsync();
-            var byMarker = messages
-                .OfType<IUserMessage>()
-                .FirstOrDefault(m => m.Author.Id == botUserId && string.Equals(m.Content, BoardMessageMarker, StringComparison.Ordinal));
-
-            if (byMarker != null)
-            {
-                return byMarker.Id;
-            }
-
-            // Backward compatibility for older board posts before marker was introduced.
-            var fallback = messages
-                .OfType<IUserMessage>()
-                .FirstOrDefault(m => m.Author.Id == botUserId && m.Embeds.Count > 0);
-
-            return fallback?.Id;
-        }
     }
 }

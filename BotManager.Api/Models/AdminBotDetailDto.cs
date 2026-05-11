@@ -1,3 +1,5 @@
+using BotManager.Backend.Contracts.Models;
+
 namespace BotManager.Api.Models
 {
     public class AdminBotDetailDto
@@ -18,12 +20,6 @@ namespace BotManager.Api.Models
         public BotConfigurationDto Configuration { get; set; } = new();
         public List<BotLogDto> Logs { get; set; } = new();
         public List<BotHistoryDto> Histories { get; set; } = new();
-    }
-
-    public class BotConfigurationDto
-    {
-        public string? BoardChannelId { get; set; }
-        public string? BoardMessageId { get; set; }
     }
 
     public class BotLogDto

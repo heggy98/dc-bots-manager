@@ -1,5 +1,6 @@
 using System.Text.Json;
-using BotManager.Api.Models;
+using BotManager.Backend.Contracts.Models;
+using BotManager.Backend.Contracts.Services;
 
 namespace BotManager.Api.Services
 {

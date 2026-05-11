@@ -1,4 +1,5 @@
-using BotManager.Api.Models;
+using BotManager.Backend.Contracts.Models;
+using BotManager.Backend.Contracts.Services;
 using BotManager.Backend.Entities;
 using BotManager.Backend.Entities.Entities;
 using Microsoft.EntityFrameworkCore;

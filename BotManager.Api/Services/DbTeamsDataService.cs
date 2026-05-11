@@ -1,12 +1,14 @@
 using System.Text.Json;
-using BotManager.Api.Models;
+using BotManager.Backend.Bots.Services.Implementations;
+using BotManager.Backend.Contracts.Models;
+using BotManager.Backend.Contracts.Services;
 using BotManager.Backend.Entities;
 using BotManager.Backend.Entities.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace BotManager.Api.Services
 {
-    public class DbTeamsDataService : ITeamsDataService
+    public class DbTeamsDataService : ITeamsDataService, IGroupDataService
     {
         private readonly BotManagerDbContext _db;
 
@@ -52,6 +54,17 @@ namespace BotManager.Api.Services
             }
 
             await _db.SaveChangesAsync();
+        }
+
+        async Task<BotGroupsDto> IGroupDataService.GetAsync(int botId)
+        {
+            var teams = await GetAsync(botId);
+            return GroupContractMapper.FromTeams(teams);
+        }
+
+        async Task IGroupDataService.SaveAsync(int botId, BotGroupsDto data)
+        {
+            await SaveAsync(botId, GroupContractMapper.ToTeams(data));
         }
     }
 }

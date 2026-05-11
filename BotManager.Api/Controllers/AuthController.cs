@@ -55,10 +55,11 @@ namespace BotManager.Api.Controllers
 
             if (request.Email == adminEmail && request.Password == adminPassword)
             {
+                var email = request.Email ?? string.Empty;
                 _bruteforceProtection.RegisterSuccess(ip);
-                await _authService.LogLoginAttemptAsync(request.Email, ip, true);
-                _logger.LogInformation("User {Email} logged in successfully from {Ip}", request.Email, ip);
-                return Ok(new LoginResponse { Token = GenerateJwtToken(request.Email), Email = request.Email });
+                await _authService.LogLoginAttemptAsync(email, ip, true);
+                _logger.LogInformation("User {Email} logged in successfully from {Ip}", email, ip);
+                return Ok(new LoginResponse { Token = GenerateJwtToken(email), Email = email });
             }
 
             _bruteforceProtection.RegisterFailure(ip);

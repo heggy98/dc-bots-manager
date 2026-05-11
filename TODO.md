@@ -1,9 +1,9 @@
 # BotManager – TODO list
 
 ## 1. Automatická aktualizace board zprávy po změně týmu
-- [ ] Po úspěšném `/pridat-tym`, `/odebrat-tym`, `/upravit-tym` v pluginu zavolat aktualizaci board zprávy (seznam týmů)
-- [ ] Stejná aktualizace při změně přes web UI (admin editace týmů přes BotTeamsDto endpoint)
-- [ ] Zajistit, aby update board zprávy byl sdílená utility funkce (ne duplikovaný kód v každém handleru)
+- [x] Po úspěšném `/pridat-tym`, `/odebrat-tym`, `/upravit-tym` v pluginu zavolat aktualizaci board zprávy (seznam týmů)
+- [x] Stejná aktualizace při změně přes web UI (admin editace týmů přes BotTeamsDto endpoint)
+- [x] Zajistit, aby update board zprávy byl sdílená utility funkce (ne duplikovaný kód v každém handleru)
 
 ---
 

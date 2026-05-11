@@ -1,5 +1,6 @@
 using BotManager.Api.Models;
-using BotManager.Api.Services;
+using BotManager.Backend.Bots.Services.Implementations;
+using BotManager.Backend.Contracts.Models;
 using BotManager.Backend.Entities;
 using BotManager.Backend.Entities.Entities;
 using Microsoft.AspNetCore.Authorization;
@@ -223,12 +224,49 @@ namespace BotManager.Api.Controllers
         }
 
         [Authorize]
+        [HttpGet("admin/{id}/groups")]
+        public async Task<IActionResult> GetGroups(int id)
+        {
+            try
+            {
+                var groupsData = await _botService.GetBotGroupsAsync(id);
+                return Ok(groupsData);
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching groups for bot {Id}", id);
+                return StatusCode(500, new { message = "Error fetching groups" });
+            }
+        }
+
+        [Authorize]
+        [HttpPost("admin/{id}/groups")]
+        public async Task<IActionResult> SaveGroups(int id, [FromBody] BotGroupsDto groupsData)
+        {
+            try
+            {
+                var success = await _botService.SaveBotGroupsAsync(id, groupsData);
+                if (!success) return StatusCode(500, new { message = "Error saving groups" });
+                return Ok(new { message = "Groups saved successfully" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error saving groups for bot {Id}", id);
+                return StatusCode(500, new { message = "Error saving groups" });
+            }
+        }
+
+        [Authorize]
         [HttpGet("admin/{id}/teams")]
         public async Task<IActionResult> GetTeams(int id)
         {
             try
             {
-                var teamsData = await _botService.GetBotTeamsAsync(id);
+                var teamsData = GroupContractMapper.ToTeams(await _botService.GetBotGroupsAsync(id));
                 return Ok(teamsData);
             }
             catch (KeyNotFoundException)
@@ -248,7 +286,7 @@ namespace BotManager.Api.Controllers
         {
             try
             {
-                var success = await _botService.SaveBotTeamsAsync(id, teamsData);
+                var success = await _botService.SaveBotGroupsAsync(id, GroupContractMapper.FromTeams(teamsData));
                 if (!success) return StatusCode(500, new { message = "Error saving teams" });
                 return Ok(new { message = "Teams saved successfully" });
             }

@@ -1,6 +1,7 @@
 using BotManager.Backend.Entities;
 using BotManager.Backend.Entities.Entities;
 using BotManager.Api.Services;
+using BotManager.Backend.Contracts.Services;
 using Microsoft.Extensions.Logging;
 
 namespace BotManager.Api.BotPlugins

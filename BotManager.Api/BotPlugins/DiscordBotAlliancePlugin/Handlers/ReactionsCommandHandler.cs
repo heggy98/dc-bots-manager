@@ -1,26 +1,26 @@
 using Discord;
 using Discord.WebSocket;
-using BotManager.Api.Services;
-using BotManager.Api.Models;
+using BotManager.Backend.Bots.Services.Implementations;
+using BotManager.Backend.Contracts.Models;
 using BotManager.Backend.Entities.Entities;
 
 namespace BotManager.Api.BotPlugins.DiscordBotAlliancePlugin.Handlers
 {
     /// <summary>
-    /// Handles reaction-related commands: /presun-reakce
+    /// Handles reaction-related commands: /move-reactions
     /// </summary>
     public class ReactionsCommandHandler
     {
         /// <summary>
-        /// Handle /presun-reakce command - move reaction role message to another channel
+        /// Handle /move-reactions command - move reaction role message to another channel
         /// </summary>
         public async Task HandleMoveReactionMessageAsync(SocketSlashCommand command, SocketGuild guild, PluginContext context)
         {
-            var targetChannelOption = command.Data.Options.FirstOrDefault(o => o.Name == "cilovy_kanal");
+            var targetChannelOption = command.Data.Options.FirstOrDefault(o => o.Name == "target-channel");
             var targetChannelValue = targetChannelOption?.Value as SocketTextChannel;
 
             // Get command definition from database for localized strings
-            var reactionCommand = await GetCommandAsync("presun-reakce", context);
+            var reactionCommand = await GetCommandAsync("move-reactions", context);
             var adminOnlyMsg = reactionCommand?.AdminOnlyMessage ?? "Tento příkaz je pouze pro administrátory!";
             var userHint = reactionCommand?.UserHint ?? "Zadej cílový kanál pro zprávu.";
             var successMsg = reactionCommand?.SuccessMessage ?? "✓ Zpráva byla úspěšně přesunuta!";

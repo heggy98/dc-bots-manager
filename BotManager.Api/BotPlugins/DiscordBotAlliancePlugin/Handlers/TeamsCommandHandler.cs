@@ -1,30 +1,29 @@
 using Discord;
 using Discord.WebSocket;
-using BotManager.Api.Services;
-using BotManager.Api.Models;
+using BotManager.Backend.Bots.Services.Contracts;
+using BotManager.Backend.Bots.Services.Implementations;
+using BotManager.Backend.Contracts.Models;
 using BotManager.Backend.Entities.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace BotManager.Api.BotPlugins.DiscordBotAlliancePlugin.Handlers
 {
     /// <summary>
-    /// Handles team-related commands: /pridat-tym, /odebrat-tym, /upravit-tym, /seznam-tymu
+    /// Handles team-related commands: /add-team, /remove-team, /edit-team, /list-teams, /publish-board
     /// </summary>
     public class TeamsCommandHandler
     {
-        private const string BoardMessageMarker = "[DBA_BOARD]";
-
         /// <summary>
-        /// Handle /pridat-tym command - add a new team
+        /// Handle /add-team command - add a new team
         /// </summary>
         public async Task HandleAddTeamAsync(SocketSlashCommand command, SocketGuild guild, SocketTextChannel channel, PluginContext context)
         {
-            var teamName = command.Data.Options.FirstOrDefault(o => o.Name == "nazev")?.Value as string ?? "";
-            var leaderName = command.Data.Options.FirstOrDefault(o => o.Name == "velitel")?.Value as string ?? "";
-            var contact = command.Data.Options.FirstOrDefault(o => o.Name == "kontakt")?.Value as string ?? "";
+            var teamName = GetStringOption(command, "name") ?? "";
+            var leaderName = GetStringOption(command, "leader") ?? "";
+            var contact = GetStringOption(command, "contact") ?? "";
 
             // Get command definition from database for localized strings
-            var teamCommand = await GetCommandAsync("pridat-tym", context);
+            var teamCommand = await GetCommandAsync("add-team", context);
             var userHint = teamCommand?.UserHint ?? "Zadej název týmu, jméno velitele a kontakt.";
             var successMsg = teamCommand?.SuccessMessage ?? "✓ Tým '{0}' byl úspěšně přidán!";
             var errorMsg = teamCommand?.ErrorMessage ?? "Chyba: {0}";
@@ -66,6 +65,7 @@ namespace BotManager.Api.BotPlugins.DiscordBotAlliancePlugin.Handlers
                 // Add team to storage
                 teamsData.Teams.Add(newTeam);
                 await context.TeamsDataService.SaveAsync(context.Bot.BotId, teamsData);
+                await RefreshBoardMessageAsync(context, teamsData);
 
                 // Log success
                 context.Logger.LogInformation("Team '{TeamName}' created successfully with role {RoleId}", teamName, role.Id);
@@ -81,14 +81,14 @@ namespace BotManager.Api.BotPlugins.DiscordBotAlliancePlugin.Handlers
         }
 
         /// <summary>
-        /// Handle /odebrat-tym command - remove a team
+        /// Handle /remove-team command - remove a team
         /// </summary>
         public async Task HandleRemoveTeamAsync(SocketSlashCommand command, SocketGuild guild, SocketTextChannel channel, PluginContext context)
         {
-            var teamName = command.Data.Options.FirstOrDefault(o => o.Name == "nazev")?.Value as string ?? "";
+            var teamName = GetStringOption(command, "name") ?? "";
 
             // Get command definition from database for localized strings
-            var teamCommand = await GetCommandAsync("odebrat-tym", context);
+            var teamCommand = await GetCommandAsync("remove-team", context);
             var userHint = teamCommand?.UserHint ?? "Zadej název týmu ke smazání.";
             var successMsg = teamCommand?.SuccessMessage ?? "✓ Tým '{0}' byl úspěšně odstraněn!";
             var errorMsg = teamCommand?.ErrorMessage ?? "Chyba: {0}";
@@ -125,6 +125,7 @@ namespace BotManager.Api.BotPlugins.DiscordBotAlliancePlugin.Handlers
                 // Remove team from storage
                 teamsData.Teams.Remove(teamToRemove);
                 await context.TeamsDataService.SaveAsync(context.Bot.BotId, teamsData);
+                await RefreshBoardMessageAsync(context, teamsData);
 
                 context.Logger.LogInformation("Team '{TeamName}' removed successfully", teamName);
                 await command.FollowupAsync(string.Format(successMsg, teamName), ephemeral: true);
@@ -139,17 +140,17 @@ namespace BotManager.Api.BotPlugins.DiscordBotAlliancePlugin.Handlers
         }
 
         /// <summary>
-        /// Handle /upravit-tym command - edit a team
+        /// Handle /edit-team command - edit a team
         /// </summary>
         public async Task HandleEditTeamAsync(SocketSlashCommand command, SocketGuild guild, SocketTextChannel channel, PluginContext context)
         {
-            var teamName = command.Data.Options.FirstOrDefault(o => o.Name == "nazev")?.Value as string ?? "";
-            var newName = command.Data.Options.FirstOrDefault(o => o.Name == "novy-nazev")?.Value as string;
-            var newLeader = command.Data.Options.FirstOrDefault(o => o.Name == "novy-velitel")?.Value as string;
-            var newContact = command.Data.Options.FirstOrDefault(o => o.Name == "novy-kontakt")?.Value as string;
+            var teamName = GetStringOption(command, "name") ?? "";
+            var newName = GetStringOption(command, "new-name");
+            var newLeader = GetStringOption(command, "new-leader");
+            var newContact = GetStringOption(command, "new-contact");
 
             // Get command definition from database for localized strings
-            var teamCommand = await GetCommandAsync("upravit-tym", context);
+            var teamCommand = await GetCommandAsync("edit-team", context);
             var userHint = teamCommand?.UserHint ?? "Zadej název týmu a nová data.";
             var successMsg = teamCommand?.SuccessMessage ?? "✓ Tým '{0}' byl upraven!";
             var errorMsg = teamCommand?.ErrorMessage ?? "Chyba: {0}";
@@ -210,6 +211,7 @@ namespace BotManager.Api.BotPlugins.DiscordBotAlliancePlugin.Handlers
 
                 // Save changes
                 await context.TeamsDataService.SaveAsync(context.Bot.BotId, teamsData);
+                await RefreshBoardMessageAsync(context, teamsData);
 
                 context.Logger.LogInformation("Team '{TeamName}' modified successfully", teamName);
                 await command.FollowupAsync(string.Format(successMsg, teamName), ephemeral: true);
@@ -224,12 +226,12 @@ namespace BotManager.Api.BotPlugins.DiscordBotAlliancePlugin.Handlers
         }
 
         /// <summary>
-        /// Handle /seznam-tymu command - show all teams
+        /// Handle /list-teams command - show all teams
         /// </summary>
         public async Task HandleShowTeamsListAsync(SocketSlashCommand command, SocketGuild guild, SocketTextChannel channel, PluginContext context)
         {
             // Get command definition from database for localized strings
-            var teamCommand = await GetCommandAsync("seznam-tymu", context);
+            var teamCommand = await GetCommandAsync("list-teams", context);
             var adminOnlyMsg = teamCommand?.AdminOnlyMessage ?? "Tento příkaz je pouze pro administrátory!";
             var errorMsg = teamCommand?.ErrorMessage ?? "Chyba: {0}";
 
@@ -247,24 +249,6 @@ namespace BotManager.Api.BotPlugins.DiscordBotAlliancePlugin.Handlers
                 // Load teams
                 var teamsData = await context.TeamsDataService.GetAsync(context.Bot.BotId);
 
-                var botConfig = await context.DbContext.BotConfigurations
-                    .FirstOrDefaultAsync(c => c.BotId == context.Bot.BotId);
-
-                if (botConfig?.BoardChannelId == null)
-                {
-                    await command.FollowupAsync("BoardChannelId není nastaven v konfiguraci bota.", ephemeral: true);
-                    await LogCommandUsageAsync(teamCommand, command.User, false, "Missing BoardChannelId", context);
-                    return;
-                }
-
-                var boardChannel = guild.GetTextChannel(botConfig.BoardChannelId.Value);
-                if (boardChannel == null)
-                {
-                    await command.FollowupAsync($"Kanál s ID {botConfig.BoardChannelId.Value} nebyl nalezen na serveru.", ephemeral: true);
-                    await LogCommandUsageAsync(teamCommand, command.User, false, "Board channel not found", context);
-                    return;
-                }
-
                 if (!teamsData.Teams.Any())
                 {
                     var emptyMsg = teamCommand?.SuccessMessage ?? "Nejsou registrovány žádné týmy.";
@@ -273,51 +257,11 @@ namespace BotManager.Api.BotPlugins.DiscordBotAlliancePlugin.Handlers
                     return;
                 }
 
-                // Create embed with teams list
-                var embed = new EmbedBuilder()
-                    .WithTitle("📋 Seznam všech týmů")
-                    .WithColor(Color.Blue)
-                    .WithFooter($"Aktualizováno: {DateTime.Now:dd.MM.yyyy HH:mm:ss}")
-                    .WithDescription($"Celkem registrovaných týmů: {teamsData.Teams.Count}");
+                var boardUpdated = await RefreshBoardMessageAsync(context, teamsData);
 
-                foreach (var team in teamsData.Teams)
-                {
-                    var emoji = string.IsNullOrEmpty(team.Emoji) ? "🎯" : team.Emoji;
-                    var fieldName = $"{emoji} {team.Name}";
-                    var fieldValue = $"**Velitel:** {team.LeaderName}\n**Kontakt:** {team.Contact}";
-                    
-                    embed.AddField(fieldName, fieldValue, inline: false);
-                }
-
-                var shouldDiscover = !botConfig.BoardMessageId.HasValue;
-                if (shouldDiscover)
-                {
-                    botConfig.BoardMessageId = await FindBotBoardMessageAsync(boardChannel, guild.CurrentUser.Id);
-                    if (botConfig.BoardMessageId.HasValue)
-                    {
-                        await context.DbContext.SaveChangesAsync();
-                    }
-                }
-
-                IUserMessage? targetMessage = null;
-                if (botConfig.BoardMessageId.HasValue)
-                {
-                    targetMessage = await boardChannel.GetMessageAsync(botConfig.BoardMessageId.Value) as IUserMessage;
-                }
-
-                if (targetMessage != null)
-                {
-                    await targetMessage.ModifyAsync(m => m.Content = BoardMessageMarker);
-                    await targetMessage.ModifyAsync(m => m.Embed = embed.Build());
-                }
-                else
-                {
-                    var newMessage = await boardChannel.SendMessageAsync(BoardMessageMarker, embed: embed.Build());
-                    botConfig.BoardMessageId = newMessage.Id;
-                    await context.DbContext.SaveChangesAsync();
-                }
-
-                await command.FollowupAsync($"Seznam týmů byl publikován do kanálu <#{boardChannel.Id}>.", ephemeral: true);
+                await command.FollowupAsync(boardUpdated
+                    ? "Seznam týmů byl aktualizován na board zprávě."
+                    : "Týmy byly načteny, ale board zprávu se nepodařilo aktualizovat.", ephemeral: true);
                 context.Logger.LogInformation("Teams list displayed, total: {TeamCount}", teamsData.Teams.Count);
                 await LogCommandUsageAsync(teamCommand, command.User, true, null, context);
             }
@@ -326,6 +270,77 @@ namespace BotManager.Api.BotPlugins.DiscordBotAlliancePlugin.Handlers
                 context.Logger.LogError(ex, "Error showing teams list");
                 await command.FollowupAsync(string.Format(errorMsg, ex.Message), ephemeral: true);
                 await LogCommandUsageAsync(teamCommand, command.User, false, ex.Message, context);
+            }
+        }
+
+        public async Task HandlePublishBoardAsync(SocketSlashCommand command, SocketGuild guild, SocketTextChannel channel, PluginContext context)
+        {
+            var boardCommand = await GetCommandAsync("publish-board", context);
+            var type = GetStringOption(command, "type") ?? "teams";
+            var customTitle = GetStringOption(command, "title");
+            var customDescription = GetStringOption(command, "description");
+
+            try
+            {
+                if (string.Equals(type, "plain", StringComparison.OrdinalIgnoreCase))
+                {
+                    var discordBotService = context.ServiceProvider.GetService(typeof(IDiscordBotService)) as IDiscordBotService;
+                    if (discordBotService == null)
+                    {
+                        await command.FollowupAsync("Discord bot service is not available.", ephemeral: true);
+                        await LogCommandUsageAsync(boardCommand, command.User, false, "Discord bot service unavailable", context);
+                        return;
+                    }
+
+                    var plainBoard = new BotManager.Backend.Bots.Models.BoardMessageDto
+                    {
+                        Title = string.IsNullOrWhiteSpace(customTitle) ? "📋 Board" : customTitle,
+                        Description = string.IsNullOrWhiteSpace(customDescription)
+                            ? "Board published manually."
+                            : customDescription,
+                        Entries = new List<BotManager.Backend.Bots.Models.BoardMessageEntryDto>()
+                    };
+
+                    var updated = await discordBotService.RefreshBoardMessageAsync(context.Bot.BotId, plainBoard);
+                    await command.FollowupAsync(updated
+                        ? "Plain board was published."
+                        : "Failed to publish plain board.", ephemeral: true);
+                    await LogCommandUsageAsync(boardCommand, command.User, updated, updated ? null : "Board update failed", context);
+                    return;
+                }
+
+                var teamsData = await context.TeamsDataService.GetAsync(context.Bot.BotId);
+                var teamsBoard = BoardMessageFactory.FromTeams(teamsData);
+
+                if (!string.IsNullOrWhiteSpace(customTitle))
+                {
+                    teamsBoard.Title = customTitle;
+                }
+
+                if (!string.IsNullOrWhiteSpace(customDescription))
+                {
+                    teamsBoard.Description = customDescription;
+                }
+
+                var service = context.ServiceProvider.GetService(typeof(IDiscordBotService)) as IDiscordBotService;
+                if (service == null)
+                {
+                    await command.FollowupAsync("Discord bot service is not available.", ephemeral: true);
+                    await LogCommandUsageAsync(boardCommand, command.User, false, "Discord bot service unavailable", context);
+                    return;
+                }
+
+                var boardUpdated = await service.RefreshBoardMessageAsync(context.Bot.BotId, teamsBoard);
+                await command.FollowupAsync(boardUpdated
+                    ? "Team board was published."
+                    : "Failed to publish team board.", ephemeral: true);
+                await LogCommandUsageAsync(boardCommand, command.User, boardUpdated, boardUpdated ? null : "Board update failed", context);
+            }
+            catch (Exception ex)
+            {
+                context.Logger.LogError(ex, "Error publishing board");
+                await command.FollowupAsync($"Error publishing board: {ex.Message}", ephemeral: true);
+                await LogCommandUsageAsync(boardCommand, command.User, false, ex.Message, context);
             }
         }
 
@@ -368,24 +383,21 @@ namespace BotManager.Api.BotPlugins.DiscordBotAlliancePlugin.Handlers
             }
         }
 
-        private static async Task<ulong?> FindBotBoardMessageAsync(SocketTextChannel channel, ulong botUserId)
+        private async Task<bool> RefreshBoardMessageAsync(PluginContext context, BotTeamsDto teamsData)
         {
-            var messages = await channel.GetMessagesAsync(limit: 100).FlattenAsync();
-            var byMarker = messages
-                .OfType<IUserMessage>()
-                .FirstOrDefault(m => m.Author.Id == botUserId && string.Equals(m.Content, BoardMessageMarker, StringComparison.Ordinal));
-
-            if (byMarker != null)
+            var discordBotService = context.ServiceProvider.GetService(typeof(IDiscordBotService)) as IDiscordBotService;
+            if (discordBotService == null)
             {
-                return byMarker.Id;
+                context.Logger.LogWarning("Discord bot service is not available, skipping board refresh");
+                return false;
             }
 
-            // Backward compatibility for older board posts before marker was introduced.
-            var fallback = messages
-                .OfType<IUserMessage>()
-                .FirstOrDefault(m => m.Author.Id == botUserId && m.Embeds.Count > 0);
+            return await discordBotService.RefreshBoardMessageAsync(context.Bot.BotId, BoardMessageFactory.FromTeams(teamsData));
+        }
 
-            return fallback?.Id;
+        private static string? GetStringOption(SocketSlashCommand command, string optionName)
+        {
+            return command.Data.Options.FirstOrDefault(o => o.Name == optionName)?.Value as string;
         }
     }
 }

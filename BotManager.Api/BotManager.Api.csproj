@@ -24,6 +24,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\BotManager.Backend.Bots\BotManager.Backend.Bots.csproj" />
+    <ProjectReference Include="..\BotManager.Backend.Contracts\BotManager.Backend.Contracts.csproj" />
     <ProjectReference Include="..\BotManager.Backend.Entities\BotManager.Backend.Entities.csproj" />
     <ProjectReference Include="..\BotManager.Backend.Services\BotManager.Backend.Services.csproj" />
   </ItemGroup>
