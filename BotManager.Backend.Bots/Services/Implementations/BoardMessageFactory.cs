@@ -1,4 +1,4 @@
-using BotManager.Backend.Contracts.Models;
+using BotManager.Backend.Shared.Models;
 using BotManager.Backend.Bots.Models;
 
 namespace BotManager.Backend.Bots.Services.Implementations

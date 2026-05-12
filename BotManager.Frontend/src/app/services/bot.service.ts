@@ -5,6 +5,8 @@ import { Observable } from 'rxjs';
 export interface BotPublicDto {
   botId: number;
   name: string;
+  ownerUserId: string;
+  isPublic: boolean;
   discordBotName?: string;
   discordBotAvatarUrl?: string;
   serverCount?: number;
@@ -17,6 +19,8 @@ export interface AdminBotDto {
   botId: number;
   name: string;
   botToken: string;
+  ownerUserId: string;
+  isPublic: boolean;
   discordBotName?: string;
   discordBotAvatarUrl?: string;
   serverCount?: number;
@@ -69,6 +73,7 @@ export interface AdminBotDetailDto extends AdminBotDto {
 export interface CreateBotDto {
   name: string;
   botToken: string;
+  isPublic: boolean;
 }
 
 @Injectable({
@@ -83,6 +88,10 @@ export class BotService {
 
   getAdminBots(): Observable<AdminBotDto[]> {
     return this.http.get<AdminBotDto[]>('/api/bot/admin');
+  }
+
+  getMyBots(): Observable<AdminBotDto[]> {
+    return this.http.get<AdminBotDto[]>('/api/bot/mine');
   }
 
   getBotDetail(id: number): Observable<AdminBotDetailDto> {

@@ -24,6 +24,10 @@
             <input type="password" [(ngModel)]="newBotToken" name="botToken" placeholder="Discord developer token"
                 required />
         </div>
+        <div class="form-group" style="display:flex; align-items:center; gap:8px;">
+            <input type="checkbox" [(ngModel)]="newBotIsPublic" name="botIsPublic" id="botIsPublic" />
+            <label for="botIsPublic" style="margin:0;">{{ i18n.t('admin.public_bot') }}</label>
+        </div>
         <button type="submit" class="btn btn-primary w-100" [disabled]="formLoading">
             {{ formLoading ? i18n.t('admin.creating') : i18n.t('admin.register') }}
         </button>
@@ -45,6 +49,8 @@
                 <h3>{{ bot.name }}</h3>
                 <p class="discord-subtitle" *ngIf="bot.discordBotName">{{ bot.discordBotName }}</p>
                 <p class="server-count" *ngIf="bot.serverCount">{{ i18n.t('bot.servers') }}: {{ bot.serverCount }}</p>
+                <p class="server-count">{{ i18n.t('admin.owner') }}: {{ bot.ownerUserId }}</p>
+                <p class="server-count">{{ i18n.t('admin.visibility') }}: {{ bot.isPublic ? i18n.t('admin.public') : i18n.t('admin.private') }}</p>
                 <span class="status-badge" [ngClass]="bot.status.toLowerCase()">{{ i18n.t('status.' + bot.status)
                     }}</span>
                 <span class="uptime-label" *ngIf="bot.status === 'Online'">{{ getBotUptime(bot) }}</span>

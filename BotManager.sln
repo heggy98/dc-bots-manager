@@ -1,4 +1,4 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
@@ -9,11 +9,11 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BotManager.Backend.Entities
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BotManager.Backend.Services", "BotManager.Backend.Services\BotManager.Backend.Services.csproj", "{CAF610A8-ED31-4EA0-9675-66D2600F28D7}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BotManager.Api", "BotManager.Api\BotManager.Api.csproj", "{FCEADFD8-7CCB-4511-80C1-D20176E59F50}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BotManager.Backend.API", "BotManager.Backend.API\BotManager.Backend.API.csproj", "{FCEADFD8-7CCB-4511-80C1-D20176E59F50}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BotManager.Backend.Bots", "BotManager.Backend.Bots\BotManager.Backend.Bots.csproj", "{0F49518F-905F-4F3F-832B-E44F89689F74}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BotManager.Backend.Contracts", "BotManager.Backend.Contracts\BotManager.Backend.Contracts.csproj", "{8E0E13D8-2B7D-42DC-8CCE-E91D8E0FB29C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BotManager.Backend.Shared", "BotManager.Backend.Shared\BotManager.Backend.Shared.csproj", "{8E0E13D8-2B7D-42DC-8CCE-E91D8E0FB29C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

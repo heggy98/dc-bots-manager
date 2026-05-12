@@ -14,6 +14,8 @@
                     <h2>{{ bot.name }}</h2>
                     <p class="discord-subtitle" *ngIf="bot.discordBotName">{{ bot.discordBotName }}</p>
                     <p class="server-count" *ngIf="bot.serverCount">{{ i18n.t('bot.servers') }}: {{ bot.serverCount }}</p>
+                    <p class="server-count">{{ i18n.t('admin.owner') }}: {{ bot.ownerUserId }}</p>
+                    <p class="server-count">{{ i18n.t('admin.visibility') }}: {{ bot.isPublic ? i18n.t('admin.public') : i18n.t('admin.private') }}</p>
                     <div class="bot-meta">
                         <span class="status-badge" [ngClass]="bot.status.toLowerCase()">{{ i18n.t('status.' + bot.status) }}</span>
                         <span class="text-muted" *ngIf="getStatusTimestamp()" style="font-size:0.82rem;">

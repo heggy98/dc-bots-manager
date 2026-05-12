@@ -412,6 +412,6 @@ public class EmojisWrapper
 ## 9. NOTES
 
 ⚠️ **DEPRECATED NOTICE:** The file contains a note that this bot instance is deprecated:
-> "This discord-bot-aliance instance is now deprecated. Use BotManager.Api to start/manage this bot."
+> "This discord-bot-aliance instance is now deprecated. Use BotManager.Backend.API to start/manage this bot."
 
-The bot now should be managed through the BotManager.Api system instead of running directly.
+The bot now should be managed through the BotManager.Backend.API system instead of running directly.

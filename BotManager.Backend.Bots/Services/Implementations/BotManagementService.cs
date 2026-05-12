@@ -3,8 +3,8 @@ using BotManager.Backend.Entities.Entities;
 using BotManager.Backend.Bots.Services.Contracts;
 using BotManager.Backend.Bots.Models;
 using BotManager.Backend.Bots.Services.Implementations;
-using BotManager.Backend.Contracts.Models;
-using BotManager.Backend.Contracts.Services;
+using BotManager.Backend.Shared.Models;
+using BotManager.Backend.Shared.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 

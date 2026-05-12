@@ -18,6 +18,7 @@ export class AdminHomeComponent implements OnInit {
   showForm = false;
   newBotName = '';
   newBotToken = '';
+  newBotIsPublic = false;
   formError = '';
   formLoading = false;
 
@@ -32,7 +33,7 @@ export class AdminHomeComponent implements OnInit {
 
   loadBots(): void {
     this.loading = true;
-    this.botService.getAdminBots().subscribe({
+    this.botService.getMyBots().subscribe({
       next: (data) => { this.bots = data; this.loading = false; },
       error: (err) => {
         if (err.status === 401) { this.authService.logout(); this.router.navigate(['/login']); }
@@ -48,8 +49,15 @@ export class AdminHomeComponent implements OnInit {
   createBot(): void {
     if (!this.newBotName || !this.newBotToken) { this.formError = this.i18n.t('admin.fill_fields'); return; }
     this.formLoading = true;
-    this.botService.createBot({ name: this.newBotName, botToken: this.newBotToken }).subscribe({
-      next: () => { this.newBotName = ''; this.newBotToken = ''; this.showForm = false; this.formLoading = false; this.loadBots(); },
+    this.botService.createBot({ name: this.newBotName, botToken: this.newBotToken, isPublic: this.newBotIsPublic }).subscribe({
+      next: () => {
+        this.newBotName = '';
+        this.newBotToken = '';
+        this.newBotIsPublic = false;
+        this.showForm = false;
+        this.formLoading = false;
+        this.loadBots();
+      },
       error: () => { this.formError = this.i18n.t('admin.create_error'); this.formLoading = false; }
     });
   }

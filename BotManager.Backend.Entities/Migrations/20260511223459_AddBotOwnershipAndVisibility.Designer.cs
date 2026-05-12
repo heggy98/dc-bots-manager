@@ -4,6 +4,7 @@ using BotManager.Backend.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BotManager.Backend.Entities.Migrations
 {
     [DbContext(typeof(BotManagerDbContext))]
-    partial class BotManagerDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260511223459_AddBotOwnershipAndVisibility")]
+    partial class AddBotOwnershipAndVisibility
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

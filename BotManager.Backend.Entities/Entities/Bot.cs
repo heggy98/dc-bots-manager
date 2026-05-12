@@ -24,6 +24,12 @@ namespace BotManager.Backend.Entities.Entities
         [MaxLength(1000)]
         public string BotToken { get; set; } = string.Empty;
 
+        [Required]
+        [MaxLength(200)]
+        public string OwnerUserId { get; set; } = string.Empty;
+
+        public bool IsPublic { get; set; } = false;
+
         public BotStatus Status { get; set; } = BotStatus.Offline;
 
         public DateTime? LastStartedAt { get; set; }

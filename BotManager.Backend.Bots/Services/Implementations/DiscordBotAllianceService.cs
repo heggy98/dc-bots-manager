@@ -78,6 +78,9 @@ namespace BotManager.Backend.Bots.Services.Implementations
                 _client.Disconnected += DisconnectedAsync;
                 _client.LatencyUpdated += LatencyUpdatedAsync;
                 _client.SlashCommandExecuted += HandleSlashCommandExecutedAsync;
+                _client.ReactionAdded += HandleReactionAddedEventAsync;
+                _client.ReactionRemoved += HandleReactionRemovedEventAsync;
+                _logger.LogInformation("Subscribed Discord event handlers including reaction role events.");
 
                 var startupStopwatch = Stopwatch.StartNew();
                 _logger.LogInformation("Starting Discord bot client. Initial state={State}", _client.ConnectionState);
@@ -515,6 +518,148 @@ namespace BotManager.Backend.Bots.Services.Implementations
             _client.Disconnected -= DisconnectedAsync;
             _client.LatencyUpdated -= LatencyUpdatedAsync;
             _client.SlashCommandExecuted -= HandleSlashCommandExecutedAsync;
+            _client.ReactionAdded -= HandleReactionAddedEventAsync;
+            _client.ReactionRemoved -= HandleReactionRemovedEventAsync;
+        }
+
+        private async Task HandleReactionAddedEventAsync(
+            Cacheable<IUserMessage, ulong> cachedMessage,
+            Cacheable<IMessageChannel, ulong> cachedChannel,
+            SocketReaction reaction)
+        {
+            await HandleReactionEventInternalAsync(
+                methodName: "HandleReactionAddedAsync",
+                cachedMessage: cachedMessage,
+                cachedChannel: cachedChannel,
+                reaction: reaction);
+        }
+
+        private async Task HandleReactionRemovedEventAsync(
+            Cacheable<IUserMessage, ulong> cachedMessage,
+            Cacheable<IMessageChannel, ulong> cachedChannel,
+            SocketReaction reaction)
+        {
+            await HandleReactionEventInternalAsync(
+                methodName: "HandleReactionRemovedAsync",
+                cachedMessage: cachedMessage,
+                cachedChannel: cachedChannel,
+                reaction: reaction);
+        }
+
+        private async Task HandleReactionEventInternalAsync(
+            string methodName,
+            Cacheable<IUserMessage, ulong> cachedMessage,
+            Cacheable<IMessageChannel, ulong> cachedChannel,
+            SocketReaction reaction)
+        {
+            if (!_currentBotId.HasValue)
+            {
+                return;
+            }
+
+            if (_client?.CurrentUser != null && reaction.UserId == _client.CurrentUser.Id)
+            {
+                return;
+            }
+
+            try
+            {
+                var rawChannel = await cachedChannel.GetOrDownloadAsync();
+                if (rawChannel is not ISocketMessageChannel socketChannel)
+                {
+                    return;
+                }
+
+                if (socketChannel is not SocketGuildChannel guildChannel)
+                {
+                    return;
+                }
+
+                var guild = guildChannel.Guild;
+                var user = guild.GetUser(reaction.UserId);
+                if (user == null || user.IsBot)
+                {
+                    return;
+                }
+
+                using var scope = _scopeFactory.CreateScope();
+                var serviceProvider = scope.ServiceProvider;
+                var db = serviceProvider.GetRequiredService<BotManagerDbContext>();
+
+                var bot = await db.Bots.FindAsync(_currentBotId.Value);
+                if (bot == null)
+                {
+                    return;
+                }
+
+                var pluginRegistryType = ResolveType("BotManager.Backend.API.BotPlugins.PluginRegistry");
+                var pluginContextType = ResolveType("BotManager.Backend.API.BotPlugins.PluginContext");
+                if (pluginRegistryType == null || pluginContextType == null)
+                {
+                    return;
+                }
+
+                var pluginRegistry = serviceProvider.GetService(pluginRegistryType);
+                if (pluginRegistry == null)
+                {
+                    return;
+                }
+
+                var getOrCreatePluginMethod = pluginRegistryType.GetMethod("GetOrCreatePlugin", new[] { typeof(int), typeof(string) });
+                if (getOrCreatePluginMethod == null)
+                {
+                    return;
+                }
+
+                var plugin = getOrCreatePluginMethod.Invoke(pluginRegistry, new object[] { _currentBotId.Value, "discord-aliance" });
+                if (plugin == null)
+                {
+                    return;
+                }
+
+                var pluginContext = Activator.CreateInstance(pluginContextType);
+                if (pluginContext == null)
+                {
+                    return;
+                }
+
+                SetRequiredProperty(pluginContextType, pluginContext, "Bot", bot);
+                SetRequiredProperty(pluginContextType, pluginContext, "DbContext", db);
+
+                var systemConfigServiceType = ResolveType("BotManager.Backend.API.Services.SystemConfigService");
+                var teamsDataServiceType = ResolveType("BotManager.Backend.API.Services.ITeamsDataService");
+                var botDataServiceType = ResolveType("BotManager.Backend.API.Services.IBotDataService");
+                if (systemConfigServiceType == null || teamsDataServiceType == null || botDataServiceType == null)
+                {
+                    return;
+                }
+
+                var systemConfigService = serviceProvider.GetService(systemConfigServiceType);
+                var teamsDataService = serviceProvider.GetService(teamsDataServiceType);
+                var botDataService = serviceProvider.GetService(botDataServiceType);
+                if (systemConfigService == null || teamsDataService == null || botDataService == null)
+                {
+                    return;
+                }
+
+                SetRequiredProperty(pluginContextType, pluginContext, "SystemConfigService", systemConfigService);
+                SetRequiredProperty(pluginContextType, pluginContext, "TeamsDataService", teamsDataService);
+                SetRequiredProperty(pluginContextType, pluginContext, "BotDataService", botDataService);
+                SetRequiredProperty(pluginContextType, pluginContext, "Logger", _logger);
+                SetRequiredProperty(pluginContextType, pluginContext, "ServiceProvider", serviceProvider);
+
+                if (!_pluginInitialized)
+                {
+                    await InvokeTaskMethodAsync(plugin, "InitializeAsync", pluginContext);
+                    _pluginInitialized = true;
+                }
+
+                await InvokeTaskMethodAsync(plugin, methodName, cachedMessage, socketChannel, reaction, guild, user, pluginContext);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unhandled error while dispatching reaction event {MethodName}", methodName);
+            }
         }
 
         private async Task HandleSlashCommandExecutedAsync(SocketSlashCommand command)
@@ -540,8 +685,8 @@ namespace BotManager.Backend.Bots.Services.Implementations
                     return;
                 }
 
-                var pluginRegistryType = ResolveType("BotManager.Api.BotPlugins.PluginRegistry");
-                var pluginContextType = ResolveType("BotManager.Api.BotPlugins.PluginContext");
+                var pluginRegistryType = ResolveType("BotManager.Backend.API.BotPlugins.PluginRegistry");
+                var pluginContextType = ResolveType("BotManager.Backend.API.BotPlugins.PluginContext");
                 if (pluginRegistryType == null || pluginContextType == null)
                 {
                     _logger.LogError("Plugin types were not resolved. PluginRegistry={RegistryFound}, PluginContext={ContextFound}",
@@ -586,9 +731,9 @@ namespace BotManager.Backend.Bots.Services.Implementations
                 SetRequiredProperty(pluginContextType, pluginContext, "Bot", bot);
                 SetRequiredProperty(pluginContextType, pluginContext, "DbContext", db);
 
-                var systemConfigServiceType = ResolveType("BotManager.Api.Services.SystemConfigService");
-                var teamsDataServiceType = ResolveType("BotManager.Api.Services.ITeamsDataService");
-                var botDataServiceType = ResolveType("BotManager.Api.Services.IBotDataService");
+                var systemConfigServiceType = ResolveType("BotManager.Backend.API.Services.SystemConfigService");
+                var teamsDataServiceType = ResolveType("BotManager.Backend.API.Services.ITeamsDataService");
+                var botDataServiceType = ResolveType("BotManager.Backend.API.Services.IBotDataService");
                 if (systemConfigServiceType == null || teamsDataServiceType == null || botDataServiceType == null)
                 {
                     _logger.LogError("Failed to resolve plugin context service types. SystemConfig={SystemConfigFound}, Teams={TeamsFound}, BotData={BotDataFound}",
