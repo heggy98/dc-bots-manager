@@ -5,6 +5,9 @@ using Microsoft.Extensions.Logging;
 
 namespace BotManager.Backend.Bots.Services.Implementations
 {
+    /// <summary>
+    /// Retrieves Discord bot identity and guild metadata via Discord REST APIs.
+    /// </summary>
     public class DiscordBotIdentityService
     {
         private readonly IHttpClientFactory _httpClientFactory;
@@ -15,12 +18,18 @@ namespace BotManager.Backend.Bots.Services.Implementations
             PropertyNameCaseInsensitive = true
         };
 
+        /// <summary>
+        /// Creates a new Discord bot identity service.
+        /// </summary>
         public DiscordBotIdentityService(IHttpClientFactory httpClientFactory, ILogger<DiscordBotIdentityService> logger)
         {
             _httpClientFactory = httpClientFactory;
             _logger = logger;
         }
 
+        /// <summary>
+        /// Gets guild names visible to a bot token.
+        /// </summary>
         public async Task<List<string>> GetGuildNamesAsync(string botToken, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(botToken))
@@ -56,6 +65,9 @@ namespace BotManager.Backend.Bots.Services.Implementations
             }
         }
 
+        /// <summary>
+        /// Gets display identity information for a bot token.
+        /// </summary>
         public async Task<DiscordBotIdentity?> GetIdentityAsync(string botToken, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(botToken))
@@ -105,6 +117,9 @@ namespace BotManager.Backend.Bots.Services.Implementations
             }
         }
 
+        /// <summary>
+        /// Normalizes token input by trimming wrappers and optional Bot prefix.
+        /// </summary>
         private static string NormalizeBotToken(string botToken)
         {
             var normalized = botToken.Trim().Trim('"', '\'');
@@ -116,6 +131,9 @@ namespace BotManager.Backend.Bots.Services.Implementations
             return normalized;
         }
 
+        /// <summary>
+        /// Builds a CDN avatar URL for a Discord profile, falling back to default avatar.
+        /// </summary>
         private static string BuildAvatarUrl(DiscordProfileResponse profile)
         {
             if (!string.IsNullOrWhiteSpace(profile.Avatar))

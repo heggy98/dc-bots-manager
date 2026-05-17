@@ -18,6 +18,9 @@ namespace BotManager.Backend.API.Controllers
         private readonly AuthService _authService;
         private readonly ILogger<AuthController> _logger;
 
+        /// <summary>
+        /// Creates a new authentication controller.
+        /// </summary>
         public AuthController(IConfiguration configuration, IBruteforceProtectionService bruteforceProtection,
             AuthService authService, ILogger<AuthController> logger)
         {
@@ -37,6 +40,9 @@ namespace BotManager.Backend.API.Controllers
             return Ok(new { locked, attempts });
         }
 
+        /// <summary>
+        /// Authenticates admin credentials using configured email/password.
+        /// </summary>
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
@@ -68,6 +74,9 @@ namespace BotManager.Backend.API.Controllers
             return Unauthorized("Invalid credentials.");
         }
 
+        /// <summary>
+        /// Authenticates the configured admin account using Google ID token validation.
+        /// </summary>
         [HttpPost("google-login")]
         public async Task<IActionResult> GoogleLogin([FromBody] LoginRequest request)
         {
@@ -98,6 +107,9 @@ namespace BotManager.Backend.API.Controllers
             return Ok(new LoginResponse { Token = GenerateJwtToken(payload.Email), Email = payload.Email });
         }
 
+        /// <summary>
+        /// Generates a signed JWT token for a successfully authenticated user.
+        /// </summary>
         private string GenerateJwtToken(string email)
         {
             var secret = _configuration["JwtSettings:Secret"];
@@ -124,6 +136,9 @@ namespace BotManager.Backend.API.Controllers
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
+        /// <summary>
+        /// Resolves caller IP address for bruteforce tracking and audit logs.
+        /// </summary>
         private string GetIp() => HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
     }
 }

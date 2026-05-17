@@ -1,5 +1,8 @@
 import { HttpInterceptorFn } from '@angular/common/http';
 
+/**
+ * Adds bearer token header to outgoing API requests when available.
+ */
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const token = localStorage.getItem('auth_token');
   if (token) {

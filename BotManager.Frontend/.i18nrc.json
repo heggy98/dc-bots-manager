@@ -1,0 +1,11 @@
+{
+  "locales": ["cs", "en"],
+  "defaultLocale": "cs",
+  "extensions": {
+    ".json": "json"
+  },
+  "include": ["src/i18n"],
+  "exclude": [],
+  "namespace": false,
+  "pathMatcher": "{locale}.json"
+}

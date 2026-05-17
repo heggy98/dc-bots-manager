@@ -27,6 +27,11 @@ namespace BotManager.Backend.Bots.Services.Contracts
         /// <summary>
         /// Refreshes the board message for the configured board channel.
         /// </summary>
-        Task<bool> RefreshBoardMessageAsync(int botId, BoardMessageDto boardMessage);
+        Task<bool> RefreshBoardMessageAsync(int botId, BoardMessageDto boardMessage, int? boardConfigurationId = null);
+
+        /// <summary>
+        /// Rebuilds board message reactions from provided emojis only when the message already has reactions.
+        /// </summary>
+        Task<bool> SyncBoardReactionsIfPresentAsync(int botId, IEnumerable<string> emojis, int? boardConfigurationId = null);
     }
 }

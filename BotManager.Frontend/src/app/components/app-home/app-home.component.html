@@ -30,6 +30,7 @@
                 <p class="status-time" *ngIf="getStatusTimestamp(bot)">
                     {{ i18n.t(isOnline(bot) ? 'bot.running' : 'bot.last_online') }}:
                     {{ getStatusTimestamp(bot) | date:'dd.MM.yyyy HH:mm' }}
+                    <span *ngIf="getStatusDurationText(bot) !== '—'">({{ getStatusDurationText(bot) }})</span>
                 </p>
             </div>
         </div>

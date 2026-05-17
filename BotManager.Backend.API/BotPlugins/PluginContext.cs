@@ -1,7 +1,7 @@
 using BotManager.Backend.Entities;
 using BotManager.Backend.Entities.Entities;
-using BotManager.Backend.API.Services;
 using BotManager.Backend.Shared.Services;
+using BotManager.Backend.Shared.Models;
 using Microsoft.Extensions.Logging;
 
 namespace BotManager.Backend.API.BotPlugins
@@ -9,7 +9,7 @@ namespace BotManager.Backend.API.BotPlugins
     /// <summary>
     /// Context provided to bot plugins, containing access to bot data, services, and databases.
     /// </summary>
-    public class PluginContext
+    public class PluginContext : IPluginContext
     {
         /// <summary>
         /// The bot entity this plugin is running for
@@ -24,7 +24,7 @@ namespace BotManager.Backend.API.BotPlugins
         /// <summary>
         /// Service for managing bot configuration
         /// </summary>
-        public required SystemConfigService SystemConfigService { get; set; }
+        public required ISystemConfigService SystemConfigService { get; set; }
 
         /// <summary>
         /// Service for managing teams (loaded from file or database based on configuration)

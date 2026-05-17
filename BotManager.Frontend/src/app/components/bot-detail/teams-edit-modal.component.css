@@ -48,6 +48,11 @@
   color: var(--text-primary);
 }
 
+.close-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .modal-body {
   padding: 20px;
   flex: 1;
@@ -79,6 +84,12 @@
   background: var(--bg-glass);
 }
 
+.team-item-deleted {
+  opacity: 0.72;
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 7%, var(--bg-glass));
+}
+
 .team-display {
   display: flex;
   flex-direction: column;
@@ -102,6 +113,14 @@
   font-size: 1.1rem;
 }
 
+.deleted-badge {
+  font-size: 0.72rem;
+  color: var(--danger);
+  border: 1px solid var(--danger);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
 .emoji-edit-btn {
   background: var(--bg-input);
   border: 1px solid var(--border-color);
@@ -110,6 +129,11 @@
   cursor: pointer;
   font-size: 0.9rem;
   color: var(--text-primary);
+}
+
+.emoji-edit-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .emoji-edit-btn:hover {
@@ -255,14 +279,44 @@
   cursor: pointer;
   transition: all 0.2s;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 4px;
+  min-height: 74px;
+}
+
+.emoji-char {
+  line-height: 1;
+}
+
+.emoji-taken-label {
+  font-size: 0.6rem;
+  line-height: 1.1;
+  text-align: center;
+  color: var(--danger);
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .emoji-option:hover {
   background: var(--bg-card-hover);
   border-color: var(--border-hover);
   transform: scale(1.1);
+}
+
+.emoji-option-taken {
+  opacity: 0.35;
+  border-color: var(--danger);
+  transform: none;
+}
+
+.emoji-option-taken:hover {
+  background: var(--bg-card);
+  border-color: var(--danger);
+  transform: none;
 }
 
 .modal-footer {
@@ -272,6 +326,42 @@
   gap: 10px;
   justify-content: flex-end;
   flex-wrap: wrap;
+}
+
+.save-progress {
+  padding: 12px 20px 0;
+}
+
+.save-progress-label {
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.save-progress-track {
+  position: relative;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--bg-input);
+  overflow: hidden;
+}
+
+.save-progress-fill {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, var(--primary), var(--success));
+  transform: translateX(-100%);
+  animation: progress-loop 1.3s ease-in-out infinite;
+}
+
+.save-progress-fill.syncing {
+  background: linear-gradient(90deg, #f59e0b, #22c55e);
+}
+
+@keyframes progress-loop {
+  0% { transform: translateX(-100%); }
+  50% { transform: translateX(-15%); }
+  100% { transform: translateX(100%); }
 }
 
 .btn {
@@ -290,6 +380,11 @@
 
 .btn-primary:hover {
   background: var(--primary-hover);
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .btn-outline {
@@ -319,5 +414,24 @@
 
 .w-100 {
   width: 100%;
+}
+
+.modal-footer-notice {
+  padding: 0 20px 16px;
+  color: var(--warning, #f59e0b);
+  font-size: 0.86rem;
+}
+
+.save-attention {
+  animation: shake-save 0.42s ease-in-out;
+}
+
+@keyframes shake-save {
+  0% { transform: translateX(0); }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+  100% { transform: translateX(0); }
 }
 

@@ -1,4 +1,4 @@
-using BotManager.Backend.Entities;
+using BotManager.Backend.Shared.Models;
 using Microsoft.Extensions.Logging;
 
 namespace BotManager.Backend.API.BotPlugins
@@ -6,53 +6,62 @@ namespace BotManager.Backend.API.BotPlugins
     /// <summary>
     /// Registry for managing bot plugins. Handles plugin discovery, loading, and execution.
     /// </summary>
-    public class PluginRegistry
+    public class PluginRegistry : IPluginRegistry
     {
+        private const string CanonicalDiscordPluginId = "discord-board";
+        private const string LegacyDiscordAlliancePluginId = "discord-alliance";
+        private const string LegacyDiscordAliancePluginId = "discord-aliance";
+
         private readonly Dictionary<string, Type> _registeredPlugins = new();
         private readonly Dictionary<int, IDiscordBotPlugin> _activePlugins = new();
-        private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<PluginRegistry> _logger;
 
-        public PluginRegistry(IServiceProvider serviceProvider, ILogger<PluginRegistry> logger)
+        /// <summary>
+        /// Creates a plugin registry and registers built-in plugins.
+        /// </summary>
+        public PluginRegistry(ILogger<PluginRegistry> logger)
         {
-            _serviceProvider = serviceProvider;
             _logger = logger;
             RegisterDefaultPlugins();
         }
 
         /// <summary>
-        /// Register default plugins that come with the system
+        /// Registers default plugins that ship with the application.
         /// </summary>
         private void RegisterDefaultPlugins()
         {
-            RegisterPlugin("discord-aliance", typeof(DiscordBotAlliancePlugin.DiscordBotAlliancePlugin));
+            RegisterPlugin(CanonicalDiscordPluginId, typeof(DiscordBoardPlugin.DiscordBoardPlugin));
         }
 
         /// <summary>
-        /// Register a plugin type with the registry
+        /// Registers a plugin type for a given plugin id.
         /// </summary>
         public void RegisterPlugin(string pluginId, Type pluginType)
         {
+            var normalizedPluginId = NormalizePluginId(pluginId);
+
             if (!typeof(IDiscordBotPlugin).IsAssignableFrom(pluginType))
             {
                 throw new ArgumentException($"Plugin type {pluginType.Name} must implement IDiscordBotPlugin", nameof(pluginType));
             }
 
-            _registeredPlugins[pluginId] = pluginType;
-            _logger.LogInformation("Registered plugin: {PluginId} ({PluginType})", pluginId, pluginType.Name);
+            _registeredPlugins[normalizedPluginId] = pluginType;
+            _logger.LogInformation("Registered plugin: {PluginId} ({PluginType})", normalizedPluginId, pluginType.Name);
         }
 
         /// <summary>
-        /// Get or create a plugin instance for a bot
+        /// Returns an existing plugin instance for a bot, or creates one if missing.
         /// </summary>
         public IDiscordBotPlugin GetOrCreatePlugin(int botId, string pluginId)
         {
+            var normalizedPluginId = NormalizePluginId(pluginId);
+
             if (_activePlugins.TryGetValue(botId, out var plugin))
             {
                 return plugin;
             }
 
-            if (!_registeredPlugins.TryGetValue(pluginId, out var pluginType))
+            if (!_registeredPlugins.TryGetValue(normalizedPluginId, out var pluginType))
             {
                 throw new KeyNotFoundException($"Plugin '{pluginId}' not found in registry");
             }
@@ -64,12 +73,12 @@ namespace BotManager.Backend.API.BotPlugins
             }
 
             _activePlugins[botId] = instance;
-            _logger.LogInformation("Created plugin instance for bot {BotId}: {PluginId}", botId, pluginId);
+            _logger.LogInformation("Created plugin instance for bot {BotId}: {PluginId}", botId, normalizedPluginId);
             return instance;
         }
 
         /// <summary>
-        /// Remove a plugin instance
+        /// Removes the cached plugin instance for a bot.
         /// </summary>
         public void RemovePlugin(int botId)
         {
@@ -78,7 +87,7 @@ namespace BotManager.Backend.API.BotPlugins
         }
 
         /// <summary>
-        /// Get the plugin for a specific bot
+        /// Gets the currently cached plugin for a bot, if available.
         /// </summary>
         public IDiscordBotPlugin? GetPlugin(int botId)
         {
@@ -87,13 +96,27 @@ namespace BotManager.Backend.API.BotPlugins
         }
 
         /// <summary>
-        /// Get all registered plugin IDs
+        /// Gets all currently registered plugin ids.
         /// </summary>
         public IEnumerable<string> GetRegisteredPluginIds() => _registeredPlugins.Keys;
 
         /// <summary>
-        /// Check if a plugin is registered
+        /// Checks whether a plugin id is registered.
         /// </summary>
-        public bool IsPluginRegistered(string pluginId) => _registeredPlugins.ContainsKey(pluginId);
+        public bool IsPluginRegistered(string pluginId) => _registeredPlugins.ContainsKey(NormalizePluginId(pluginId));
+
+        /// <summary>
+        /// Normalizes legacy plugin ids to the canonical id.
+        /// </summary>
+        private static string NormalizePluginId(string pluginId)
+        {
+            if (string.Equals(pluginId, LegacyDiscordAlliancePluginId, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(pluginId, LegacyDiscordAliancePluginId, StringComparison.OrdinalIgnoreCase))
+            {
+                return CanonicalDiscordPluginId;
+            }
+
+            return pluginId;
+        }
     }
 }

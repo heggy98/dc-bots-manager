@@ -25,12 +25,21 @@ export interface LoginAuditDto {
     providedIn: 'root'
 })
 export class LogService {
+    /**
+     * Creates a new logging API service.
+     */
     constructor(private http: HttpClient) { }
 
+    /**
+     * Gets recent system log rows.
+     */
     getSystemLogs(take: number = 100): Observable<SystemLogDto[]> {
         return this.http.get<SystemLogDto[]>(`/api/systemlogs?take=${take}`);
     }
 
+    /**
+     * Gets recent login audit log rows.
+     */
     getLoginAuditLogs(take: number = 100): Observable<LoginAuditDto[]> {
         return this.http.get<LoginAuditDto[]>(`/api/systemlogs/login-audit?take=${take}`);
     }

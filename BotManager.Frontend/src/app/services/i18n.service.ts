@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, catchError, of, tap } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
 
 export type AppLang = 'cs' | 'en';
 
@@ -7,8 +8,10 @@ export interface Translations {
     [key: string]: string;
 }
 
+// Fallback translations (for backwards compatibility)
 const CS: Translations = {
     'nav.dashboard': 'Dashboard',
+    'nav.commands': 'Příkazy',
     'nav.logs': 'Systémové logy',
     'nav.config': 'Konfigurace',
     'nav.login': 'Přihlášení',
@@ -28,6 +31,7 @@ const CS: Translations = {
     'login.error_locked': 'Příliš mnoho pokusů. Zkuste to později.',
     'login.error_google': 'Google autentizace selhala',
     'login.fill_fields': 'Vyplňte e-mail a heslo',
+    'login.success': 'Přihlášení proběhlo úspěšně.',
     'admin.title': 'Administrace',
     'admin.subtitle': 'Spravujte boty, sledujte výkon.',
     'admin.add_bot': '+ Přidat nového bota',
@@ -49,6 +53,7 @@ const CS: Translations = {
     'admin.manage': 'Spravovat a konfigurovat',
     'admin.fill_fields': 'Zadejte název i token',
     'admin.create_error': 'Nepovedlo se vytvořit bota. Zkuste to znovu.',
+    'admin.create_success': 'Bot byl úspěšně vytvořen.',
     'bot.back': '← Zpět na Dashboard',
     'bot.start': 'Spustit bota',
     'bot.stop': 'Zastavit bota',
@@ -70,6 +75,12 @@ const CS: Translations = {
     'bot.total_err': 'Celkem chyb',
     'bot.logs': 'Logy bota',
     'bot.no_logs': 'Žádné logy.',
+    'bot.clear_logs': 'Vyčistit logy',
+    'bot.clear_history': 'Vyčistit historii běhů',
+    'bot.confirm_clear_logs': 'Opravdu chcete smazat všechny logy tohoto bota?',
+    'bot.confirm_clear_history': 'Opravdu chcete smazat celou historii běhů tohoto bota?',
+    'bot.clear_logs_error': 'Nepodařilo se vyčistit logy bota.',
+    'bot.clear_history_error': 'Nepodařilo se vyčistit historii běhů bota.',
     'bot.history': 'Historie spuštění',
     'bot.history_start': 'Spuštěno',
     'bot.history_stop': 'Zastaveno',
@@ -78,8 +89,28 @@ const CS: Translations = {
     'bot.confirm_start': 'Opravdu chcete spustit bota?',
     'bot.confirm_stop': 'Opravdu chcete zastavit bota?',
     'bot.confirm_restart': 'Opravdu chcete restartovat bota?',
+    'bot.start_success': 'Bot byl spuštěn.',
+    'bot.stop_success': 'Bot byl zastaven.',
+    'bot.start_error': 'Nepodařilo se spustit bota.',
+    'bot.stop_error': 'Nepodařilo se zastavit bota.',
+    'bot.properties': 'Vlastnosti',
+    'bot.make_public': 'Nastavit veřejný',
+    'bot.make_private': 'Nastavit soukromý',
     'bot.running': 'Běží',
     'bot.last_online': 'Naposledy online',
+    'bot.boards': 'Board konfigurace',
+    'bot.boards_empty': 'Žádné boards nakonfigurovány.',
+    'bot.board_active': 'Aktivní',
+    'bot.board_type': 'Typ',
+    'bot.board_title': 'Název board',
+    'bot.board_description': 'Popis (šablona)',
+    'bot.board_subtitle_label': 'Podtitul – štítek',
+    'bot.board_contact_label': 'Kontakt – štítek',
+    'bot.board_edit_config': 'Upravit',
+    'bot.board_edit_teams': 'Týmy',
+    'bot.board_set_active': 'Nastavit aktivní',
+    'bot.board_add': 'Přidat board',
+    'bot.board_delete': 'Smazat',
     'logs.title': 'Systémové logy',
     'logs.subtitle': 'Globální logy aplikace a služeb.',
     'logs.refresh': 'Obnovit logy',
@@ -91,14 +122,39 @@ const CS: Translations = {
     'config.subtitle': 'Nastavení Bruteforce ochrany a dalších parametrů.',
     'config.save': 'Uložit',
     'config.saved': 'Uloženo.',
+    'config.save_error': 'Uložení selhalo.',
+    'commands.title': 'Globální správa příkazů',
+    'commands.subtitle': 'Upravte nastavení příkazů napříč vašimi boty.',
+    'commands.refresh': 'Obnovit',
+    'commands.none': 'Nebyly nalezeny žádné příkazy.',
+    'commands.enabled': 'Zapnuto',
+    'commands.disabled': 'Vypnuto',
+    'commands.used_in_bots': 'Počet botů',
+    'commands.has_differences': 'Nastavení se mezi boty liší.',
+    'commands.permission': 'Úroveň oprávnění',
+    'commands.description': 'Popis',
+    'commands.user_hint': 'Nápověda',
+    'commands.success_message': 'Úspěšná zpráva',
+    'commands.permission_message': 'Zpráva při chybě oprávnění',
+    'commands.error_message': 'Chybová zpráva',
+    'commands.admin_only_message': 'Admin-only zpráva',
+    'commands.invalid_args_message': 'Zpráva pro neplatné argumenty',
+    'commands.edit': 'Upravit',
+    'commands.save': 'Uložit',
+    'commands.saved': 'Uloženo, upravených záznamů',
+    'commands.save_error': 'Uložení selhalo.',
     'footer.uptime': 'BotManager běží',
     'status.Online': 'Připojen',
     'status.Offline': 'Odpojen',
-    'status.Working': 'Pracuje'
+    'status.Working': 'Pracuje',
+    'status.Reconnecting': 'Znovu se připojuje',
+    'status.Connecting': 'Připojuje se',
+    'status.Disconnecting': 'Odpojuje se'
 };
 
 const EN: Translations = {
     'nav.dashboard': 'Dashboard',
+    'nav.commands': 'Commands',
     'nav.logs': 'System Logs',
     'nav.config': 'Configuration',
     'nav.login': 'Login',
@@ -118,6 +174,7 @@ const EN: Translations = {
     'login.error_locked': 'Too many attempts. Please try again later.',
     'login.error_google': 'Google authentication failed',
     'login.fill_fields': 'Please enter email and password',
+    'login.success': 'Signed in successfully.',
     'admin.title': 'Admin Dashboard',
     'admin.subtitle': 'Manage your bots, monitor performance.',
     'admin.add_bot': '+ Add New Bot',
@@ -139,6 +196,7 @@ const EN: Translations = {
     'admin.manage': 'Manage & Configure',
     'admin.fill_fields': 'Please provide both Name and Token',
     'admin.create_error': 'Failed to create bot. Please try again.',
+    'admin.create_success': 'Bot created successfully.',
     'bot.back': '← Back to Dashboard',
     'bot.start': 'Start Bot',
     'bot.stop': 'Stop Bot',
@@ -160,6 +218,12 @@ const EN: Translations = {
     'bot.total_err': 'Total Errors',
     'bot.logs': 'Bot Logs',
     'bot.no_logs': 'No logs available.',
+    'bot.clear_logs': 'Clear logs',
+    'bot.clear_history': 'Clear run history',
+    'bot.confirm_clear_logs': 'Do you really want to delete all logs for this bot?',
+    'bot.confirm_clear_history': 'Do you really want to delete all run history for this bot?',
+    'bot.clear_logs_error': 'Failed to clear bot logs.',
+    'bot.clear_history_error': 'Failed to clear bot run history.',
     'bot.history': 'Run History',
     'bot.history_start': 'Started',
     'bot.history_stop': 'Stopped',
@@ -168,8 +232,28 @@ const EN: Translations = {
     'bot.confirm_start': 'Are you sure you want to start the bot?',
     'bot.confirm_stop': 'Are you sure you want to stop the bot?',
     'bot.confirm_restart': 'Are you sure you want to restart the bot?',
+    'bot.start_success': 'Bot started successfully.',
+    'bot.stop_success': 'Bot stopped successfully.',
+    'bot.start_error': 'Failed to start bot.',
+    'bot.stop_error': 'Failed to stop bot.',
+    'bot.properties': 'Properties',
+    'bot.make_public': 'Make Public',
+    'bot.make_private': 'Make Private',
     'bot.running': 'Running',
     'bot.last_online': 'Last online',
+    'bot.boards': 'Board Configurations',
+    'bot.boards_empty': 'No boards configured.',
+    'bot.board_active': 'Active',
+    'bot.board_type': 'Type',
+    'bot.board_title': 'Board Title',
+    'bot.board_description': 'Description Template',
+    'bot.board_subtitle_label': 'Subtitle Label',
+    'bot.board_contact_label': 'Contact Label',
+    'bot.board_edit_config': 'Edit',
+    'bot.board_edit_teams': 'Teams',
+    'bot.board_set_active': 'Set Active',
+    'bot.board_add': 'Add Board',
+    'bot.board_delete': 'Delete',
     'logs.title': 'System Logs',
     'logs.subtitle': 'Global application and service logs.',
     'logs.refresh': 'Refresh Logs',
@@ -181,30 +265,95 @@ const EN: Translations = {
     'config.subtitle': 'Configure Bruteforce protection and other parameters.',
     'config.save': 'Save',
     'config.saved': 'Saved.',
+    'config.save_error': 'Save failed.',
+    'commands.title': 'Global Commands Management',
+    'commands.subtitle': 'Edit command settings across your bots.',
+    'commands.refresh': 'Refresh',
+    'commands.none': 'No commands found.',
+    'commands.enabled': 'Enabled',
+    'commands.disabled': 'Disabled',
+    'commands.used_in_bots': 'Bots count',
+    'commands.has_differences': 'Settings differ across bots.',
+    'commands.permission': 'Permission level',
+    'commands.description': 'Description',
+    'commands.user_hint': 'User hint',
+    'commands.success_message': 'Success message',
+    'commands.permission_message': 'Permission message',
+    'commands.error_message': 'Error message',
+    'commands.admin_only_message': 'Admin-only message',
+    'commands.invalid_args_message': 'Invalid arguments message',
+    'commands.edit': 'Edit',
+    'commands.save': 'Save',
+    'commands.saved': 'Saved, updated rows',
+    'commands.save_error': 'Save failed.',
     'footer.uptime': 'BotManager running for',
     'status.Online': 'Connected',
     'status.Offline': 'Disconnected',
-    'status.Working': 'Working'
+    'status.Working': 'Working',
+    'status.Reconnecting': 'Reconnecting',
+    'status.Connecting': 'Connecting',
+    'status.Disconnecting': 'Disconnecting'
 };
 
 @Injectable({ providedIn: 'root' })
 export class I18nService {
     private langSubject = new BehaviorSubject<AppLang>(this.getSavedLang());
     lang$ = this.langSubject.asObservable();
+    
+    private loadedTranslations: { [key in AppLang]?: Translations } = {};
 
+    /**
+     * Reads persisted language preference from local storage.
+     */
     private getSavedLang(): AppLang {
         return (localStorage.getItem('lang') as AppLang) || 'cs';
     }
 
+    constructor(private http: HttpClient) {
+        // Pre-load current language translations
+        this.ensureLanguageLoaded(this.currentLang).subscribe();
+    }
+
+    /**
+     * Returns currently selected language.
+     */
     get currentLang(): AppLang { return this.langSubject.value; }
 
+    /**
+     * Persists and publishes active language selection.
+     */
     setLang(lang: AppLang): void {
         localStorage.setItem('lang', lang);
         this.langSubject.next(lang);
     }
 
+    /**
+     * Ensures a language's translations are loaded from the JSON file.
+     */
+    private ensureLanguageLoaded(lang: AppLang) {
+        if (this.loadedTranslations[lang]) {
+            return of(null);
+        }
+
+        const filePath = `/i18n/${lang}.json`;
+        return this.http.get<Translations>(filePath).pipe(
+            tap(translations => {
+                this.loadedTranslations[lang] = translations;
+            }),
+            catchError(() => {
+                // Fallback to hardcoded translations if JSON load fails
+                this.loadedTranslations[lang] = lang === 'cs' ? CS : EN;
+                return of(null);
+            })
+        );
+    }
+
+    /**
+     * Resolves a translation string for the active language.
+     */
     t(key: string): string {
-        const dict = this.currentLang === 'cs' ? CS : EN;
+        const lang = this.currentLang;
+        const dict = this.loadedTranslations[lang] || (lang === 'cs' ? CS : EN);
         return dict[key] || key;
     }
 }

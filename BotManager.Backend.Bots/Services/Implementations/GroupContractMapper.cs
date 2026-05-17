@@ -2,8 +2,14 @@ using BotManager.Backend.Shared.Models;
 
 namespace BotManager.Backend.Bots.Services.Implementations
 {
+    /// <summary>
+    /// Maps between team DTOs and shared group DTO contracts.
+    /// </summary>
     public static class GroupContractMapper
     {
+        /// <summary>
+        /// Maps team DTOs to group DTOs.
+        /// </summary>
         public static BotGroupsDto FromTeams(BotTeamsDto teamsData)
         {
             return new BotGroupsDto
@@ -19,6 +25,9 @@ namespace BotManager.Backend.Bots.Services.Implementations
             };
         }
 
+        /// <summary>
+        /// Maps group DTOs back to team DTOs.
+        /// </summary>
         public static BotTeamsDto ToTeams(BotGroupsDto groupsData)
         {
             return new BotTeamsDto

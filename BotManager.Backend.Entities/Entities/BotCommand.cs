@@ -17,6 +17,9 @@ namespace BotManager.Backend.Entities.Entities
         [MaxLength(100)]
         public string CommandName { get; set; } = null!;
 
+        [MaxLength(100)]
+        public string? SubCommandName { get; set; } // Subcommand name (e.g., "add-team" for "/board add-team")
+
         [MaxLength(500)]
         public string? Description { get; set; }
 

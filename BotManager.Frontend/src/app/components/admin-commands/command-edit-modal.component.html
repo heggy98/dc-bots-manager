@@ -1,0 +1,67 @@
+<div class="modal-overlay" *ngIf="isOpen">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>/{{ command?.commandName }}<span *ngIf="command?.subCommandName"> {{ command?.subCommandName }}</span></h3>
+      <button class="close-btn" (click)="closeModal()">✕</button>
+    </div>
+
+    <div class="modal-body" *ngIf="draft">
+      <form (ngSubmit)="saveCommand()">
+        <div class="form-group">
+          <label>Description</label>
+          <input type="text" [(ngModel)]="draft.description" name="description" />
+        </div>
+
+        <div class="form-group">
+          <label>Permission Level</label>
+          <input type="number" min="0" max="10" [(ngModel)]="draft.minimumPermissionLevel" name="permissionLevel" />
+          <p class="form-hint">0 = Public, higher = more restricted</p>
+        </div>
+
+        <div class="form-group inline-field">
+          <input type="checkbox" id="isEnabled" [(ngModel)]="draft.isEnabled" name="isEnabled" />
+          <label for="isEnabled">Enabled</label>
+        </div>
+
+        <div class="form-group">
+          <label>User Hint</label>
+          <input type="text" [(ngModel)]="draft.userHint" name="userHint" placeholder="Help text shown to users" />
+        </div>
+
+        <div class="form-divider">Messages</div>
+
+        <div class="form-group">
+          <label>Success Message</label>
+          <input type="text" [(ngModel)]="draft.successMessage" name="successMessage" />
+        </div>
+
+        <div class="form-group">
+          <label>Permission Message</label>
+          <input type="text" [(ngModel)]="draft.permissionMessage" name="permissionMessage" />
+        </div>
+
+        <div class="form-group">
+          <label>Error Message</label>
+          <input type="text" [(ngModel)]="draft.errorMessage" name="errorMessage" />
+        </div>
+
+        <div class="form-group">
+          <label>Admin-Only Message</label>
+          <input type="text" [(ngModel)]="draft.adminOnlyMessage" name="adminOnlyMessage" />
+        </div>
+
+        <div class="form-group">
+          <label>Invalid Arguments Message</label>
+          <input type="text" [(ngModel)]="draft.invalidArgumentsMessage" name="invalidArgumentsMessage" />
+        </div>
+
+        <div style="display: flex; gap: 8px; margin-top: 24px;">
+          <button type="submit" class="btn btn-primary" [disabled]="loading">
+            {{ loading ? 'Saving...' : 'Save' }}
+          </button>
+          <button type="button" class="btn btn-outline" (click)="closeModal()">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

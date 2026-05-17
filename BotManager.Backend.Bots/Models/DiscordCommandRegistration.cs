@@ -6,6 +6,7 @@ namespace BotManager.Backend.Bots.Models
     public sealed class DiscordCommandRegistration
     {
         public required string Name { get; init; }
+        public string? SubCommandName { get; init; } // Subcommand name for hierarchical commands (e.g., "add-team" for "/board add-team")
         public required string Description { get; init; }
         public int MinPermissionLevel { get; init; }
         public string? UserHint { get; init; }

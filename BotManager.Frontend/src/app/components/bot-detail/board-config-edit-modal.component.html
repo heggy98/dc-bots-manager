@@ -1,0 +1,42 @@
+<div class="modal-backdrop" *ngIf="isOpen">
+<div class="modal-panel" (click)="$event.stopPropagation()">
+  <div class="modal-header">
+    <h3 style="margin: 0">{{ i18n.t('bot.board_edit_config') }}</h3>
+    <button class="modal-close" (click)="onClose()">×</button>
+  </div>
+  <div class="modal-body">
+    <div class="form-group">
+      <label>{{ i18n.t('bot.board_type') }}</label>
+      <input type="text" [(ngModel)]="draft.boardType" placeholder="teams" />
+    </div>
+    <div class="form-group">
+      <label>{{ i18n.t('bot.board_channel') }}</label>
+      <input type="text" [(ngModel)]="draft.boardChannelId" placeholder="Channel ID" />
+    </div>
+    <div class="form-group">
+      <label>{{ i18n.t('bot.board_msg') }}</label>
+      <input type="text" [(ngModel)]="draft.boardMessageId" placeholder="Message ID" />
+    </div>
+    <div class="form-group">
+      <label>{{ i18n.t('bot.board_title') }}</label>
+      <input type="text" [(ngModel)]="draft.boardTitle" placeholder="Board Title" />
+    </div>
+    <div class="form-group">
+      <label>{{ i18n.t('bot.board_description') }}</label>
+      <textarea [(ngModel)]="draft.boardDescriptionTemplate" rows="4" placeholder="Description template..."></textarea>
+    </div>
+    <div class="form-group">
+      <label>{{ i18n.t('bot.board_subtitle_label') }}</label>
+      <input type="text" [(ngModel)]="draft.subtitleLabel" placeholder="Subtitle label" />
+    </div>
+    <div class="form-group">
+      <label>{{ i18n.t('bot.board_contact_label') }}</label>
+      <input type="text" [(ngModel)]="draft.contactLabel" placeholder="Contact label" />
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-outline btn-sm" (click)="onClose()">Cancel</button>
+    <button class="btn btn-primary btn-sm" (click)="onSave()">Save</button>
+  </div>
+</div>
+</div>

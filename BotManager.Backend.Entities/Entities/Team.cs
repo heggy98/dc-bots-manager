@@ -9,17 +9,21 @@ namespace BotManager.Backend.Entities.Entities
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int TeamId { get; set; }
 
+        public int BoardConfigurationId { get; set; }
+
         [Required]
         [MaxLength(200)]
-        public string Name { get; set; }
+        public string Name { get; set; } = string.Empty;
 
         [MaxLength(200)]
-        public string LeaderName { get; set; }
+        public string LeaderName { get; set; } = string.Empty;
 
         [MaxLength(200)]
-        public string CommanderContact { get; set; }
+        public string CommanderContact { get; set; } = string.Empty;
 
         [MaxLength(50)]
-        public string Emoji { get; set; }
+        public string Emoji { get; set; } = string.Empty;
+
+        public virtual BoardConfiguration BoardConfiguration { get; set; } = null!;
     }
 }

@@ -7,7 +7,10 @@ namespace BotManager.Backend.Entities.Entities
     {
         Offline = 0,
         Online = 1,
-        Working = 2
+        Working = 2,
+        Reconnecting = 3,
+        Connecting = 4,
+        Disconnecting = 5
     }
 
     public class Bot
@@ -37,7 +40,8 @@ namespace BotManager.Backend.Entities.Entities
 
         // Navigation properties
         public virtual BotConfiguration? Configuration { get; set; }
-        public virtual ICollection<BotHistory> Histories { get; set; } = new List<BotHistory>();
+        public virtual ICollection<BoardConfiguration> BoardConfigurations { get; set; } = new List<BoardConfiguration>();
+        public virtual ICollection<BotRunHistory> Histories { get; set; } = new List<BotRunHistory>();
         public virtual ICollection<BotCommand> Commands { get; set; } = new List<BotCommand>();
     }
 }

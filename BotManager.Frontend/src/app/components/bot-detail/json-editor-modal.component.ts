@@ -21,6 +21,9 @@ export class JsonEditorModalComponent {
   hint = '';
   isJsonValid = false;
 
+  /**
+   * Initializes local JSON text whenever input payload changes.
+   */
   ngOnChanges(): void {
     if (this.data) {
       try {
@@ -37,6 +40,9 @@ export class JsonEditorModalComponent {
     }
   }
 
+  /**
+   * Closes the modal and resets editor state.
+   */
   closeModal(): void {
     this.close.emit();
     this.jsonText = '';
@@ -45,10 +51,16 @@ export class JsonEditorModalComponent {
     this.isJsonValid = false;
   }
 
+  /**
+   * Revalidates JSON text after editor input changes.
+   */
   onJsonInput(): void {
     this.validateJson();
   }
 
+  /**
+   * Validates current JSON text and updates error/hint state.
+   */
   private validateJson(): void {
     if (!this.jsonText || !this.jsonText.trim()) {
       this.error = 'JSON is empty.';
@@ -69,6 +81,9 @@ export class JsonEditorModalComponent {
     }
   }
 
+  /**
+   * Builds a user hint with line/column information from parse errors.
+   */
   private buildParseHint(message: string): string {
     const posMatch = message.match(/position\s+(\d+)/i);
     if (!posMatch) {
@@ -87,6 +102,9 @@ export class JsonEditorModalComponent {
     return `${message} (line ${line}, column ${column})`;
   }
 
+  /**
+   * Emits parsed JSON when valid and closes the modal.
+   */
   saveJson(): void {
     this.validateJson();
     if (!this.isJsonValid) {

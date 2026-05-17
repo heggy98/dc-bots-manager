@@ -5,18 +5,27 @@ using BotManager.Backend.Shared.Services;
 
 namespace BotManager.Backend.API.Services
 {
+    /// <summary>
+    /// Maps between board group DTOs and shared group storage DTOs.
+    /// </summary>
     public class TeamBoardGroupDataService : IGroupBoardDataService
     {
         private readonly IGroupDataService _groupDataService;
 
+        /// <summary>
+        /// Creates a new board group mapping service.
+        /// </summary>
         public TeamBoardGroupDataService(IGroupDataService groupDataService)
         {
             _groupDataService = groupDataService;
         }
 
-        public async Task<BoardGroupCollectionDto> GetAsync(int botId)
+        /// <summary>
+        /// Loads board groups for a bot from shared group data storage.
+        /// </summary>
+        public async Task<BoardGroupCollectionDto> GetAsync(int botId, int? boardConfigurationId = null)
         {
-            var groupsData = await _groupDataService.GetAsync(botId);
+            var groupsData = await _groupDataService.GetAsync(botId, boardConfigurationId);
             return new BoardGroupCollectionDto
             {
                 Groups = groupsData.Groups.Select(group => new BoardGroupDto
@@ -30,7 +39,10 @@ namespace BotManager.Backend.API.Services
             };
         }
 
-        public async Task SaveAsync(int botId, BoardGroupCollectionDto data)
+        /// <summary>
+        /// Saves board groups by converting them to shared group data DTOs.
+        /// </summary>
+        public async Task SaveAsync(int botId, BoardGroupCollectionDto data, int? boardConfigurationId = null)
         {
             var groupsData = new BotGroupsDto
             {
@@ -44,7 +56,7 @@ namespace BotManager.Backend.API.Services
                 }).ToList()
             };
 
-            await _groupDataService.SaveAsync(botId, groupsData);
+            await _groupDataService.SaveAsync(botId, groupsData, boardConfigurationId);
         }
     }
 }

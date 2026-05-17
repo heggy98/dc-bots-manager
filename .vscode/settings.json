@@ -1,5 +1,6 @@
 {
     "chat.tools.terminal.autoApprove": {
-        "dotnet ef": true
+        "dotnet ef": true,
+        "npm run build": true
     }
 }

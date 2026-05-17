@@ -1,0 +1,69 @@
+<div class="page-header">
+  <div>
+    <h2>{{ i18n.t('commands.title') }}</h2>
+    <p class="text-muted">{{ i18n.t('commands.subtitle') }}</p>
+  </div>
+  <div class="header-actions">
+    <button class="btn btn-outline" (click)="loadCommands()">{{ i18n.t('commands.refresh') }}</button>
+  </div>
+</div>
+
+<div *ngIf="saveMessage" class="success-alert">{{ saveMessage }}</div>
+
+<div *ngIf="loading" class="loading-spinner">{{ i18n.t('admin.loading') }}</div>
+
+<div *ngIf="!loading && commands.length === 0" class="loading-spinner">{{ i18n.t('commands.none') }}</div>
+
+<div *ngIf="!loading && commandGroups.length > 0" class="commands-group-list">
+  <div class="panel command-group" *ngFor="let group of commandGroups; trackBy: trackByCommandGroup">
+    <div class="cmd-header">
+      <h3>/{{ group.commandName }}</h3>
+      <span class="text-muted">{{ group.items.length }} {{ group.items.length === 1 ? 'entry' : 'entries' }}</span>
+    </div>
+
+    <div class="commands-table-wrap">
+      <table class="commands-table">
+        <thead>
+          <tr>
+            <th>Subcommand</th>
+            <th>Status</th>
+            <th>{{ i18n.t('commands.permission') }}</th>
+            <th>{{ i18n.t('commands.used_in_bots') }}</th>
+            <th>{{ i18n.t('commands.description') }}</th>
+            <th>{{ i18n.t('commands.user_hint') }}</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let cmd of group.items; trackBy: trackByCommandKey">
+            <td class="subcommand-cell">
+              <span *ngIf="cmd.subCommandName; else rootCommand">{{ cmd.subCommandName }}</span>
+              <ng-template #rootCommand><span class="text-muted">(root)</span></ng-template>
+            </td>
+            <td>
+              <span class="status-badge" [ngClass]="cmd.isEnabled ? 'online' : 'offline'">
+                {{ cmd.isEnabled ? i18n.t('commands.enabled') : i18n.t('commands.disabled') }}
+              </span>
+              <div class="text-muted table-note" *ngIf="cmd.hasDifferencesAcrossBots">{{ i18n.t('commands.has_differences') }}</div>
+            </td>
+            <td>{{ cmd.minimumPermissionLevel }}</td>
+            <td>{{ cmd.botCount }}</td>
+            <td>{{ cmd.description || '—' }}</td>
+            <td>{{ cmd.userHint || '—' }}</td>
+            <td class="actions-cell">
+              <button class="btn btn-primary btn-sm" (click)="openEditModal(cmd)">{{ i18n.t('commands.edit') }}</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<app-command-edit-modal
+  [isOpen]="showEditModal"
+  [command]="editingCommand"
+  (close)="closeEditModal()"
+  (save)="saveCommand($event)">
+</app-command-edit-modal>

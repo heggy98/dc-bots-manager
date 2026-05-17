@@ -1,8 +1,8 @@
-<div class="modal-overlay" *ngIf="isOpen" (click)="closeModal()">
+<div class="modal-overlay" *ngIf="isOpen">
   <div class="modal-content" (click)="$event.stopPropagation()">
     <div class="modal-header">
       <h3>Manage Teams</h3>
-      <button class="close-btn" (click)="closeModal()">✕</button>
+      <button class="close-btn" (click)="closeModal()" [disabled]="isSaving">✕</button>
     </div>
 
     <div class="modal-body">
@@ -10,19 +10,19 @@
       <div class="section">
         <h4>Teams</h4>
         <div class="teams-list">
-          <div *ngFor="let team of localTeams; let i = index" class="team-item">
+          <div *ngFor="let team of localTeams; let i = index" class="team-item" [class.team-item-deleted]="team._deleted">
             <div *ngIf="editingTeamIndex === i" class="team-edit-form">
               <div class="form-row">
                 <input type="text" [(ngModel)]="editingTeam.name" placeholder="Team Name" />
                 <div class="emoji-select">
-                  <button class="emoji-btn" (click)="openEmojiPicker(i)">{{ editingTeam.emoji || '🎯' }}</button>
+                  <button class="emoji-btn" (click)="openEmojiPicker(i)" [disabled]="isSaving">{{ editingTeam.emoji || '🎯' }}</button>
                 </div>
               </div>
               <input type="text" [(ngModel)]="editingTeam.leaderName" placeholder="Leader Name" />
               <input type="text" [(ngModel)]="editingTeam.contact" placeholder="Contact" />
               <div class="team-actions">
-                <button class="btn btn-sm btn-primary" (click)="saveTeamEdit()">Save</button>
-                <button class="btn btn-sm btn-outline" (click)="cancelEdit()">Cancel</button>
+                <button class="btn btn-sm btn-primary" (click)="saveTeamEdit()" [disabled]="isSaving">Save</button>
+                <button class="btn btn-sm btn-outline" (click)="cancelEdit()" [disabled]="isSaving">Cancel</button>
               </div>
             </div>
 
@@ -30,15 +30,17 @@
               <div class="team-header">
                 <span class="emoji-display">{{ team.emoji || '🎯' }}</span>
                 <strong class="team-name">{{ team.name }}</strong>
-                <button class="emoji-edit-btn" (click)="openEmojiPicker(i)">🎨</button>
+                <span *ngIf="team._deleted" class="deleted-badge">Deleted after save</span>
+                <button class="emoji-edit-btn" (click)="openEmojiPicker(i)" [disabled]="team._deleted || isSaving">🎨</button>
               </div>
               <div class="team-details">
                 <span class="detail">👤 {{ team.leaderName }}</span>
                 <span class="detail">📱 {{ team.contact }}</span>
               </div>
               <div class="team-actions">
-                <button class="btn btn-sm btn-outline" (click)="startEditTeam(i)">Edit</button>
-                <button class="btn btn-sm btn-outline-red" (click)="deleteTeam(i)">Delete</button>
+                <button class="btn btn-sm btn-outline" (click)="startEditTeam(i)" [disabled]="team._deleted || isSaving">Edit</button>
+                <button class="btn btn-sm btn-outline-red" (click)="deleteTeam(i)" *ngIf="!team._deleted" [disabled]="isSaving">Delete</button>
+                <button class="btn btn-sm btn-outline" (click)="undoDeleteTeam(i)" *ngIf="team._deleted" [disabled]="isSaving">Undo Delete</button>
               </div>
             </div>
           </div>
@@ -48,18 +50,18 @@
             <div class="form-row">
               <input type="text" [(ngModel)]="newTeam.name" placeholder="Team Name" />
               <div class="emoji-select">
-                <button class="emoji-btn" (click)="openEmojiPicker(-1)">{{ newTeam.emoji || '🎯' }}</button>
+                <button class="emoji-btn" (click)="openEmojiPicker(-1)" [disabled]="isSaving">{{ newTeam.emoji || '🎯' }}</button>
               </div>
             </div>
             <input type="text" [(ngModel)]="newTeam.leaderName" placeholder="Leader Name" />
             <input type="text" [(ngModel)]="newTeam.contact" placeholder="Contact" />
             <div class="team-actions">
-              <button class="btn btn-sm btn-primary" (click)="addTeam()">Add Team</button>
-              <button class="btn btn-sm btn-outline" (click)="cancelNewTeam()">Cancel</button>
+              <button class="btn btn-sm btn-primary" (click)="addTeam()" [disabled]="isSaving">Add Team</button>
+              <button class="btn btn-sm btn-outline" (click)="cancelNewTeam()" [disabled]="isSaving">Cancel</button>
             </div>
           </div>
 
-          <button *ngIf="!showNewTeamForm" class="btn btn-sm btn-primary w-100" style="margin-top: 12px;" (click)="startNewTeam()">
+          <button *ngIf="!showNewTeamForm" class="btn btn-sm btn-primary w-100" style="margin-top: 12px;" (click)="startNewTeam()" [disabled]="isSaving">
             + Add Team
           </button>
         </div>
@@ -70,21 +72,35 @@
         <div class="emoji-picker" (click)="$event.stopPropagation()">
           <div class="emoji-picker-header">
             <h4>Select Emoji</h4>
-            <button class="close-btn" (click)="closeEmojiPicker()">✕</button>
+            <button class="close-btn" (click)="closeEmojiPicker()" [disabled]="isSaving">✕</button>
           </div>
           <div class="emoji-grid">
-            <button *ngFor="let emoji of emojiSuggestions" class="emoji-option" (click)="selectEmoji(emoji)">
-              {{ emoji }}
+            <button
+              *ngFor="let emoji of emojiSuggestions"
+              class="emoji-option"
+              (click)="selectEmoji(emoji)"
+              [disabled]="isSaving || isEmojiTakenInPicker(emoji)"
+              [class.emoji-option-taken]="isEmojiTakenInPicker(emoji)">
+              <span class="emoji-char">{{ emoji }}</span>
+              <span class="emoji-taken-label" *ngIf="getEmojiTakenByTeamName(emoji) as owner">Used by {{ owner }}</span>
             </button>
           </div>
         </div>
       </div>
     </div>
 
+    <div class="save-progress" *ngIf="isSaving">
+      <div class="save-progress-label">{{ savePhase === 'syncing' ? 'Syncing emojis...' : 'Saving teams...' }}</div>
+      <div class="save-progress-track">
+        <div class="save-progress-fill" [class.syncing]="savePhase === 'syncing'"></div>
+      </div>
+    </div>
+
     <div class="modal-footer">
-      <button class="btn btn-outline" (click)="editJsonManually()">Edit JSON</button>
-      <button class="btn btn-primary" (click)="saveChanges()">Save All Changes</button>
+      <button class="btn btn-outline" (click)="editJsonManually()" [disabled]="isSaving">Edit JSON</button>
+      <button class="btn btn-primary" (click)="saveChanges()" [disabled]="!canSaveChanges()" [class.save-attention]="shakeSaveButton">Save All Changes</button>
       <button class="btn btn-outline" (click)="closeModal()">Cancel</button>
     </div>
+    <div class="modal-footer-notice" *ngIf="footerNotice">{{ footerNotice }}</div>
   </div>
 </div>

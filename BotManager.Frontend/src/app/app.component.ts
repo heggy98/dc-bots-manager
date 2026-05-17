@@ -17,7 +17,14 @@ import { ThemeService } from './services/theme.service';
   styles: []
 })
 export class AppComponent implements OnInit {
+  /**
+   * Creates the app root component.
+   */
   constructor(private themeService: ThemeService) { }
+
+  /**
+   * Initializes application theme on startup.
+   */
   ngOnInit(): void {
     this.themeService.init();
   }

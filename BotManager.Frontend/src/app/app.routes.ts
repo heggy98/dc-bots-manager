@@ -5,6 +5,7 @@ import { AdminHomeComponent } from './components/admin-home/admin-home.component
 import { BotDetailComponent } from './components/bot-detail/bot-detail.component';
 import { AdminLogsComponent } from './components/admin-logs/admin-logs.component';
 import { AdminConfigComponent } from './components/admin-config/admin-config.component';
+import { AdminCommandsComponent } from './components/admin-commands/admin-commands.component';
 import { authGuard } from './guards/auth.guard';
 
 export const routes: Routes = [
@@ -14,5 +15,6 @@ export const routes: Routes = [
     { path: 'admin/bot/:id', component: BotDetailComponent, canActivate: [authGuard] },
     { path: 'admin/logs', component: AdminLogsComponent, canActivate: [authGuard] },
     { path: 'admin/config', component: AdminConfigComponent, canActivate: [authGuard] },
+    { path: 'admin/commands', component: AdminCommandsComponent, canActivate: [authGuard] },
     { path: '**', redirectTo: '' }
 ];

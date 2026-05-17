@@ -26,6 +26,20 @@
 .history-table th, .history-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border-color); }
 .history-table th { color: var(--text-muted); font-weight: 600; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.5px; }
 .error-detail { font-size: 0.78rem; color: var(--danger); margin-top: 4px; }
+.history-row-reconnect td { background: rgba(59, 130, 246, 0.08); }
+.history-reconnect-badge {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  background: rgba(59, 130, 246, 0.12);
+}
 
 /* Teams & Emojis Section */
 .teams-section { margin-top: 24px; }
@@ -48,6 +62,60 @@
 .emoji-badge { display: flex; align-items: center; gap: 8px; padding: 10px; background: white; border: 1px solid var(--border-color); border-radius: 6px; }
 .emoji-char { font-size: 1.5rem; min-width: 30px; text-align: center; }
 .emoji-team { font-size: 0.85rem; color: var(--text-muted); }
+
+/* Boards Section */
+.boards-section { margin-top: 0; }
+.mt-4 { margin-top: 24px; }
+.boards-list { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+.board-card { border: 1px solid var(--border-color); border-radius: 8px; padding: 14px 16px; background: var(--bg-glass); }
+.board-card-active { border-color: var(--primary); }
+.board-card-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.board-card-badges { display: flex; align-items: center; gap: 6px; }
+.board-type-badge { font-size: 0.75rem; padding: 2px 8px; border-radius: 4px; background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
+.board-card-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.board-card-details { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 10px; }
+.board-detail-item { display: flex; gap: 6px; align-items: baseline; font-size: 0.82rem; }
+.board-detail-label { color: var(--text-muted); font-weight: 500; white-space: nowrap; }
+.board-detail-value-truncated { color: var(--text-primary); max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.emojis-display { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.emoji-badge { display: flex; align-items: center; gap: 8px; padding: 10px; background: white; border: 1px solid var(--border-color); border-radius: 6px; }
+.emoji-char { font-size: 1.5rem; min-width: 30px; text-align: center; }
+.emoji-team { font-size: 0.85rem; color: var(--text-muted); }
+
+.config-display { 
+  display: flex; 
+  flex-direction: column; 
+  gap: 12px;
+  padding: 12px;
+  background: var(--bg-glass);
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+}
+
+.config-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-left: 3px solid var(--primary);
+  padding-left: 12px;
+}
+
+.config-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+
+.config-value {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-family: monospace;
+  word-break: break-word;
+}
 
 .loading-spinner-small { padding: 20px; text-align: center; color: var(--text-muted); font-size: 0.9rem; }
 

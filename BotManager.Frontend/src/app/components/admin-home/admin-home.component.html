@@ -53,7 +53,11 @@
                 <p class="server-count">{{ i18n.t('admin.visibility') }}: {{ bot.isPublic ? i18n.t('admin.public') : i18n.t('admin.private') }}</p>
                 <span class="status-badge" [ngClass]="bot.status.toLowerCase()">{{ i18n.t('status.' + bot.status)
                     }}</span>
-                <span class="uptime-label" *ngIf="bot.status === 'Online'">{{ getBotUptime(bot) }}</span>
+                <span class="uptime-label" *ngIf="getStatusTimestamp(bot)">
+                    {{ i18n.t(isOnline(bot) ? 'bot.running' : 'bot.last_online') }}:
+                    {{ getStatusTimestamp(bot) | date:'dd.MM.yyyy HH:mm' }}
+                    <span *ngIf="getStatusDurationText(bot) !== '—'">({{ getStatusDurationText(bot) }})</span>
+                </span>
             </div>
         </div>
         <div class="bot-stats-row">
@@ -65,6 +69,22 @@
                 <span class="stat-label">{{ i18n.t('admin.errors_24h') }}</span>
                 <span class="stat-value text-red">{{ bot.errors24h | number }}</span>
             </div>
+        </div>
+        <div class="bot-stats-row" style="margin-bottom:12px;">
+            <button
+                class="btn btn-primary"
+                *ngIf="!isOnline(bot)"
+                [disabled]="actionLoadingBotId === bot.botId"
+                (click)="startBot(bot.botId)">
+                {{ i18n.t('bot.start') }}
+            </button>
+            <button
+                class="btn btn-outline-red"
+                *ngIf="isOnline(bot)"
+                [disabled]="actionLoadingBotId === bot.botId"
+                (click)="stopBot(bot.botId)">
+                {{ i18n.t('bot.stop') }}
+            </button>
         </div>
         <button class="btn btn-outline w-100" [routerLink]="['/admin/bot', bot.botId]">{{ i18n.t('admin.manage')
             }}</button>

@@ -20,8 +20,14 @@ export class FooterComponent implements OnInit, OnDestroy {
     private serverUptimeSeconds = 0;
     private lastFetch = Date.now();
 
+    /**
+     * Creates a new footer component.
+     */
     constructor(public i18n: I18nService, private systemService: SystemService) { }
 
+    /**
+     * Loads server uptime baseline and starts local ticking.
+     */
     ngOnInit(): void {
         this.systemService.getUptime().subscribe({
             next: (data) => {
@@ -35,10 +41,16 @@ export class FooterComponent implements OnInit, OnDestroy {
         this.intervalId = setInterval(() => this.updateText(), 1000);
     }
 
+    /**
+     * Stops the local uptime timer.
+     */
     ngOnDestroy(): void {
         clearInterval(this.intervalId);
     }
 
+    /**
+     * Recomputes formatted uptime text from baseline and elapsed local time.
+     */
     private updateText(): void {
         const elapsed = Math.floor((Date.now() - this.lastFetch) / 1000);
         const total = this.serverUptimeSeconds + elapsed;

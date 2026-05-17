@@ -4,6 +4,7 @@
     </div>
     <div class="nav-links">
         <a routerLink="/admin" class="nav-link" *ngIf="authService.isLoggedIn()">{{ i18n.t('nav.dashboard') }}</a>
+        <a routerLink="/admin/commands" class="nav-link" *ngIf="authService.isLoggedIn()">{{ i18n.t('nav.commands') }}</a>
         <a routerLink="/admin/logs" class="nav-link" *ngIf="authService.isLoggedIn()">{{ i18n.t('nav.logs') }}</a>
         <a routerLink="/admin/config" class="nav-link" *ngIf="authService.isLoggedIn()">{{ i18n.t('nav.config') }}</a>
 

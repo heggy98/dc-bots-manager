@@ -16,10 +16,19 @@ export class AdminLogsComponent implements OnInit {
   activeTab: 'system' | 'login' = 'system';
   loading = true;
 
+  /**
+   * Creates a new admin logs component.
+   */
   constructor(private logService: LogService, public i18n: I18nService) { }
 
+  /**
+   * Loads log data on component initialization.
+   */
   ngOnInit(): void { this.loadLogs(); }
 
+  /**
+   * Loads system and login audit logs.
+   */
   loadLogs(): void {
     this.loading = true;
     this.logService.getSystemLogs().subscribe({
@@ -48,5 +57,8 @@ export class AdminLogsComponent implements OnInit {
     });
   }
 
+  /**
+   * Switches the active logs tab.
+   */
   setTab(tab: 'system' | 'login'): void { this.activeTab = tab; }
 }

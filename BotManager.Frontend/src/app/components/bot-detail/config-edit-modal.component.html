@@ -1,0 +1,45 @@
+<div class="modal-overlay" *ngIf="isOpen">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Edit Configuration</h3>
+      <button class="close-btn" (click)="closeModal()">✕</button>
+    </div>
+
+    <div class="modal-body">
+      <form (ngSubmit)="saveConfig()">
+        <div class="form-group">
+          <label>Board Channel ID</label>
+          <input type="text" inputmode="numeric" pattern="[0-9]*" [(ngModel)]="localConfig.boardChannelId" name="boardChannel" placeholder="Discord channel ID" />
+          <p class="form-hint">ID of the Discord channel where board messages are posted</p>
+        </div>
+        <div class="form-group">
+          <label>Board Message ID</label>
+          <input type="text" inputmode="numeric" pattern="[0-9]*" [(ngModel)]="localConfig.boardMessageId" name="boardMsg" placeholder="Discord message ID" />
+          <p class="form-hint">ID of the specific message to manage reactions on</p>
+        </div>
+        <div class="form-group">
+          <label>Board Title</label>
+          <input type="text" [(ngModel)]="localConfig.boardTitle" name="boardTitle" placeholder="Display title of the board" />
+        </div>
+        <div class="form-group">
+          <label>Board Description Template</label>
+          <input type="text" [(ngModel)]="localConfig.boardDescriptionTemplate" name="boardDescriptionTemplate" placeholder="Template, supports {count} and {groupCount}" />
+        </div>
+        <div class="form-group">
+          <label>Detail Subtitle Label</label>
+          <input type="text" [(ngModel)]="localConfig.subtitleLabel" name="subtitleLabel" placeholder="Label used for subtitle field" />
+        </div>
+        <div class="form-group">
+          <label>Detail Contact Label</label>
+          <input type="text" [(ngModel)]="localConfig.contactLabel" name="contactLabel" placeholder="Label used for contact field" />
+        </div>
+        <div style="display: flex; gap: 8px; margin-top: 24px;">
+          <button type="submit" class="btn btn-primary" [disabled]="loading">
+            {{ loading ? 'Saving...' : 'Save' }}
+          </button>
+          <button type="button" class="btn btn-outline" (click)="closeModal()">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,60 @@
+.commands-group-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.command-group {
+  overflow: hidden;
+}
+
+.cmd-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.cmd-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.commands-table-wrap {
+  overflow-x: auto;
+}
+
+.commands-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 780px;
+}
+
+.commands-table th,
+.commands-table td {
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--border-color);
+  vertical-align: top;
+  text-align: left;
+}
+
+.commands-table th {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.subcommand-cell {
+  font-weight: 600;
+}
+
+.actions-cell {
+  white-space: nowrap;
+  text-align: right;
+}
+
+.table-note {
+  margin-top: 6px;
+  font-size: 0.8rem;
+}
+

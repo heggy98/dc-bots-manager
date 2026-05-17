@@ -1,4 +1,4 @@
-<div class="modal-overlay" *ngIf="isOpen" (click)="closeModal()">
+<div class="modal-overlay" *ngIf="isOpen">
   <div class="modal-content" (click)="$event.stopPropagation()">
     <div class="modal-header">
       <h3>Edit {{ type === 'teams' ? 'Teams' : 'Emojis' }} JSON</h3>

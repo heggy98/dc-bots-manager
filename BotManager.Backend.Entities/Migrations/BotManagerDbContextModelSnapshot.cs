@@ -22,6 +22,93 @@ namespace BotManager.Backend.Entities.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("BotManager.Backend.Entities.Entities.BoardConfiguration", b =>
+                {
+                    b.Property<int>("BoardConfigurationId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("BoardConfigurationId"));
+
+                    b.Property<decimal?>("BoardChannelId")
+                        .HasColumnType("decimal(20,0)");
+
+                    b.Property<string>("BoardDescriptionTemplate")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<decimal?>("BoardMessageId")
+                        .HasColumnType("decimal(20,0)");
+
+                    b.Property<string>("BoardTitle")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<string>("BoardType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("BotId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ContactLabel")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<decimal?>("GuildId")
+                        .HasColumnType("decimal(20,0)");
+
+                    b.Property<string>("SubtitleLabel")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("BoardConfigurationId");
+
+                    b.HasIndex("BotId");
+
+                    b.ToTable("BoardConfigurations");
+                });
+
+            modelBuilder.Entity("BotManager.Backend.Entities.Entities.BoardGlobalConfig", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("DefaultBoardDescription")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("DefaultBoardDetailContactLabel")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("DefaultBoardDetailSubtitleLabel")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("DefaultBoardTitle")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("BoardGlobalConfigs");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            DefaultBoardDescription = "Celkem registrovaných skupin: {count}",
+                            DefaultBoardDetailContactLabel = "Kontakt",
+                            DefaultBoardDetailSubtitleLabel = "Podtitul",
+                            DefaultBoardTitle = "📋 Seznam všech skupin"
+                        });
+                });
+
             modelBuilder.Entity("BotManager.Backend.Entities.Entities.Bot", b =>
                 {
                     b.Property<int>("BotId")
@@ -111,6 +198,10 @@ namespace BotManager.Backend.Entities.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<string>("SubCommandName")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<string>("SuccessMessage")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
@@ -134,18 +225,17 @@ namespace BotManager.Backend.Entities.Migrations
                     b.Property<int>("BotId")
                         .HasColumnType("int");
 
-                    b.Property<decimal?>("BoardChannelId")
-                        .HasColumnType("decimal(20,0)");
-
-                    b.Property<decimal?>("BoardMessageId")
-                        .HasColumnType("decimal(20,0)");
+                    b.Property<int?>("ActiveBoardConfigurationId")
+                        .HasColumnType("int");
 
                     b.HasKey("BotId");
+
+                    b.HasIndex("ActiveBoardConfigurationId");
 
                     b.ToTable("BotConfigurations");
                 });
 
-            modelBuilder.Entity("BotManager.Backend.Entities.Entities.BotHistory", b =>
+            modelBuilder.Entity("BotManager.Backend.Entities.Entities.BotRunHistory", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -177,7 +267,7 @@ namespace BotManager.Backend.Entities.Migrations
 
                     b.HasIndex("BotId");
 
-                    b.ToTable("BotHistories");
+                    b.ToTable("BotRunHistories");
                 });
 
             modelBuilder.Entity("BotManager.Backend.Entities.Entities.CommandUsageLog", b =>
@@ -337,6 +427,9 @@ namespace BotManager.Backend.Entities.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("TeamId"));
 
+                    b.Property<int>("BoardConfigurationId")
+                        .HasColumnType("int");
+
                     b.Property<string>("CommanderContact")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -359,7 +452,20 @@ namespace BotManager.Backend.Entities.Migrations
 
                     b.HasKey("TeamId");
 
+                    b.HasIndex("BoardConfigurationId");
+
                     b.ToTable("Teams");
+                });
+
+            modelBuilder.Entity("BotManager.Backend.Entities.Entities.BoardConfiguration", b =>
+                {
+                    b.HasOne("BotManager.Backend.Entities.Entities.Bot", "Bot")
+                        .WithMany("BoardConfigurations")
+                        .HasForeignKey("BotId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Bot");
                 });
 
             modelBuilder.Entity("BotManager.Backend.Entities.Entities.BotCommand", b =>
@@ -375,16 +481,23 @@ namespace BotManager.Backend.Entities.Migrations
 
             modelBuilder.Entity("BotManager.Backend.Entities.Entities.BotConfiguration", b =>
                 {
+                    b.HasOne("BotManager.Backend.Entities.Entities.BoardConfiguration", "ActiveBoardConfiguration")
+                        .WithMany()
+                        .HasForeignKey("ActiveBoardConfigurationId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("BotManager.Backend.Entities.Entities.Bot", "Bot")
                         .WithOne("Configuration")
                         .HasForeignKey("BotManager.Backend.Entities.Entities.BotConfiguration", "BotId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.Navigation("ActiveBoardConfiguration");
+
                     b.Navigation("Bot");
                 });
 
-            modelBuilder.Entity("BotManager.Backend.Entities.Entities.BotHistory", b =>
+            modelBuilder.Entity("BotManager.Backend.Entities.Entities.BotRunHistory", b =>
                 {
                     b.HasOne("BotManager.Backend.Entities.Entities.Bot", "Bot")
                         .WithMany("Histories")
@@ -406,8 +519,26 @@ namespace BotManager.Backend.Entities.Migrations
                     b.Navigation("BotCommand");
                 });
 
+            modelBuilder.Entity("BotManager.Backend.Entities.Entities.Team", b =>
+                {
+                    b.HasOne("BotManager.Backend.Entities.Entities.BoardConfiguration", "BoardConfiguration")
+                        .WithMany("Teams")
+                        .HasForeignKey("BoardConfigurationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("BoardConfiguration");
+                });
+
+            modelBuilder.Entity("BotManager.Backend.Entities.Entities.BoardConfiguration", b =>
+                {
+                    b.Navigation("Teams");
+                });
+
             modelBuilder.Entity("BotManager.Backend.Entities.Entities.Bot", b =>
                 {
+                    b.Navigation("BoardConfigurations");
+
                     b.Navigation("Commands");
 
                     b.Navigation("Configuration");

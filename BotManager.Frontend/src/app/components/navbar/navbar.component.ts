@@ -13,12 +13,22 @@ import { I18nService } from '../../services/i18n.service';
   styleUrls: ['./navbar.component.css']
 })
 export class NavbarComponent {
+  /**
+   * Creates a new navbar component.
+   */
   constructor(
     public authService: AuthService,
     public themeService: ThemeService,
     public i18n: I18nService
   ) { }
 
+  /**
+   * Toggles application theme.
+   */
   toggleTheme(): void { this.themeService.toggleTheme(); }
+
+  /**
+   * Changes active UI language.
+   */
   setLang(lang: 'cs' | 'en'): void { this.i18n.setLang(lang); }
 }
