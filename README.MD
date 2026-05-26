@@ -81,7 +81,6 @@ dotnet user-secrets --project BotManager.Backend.API/BotManager.Backend.API.cspr
 dotnet user-secrets --project BotManager.Backend.API/BotManager.Backend.API.csproj set "AdminCredentials:Password" "<admin-password>"
 dotnet user-secrets --project BotManager.Backend.API/BotManager.Backend.API.csproj set "GoogleAuth:ClientId" "<google-client-id>"
 dotnet user-secrets --project BotManager.Backend.API/BotManager.Backend.API.csproj set "GoogleAuth:ClientSecret" "<google-client-secret>"
-dotnet user-secrets --project BotManager.Backend.API/BotManager.Backend.API.csproj set "DCBODALIANCEBOTKEY" "<discord-bot-token>"
 ```
 
 To view what is saved locally:
