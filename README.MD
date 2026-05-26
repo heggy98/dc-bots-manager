@@ -71,7 +71,6 @@ Minimum required settings for backend:
 - `AdminCredentials:Password`
 - `GoogleAuth:ClientId`
 - `GoogleAuth:ClientSecret`
-- any Discord bot token keys
 
 Example (recommended): use .NET User Secrets for local readable storage.
 
@@ -154,19 +153,4 @@ For deeper runtime internals, see:
 
 - `DEVELOPER_RUNTIME_FLOWS.md`
 - `PROGRAM_CS_DOCUMENTATION.md`
-
-## Security Checklist for GitHub
-
-Before pushing:
-
-- Remove real credentials/tokens from tracked files.
-- Rotate any token/secret that was ever committed.
-- Ensure build artifacts are ignored and not tracked.
-- Prefer secrets from environment/user-secrets at runtime.
-
-Recommended commands:
-
-```bash
-git grep -n -I -E "Secret|Password|ClientSecret|BotToken|JwtSettings|AdminCredentials|ConnectionStrings"
-```
 
