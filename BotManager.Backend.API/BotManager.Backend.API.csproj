@@ -4,6 +4,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>botmanager-backend-api-9b2f9a0a-5e8c-4e18-a4b6-2e8d83f0bbd2</UserSecretsId>
     <SpaRoot>..\BotManager.Frontend\</SpaRoot>
     <SpaProxyServerUrl>http://localhost:4200</SpaProxyServerUrl>
     <SpaProxyLaunchCommand>npm start</SpaProxyLaunchCommand>
