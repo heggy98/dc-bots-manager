@@ -1,15 +1,20 @@
 <nav class="navbar">
     <div class="nav-brand">
-        <a routerLink="/">🤖 BotManager</a>
+        <a routerLink="/" (click)="closeMobileMenu()">🤖 BotManager</a>
     </div>
-    <div class="nav-links">
-        <a routerLink="/admin" class="nav-link" *ngIf="authService.isLoggedIn()">{{ i18n.t('nav.dashboard') }}</a>
-        <a routerLink="/admin/commands" class="nav-link" *ngIf="authService.isLoggedIn()">{{ i18n.t('nav.commands') }}</a>
-        <a routerLink="/admin/logs" class="nav-link" *ngIf="authService.isLoggedIn()">{{ i18n.t('nav.logs') }}</a>
-        <a routerLink="/admin/config" class="nav-link" *ngIf="authService.isLoggedIn()">{{ i18n.t('nav.config') }}</a>
+
+    <button class="nav-toggle" type="button" (click)="toggleMobileMenu()" [attr.aria-expanded]="mobileMenuOpen">
+        {{ mobileMenuOpen ? '✕' : '☰' }}
+    </button>
+
+    <div class="nav-links" [class.open]="mobileMenuOpen">
+        <a routerLink="/admin" class="nav-link" *ngIf="authService.isLoggedIn()" (click)="closeMobileMenu()">{{ i18n.t('nav.dashboard') }}</a>
+        <a routerLink="/admin/commands" class="nav-link" *ngIf="authService.isLoggedIn()" (click)="closeMobileMenu()">{{ i18n.t('nav.commands') }}</a>
+        <a routerLink="/admin/logs" class="nav-link" *ngIf="authService.isLoggedIn()" (click)="closeMobileMenu()">{{ i18n.t('nav.logs') }}</a>
+        <a routerLink="/admin/config" class="nav-link" *ngIf="authService.isLoggedIn()" (click)="closeMobileMenu()">{{ i18n.t('nav.config') }}</a>
 
         <div class="nav-controls">
-            <button class="btn-icon" (click)="toggleTheme()"
+            <button class="btn-icon" (click)="toggleTheme(); closeMobileMenu()"
                 [title]="themeService.currentTheme === 'dark' ? 'Light mode' : 'Dark mode'">
                 {{ themeService.currentTheme === 'dark' ? '☀️' : '🌙' }}
             </button>
@@ -19,7 +24,7 @@
                 title="English">🇺🇸</button>
         </div>
 
-        <a routerLink="/login" class="btn btn-primary btn-sm" *ngIf="!authService.isLoggedIn()">{{ i18n.t('nav.login')
+        <a routerLink="/login" class="btn btn-primary btn-sm" *ngIf="!authService.isLoggedIn()" (click)="closeMobileMenu()">{{ i18n.t('nav.login')
             }}</a>
     </div>
 </nav>

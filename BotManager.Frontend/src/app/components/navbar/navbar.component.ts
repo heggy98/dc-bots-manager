@@ -13,6 +13,8 @@ import { I18nService } from '../../services/i18n.service';
   styleUrls: ['./navbar.component.css']
 })
 export class NavbarComponent {
+  mobileMenuOpen = false;
+
   /**
    * Creates a new navbar component.
    */
@@ -25,10 +27,29 @@ export class NavbarComponent {
   /**
    * Toggles application theme.
    */
-  toggleTheme(): void { this.themeService.toggleTheme(); }
+  toggleTheme(): void {
+    this.themeService.toggleTheme();
+  }
+
+  /**
+   * Toggles mobile navigation visibility.
+   */
+  toggleMobileMenu(): void {
+    this.mobileMenuOpen = !this.mobileMenuOpen;
+  }
+
+  /**
+   * Closes mobile navigation after any action.
+   */
+  closeMobileMenu(): void {
+    this.mobileMenuOpen = false;
+  }
 
   /**
    * Changes active UI language.
    */
-  setLang(lang: 'cs' | 'en'): void { this.i18n.setLang(lang); }
+  setLang(lang: 'cs' | 'en'): void {
+    this.i18n.setLang(lang);
+    this.closeMobileMenu();
+  }
 }

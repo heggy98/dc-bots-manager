@@ -4,6 +4,7 @@ namespace BotManager.Backend.API.Models
     {
         public int BotId { get; set; }
         public string Name { get; set; } = string.Empty;
+        // Always returned as masked value (first 3 chars + stars), never as raw token.
         public string BotToken { get; set; } = string.Empty;
         public string OwnerUserId { get; set; } = string.Empty;
         public bool IsPublic { get; set; }

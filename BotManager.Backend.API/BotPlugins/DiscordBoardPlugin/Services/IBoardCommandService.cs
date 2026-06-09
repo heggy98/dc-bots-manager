@@ -30,5 +30,23 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Services
             SocketGuild guild,
             SocketGuildUser user,
             IPluginContext context);
+
+        Task HandleButtonInteractionAsync(
+            SocketMessageComponent component,
+            SocketGuild guild,
+            SocketGuildUser user,
+            IPluginContext context);
+
+        Task HandleBoardActionButtonAsync(
+            SocketMessageComponent component,
+            SocketGuild guild,
+            SocketGuildUser user,
+            IPluginContext context);
+
+        Task HandleBoardModalAsync(
+            SocketModal modal,
+            SocketGuild guild,
+            SocketGuildUser user,
+            IPluginContext context);
     }
 }

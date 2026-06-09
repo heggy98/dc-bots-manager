@@ -107,6 +107,9 @@
         {{ i18n.t("admin.owner") }}: {{ bot.ownerUserId }}
       </p>
       <p class="server-count">
+        {{ i18n.t("admin.bot_token") }}: {{ bot.botToken }}
+      </p>
+      <p class="server-count">
         {{ i18n.t("admin.visibility") }}:
         <span [class.text-green]="bot.isPublic" [class.text-muted]="!bot.isPublic">{{ bot.isPublic ? i18n.t("admin.public") : i18n.t("admin.private") }}</span>
       </p>
@@ -329,3 +332,32 @@
   (save)="saveJsonData($event)"
 >
 </app-json-editor-modal>
+
+<div *ngIf="requireTokenRefresh" class="token-refresh-overlay">
+  <div class="token-refresh-modal">
+    <h3>{{ i18n.t('bot.token_refresh_title') }}</h3>
+    <p class="text-muted">
+      {{ i18n.t('bot.token_refresh_desc') }}
+    </p>
+    <div class="form-group" style="margin-top: 12px;">
+      <label>{{ i18n.t('admin.bot_token') }}</label>
+      <input
+        type="password"
+        [(ngModel)]="newBotToken"
+        placeholder="Discord developer token"
+        [disabled]="tokenRefreshLoading"
+      />
+    </div>
+    <div *ngIf="tokenRefreshError" class="error-alert" style="margin-top: 8px;">
+      {{ tokenRefreshError }}
+    </div>
+    <button
+      class="btn btn-primary w-100"
+      style="margin-top: 12px;"
+      [disabled]="!newBotToken || tokenRefreshLoading"
+      (click)="submitTokenRefresh()"
+    >
+      {{ tokenRefreshLoading ? i18n.t('admin.creating') : i18n.t('bot.token_refresh_save') }}
+    </button>
+  </div>
+</div>

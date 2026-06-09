@@ -75,4 +75,61 @@ public class BotStatsDebouncerTests
         await Task.Delay(260);
         Assert.Equal(1, count);
     }
+
+    [Fact]
+    public async Task Schedule_CallbackThrows_FirstFailureDoesNotBlockLaterSchedules()
+    {
+        var invocationCount = 0;
+
+        var debouncer = new BotStatsDebouncer(
+            TimeSpan.FromMilliseconds(40),
+            (botId, token) =>
+            {
+                var current = Interlocked.Increment(ref invocationCount);
+                if (current == 1)
+                {
+                    throw new InvalidOperationException("Simulated callback failure");
+                }
+
+                return Task.CompletedTask;
+            });
+
+        debouncer.Schedule(4);
+        await Task.Delay(180);
+
+        debouncer.Schedule(4);
+        await Task.Delay(180);
+
+        Assert.Equal(2, invocationCount);
+    }
+
+    [Fact]
+    public async Task Schedule_CallbackThrowsForOneBot_DoesNotBlockOtherBot()
+    {
+        var seenBot2 = false;
+
+        var debouncer = new BotStatsDebouncer(
+            TimeSpan.FromMilliseconds(35),
+            (botId, token) =>
+            {
+                if (botId == 1)
+                {
+                    throw new InvalidOperationException("Simulated bot1 failure");
+                }
+
+                if (botId == 2)
+                {
+                    seenBot2 = true;
+                }
+
+                return Task.CompletedTask;
+            });
+
+        debouncer.Schedule(1);
+        debouncer.Schedule(2);
+
+        await Task.Delay(220);
+
+        Assert.True(seenBot2);
+    }
 }

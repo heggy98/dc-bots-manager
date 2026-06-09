@@ -1,9 +1,22 @@
-.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border-color); }
-.page-header h2 { margin: 0 0 6px; }
+.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border-color); gap: 12px; flex-wrap: wrap; }
+.page-header h2 { margin: 0 0 6px; font-size: clamp(1.35rem, 2.5vw, 1.8rem); letter-spacing: -0.03em; }
 
 .login-audit-table { overflow-x: auto; }
-.login-audit-table table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+.login-audit-table table { width: 100%; border-collapse: collapse; font-size: 0.88rem; min-width: 620px; }
 .login-audit-table th, .login-audit-table td { padding: 10px 14px; border-bottom: 1px solid var(--border-color); text-align: left; }
 .login-audit-table th { color: var(--text-muted); font-weight: 600; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; }
 .row-fail { background: rgba(239, 68, 68, 0.04); }
 .row-bruteforce { background: rgba(239, 68, 68, 0.1); }
+
+@media (max-width: 720px) {
+	.page-header .btn {
+		width: 100%;
+	}
+
+	.login-audit-table {
+		border: 1px solid var(--border-color);
+		border-radius: 10px;
+		padding: 4px;
+		background: var(--bg-glass);
+	}
+}

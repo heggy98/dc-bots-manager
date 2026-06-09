@@ -26,6 +26,10 @@ export class BotDetailComponent implements OnInit, OnDestroy {
   configLoading = false;
   configMessage = '';
   visibilityLoading = false;
+  requireTokenRefresh = false;
+  newBotToken = '';
+  tokenRefreshLoading = false;
+  tokenRefreshError = '';
   private botEventsSubscription = new Subscription();
   private fallbackSyncIntervalId: ReturnType<typeof setInterval> | null = null;
 
@@ -92,6 +96,9 @@ export class BotDetailComponent implements OnInit, OnDestroy {
     this.botService.getBotDetail(this.botId).subscribe({
       next: (data) => {
         this.bot = data;
+        this.requireTokenRefresh = !data.isTokenAuthorized;
+        this.tokenRefreshError = '';
+
         if (!this.bot.configuration) this.bot.configuration = {};
         if (this.bot.histories) {
           this.bot.histories.forEach(history => {
@@ -126,6 +133,33 @@ export class BotDetailComponent implements OnInit, OnDestroy {
         }
       },
       error: () => { this.error = 'Failed to load bot details.'; this.loading = false; }
+    });
+  }
+
+  /**
+   * Updates token when current stored token is no longer authorized.
+   */
+  submitTokenRefresh(): void {
+    if (!this.newBotToken || this.tokenRefreshLoading) {
+      return;
+    }
+
+    this.tokenRefreshLoading = true;
+    this.tokenRefreshError = '';
+
+    this.botService.updateBotToken(this.botId, { botToken: this.newBotToken }).subscribe({
+      next: () => {
+        this.newBotToken = '';
+        this.tokenRefreshLoading = false;
+        this.requireTokenRefresh = false;
+        this.toastr.success('Bot token updated and authorized.', 'Updated');
+        this.loadBotDetails();
+      },
+      error: (err) => {
+        this.tokenRefreshLoading = false;
+        this.tokenRefreshError = err?.error ?? 'Token is invalid or not authorized by Discord API.';
+        this.toastr.error(this.tokenRefreshError, 'Update Failed');
+      }
     });
   }
 
@@ -668,12 +702,16 @@ export class BotDetailComponent implements OnInit, OnDestroy {
           return;
         }
 
+        this.requireTokenRefresh = !data.isTokenAuthorized;
+
         this.bot.status = data.status;
         this.bot.requests24h = data.requests24h;
         this.bot.errors24h = data.errors24h;
         this.bot.histories = data.histories;
         this.bot.lastStartedAt = data.lastStartedAt;
         this.bot.lastStoppedAt = data.lastStoppedAt;
+        this.bot.botToken = data.botToken;
+        this.bot.isTokenAuthorized = data.isTokenAuthorized;
       }
     });
   }

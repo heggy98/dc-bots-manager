@@ -54,4 +54,28 @@ public class GatewayDisconnectPolicyTests
 
         Assert.True(shouldMark);
     }
+
+    [Fact]
+    public void ShouldMarkOffline_ReturnsTrue_WhenPersistedStatusIsNull()
+    {
+        var shouldMark = GatewayDisconnectPolicy.ShouldMarkOffline(
+            disconnectGeneration: 8,
+            currentGeneration: 8,
+            connectionState: ConnectionState.Disconnected,
+            persistedStatus: null);
+
+        Assert.True(shouldMark);
+    }
+
+    [Fact]
+    public void ShouldMarkOffline_ReturnsTrue_WhenStateIsConnectingAndNotSuperseded()
+    {
+        var shouldMark = GatewayDisconnectPolicy.ShouldMarkOffline(
+            disconnectGeneration: 10,
+            currentGeneration: 10,
+            connectionState: ConnectionState.Connecting,
+            persistedStatus: BotStatus.Reconnecting);
+
+        Assert.True(shouldMark);
+    }
 }

@@ -71,5 +71,32 @@ namespace BotManager.Backend.Shared.Models
             SocketGuild guild,
             SocketGuildUser user,
             IPluginContext context);
+
+        /// <summary>
+        /// Handle a message component button interaction (e.g. team-toggle buttons on the board message).
+        /// </summary>
+        Task HandleButtonInteractionAsync(
+            SocketMessageComponent component,
+            SocketGuild guild,
+            SocketGuildUser user,
+            IPluginContext context);
+
+        /// <summary>
+        /// Handle an admin board action button (e.g. Refresh Board).
+        /// </summary>
+        Task HandleBoardActionButtonAsync(
+            SocketMessageComponent component,
+            SocketGuild guild,
+            SocketGuildUser user,
+            IPluginContext context);
+
+        /// <summary>
+        /// Handle a board modal submission (e.g. the Add Team form).
+        /// </summary>
+        Task HandleBoardModalAsync(
+            SocketModal modal,
+            SocketGuild guild,
+            SocketGuildUser user,
+            IPluginContext context);
     }
 }

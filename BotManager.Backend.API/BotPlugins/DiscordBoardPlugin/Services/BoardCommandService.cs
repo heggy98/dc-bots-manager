@@ -23,6 +23,7 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Services
         Func<SocketSlashCommand, SocketGuild, SocketTextChannel, IPluginContext, Task>? Execute);
     
         private readonly IReadOnlyDictionary<string, CommandListItem> _commandList;
+        private readonly IReadOnlyCollection<DiscordCommandRegistration> _commandRegistrations;
 
         /// <summary>
         /// Creates a new board command service.
@@ -36,6 +37,10 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Services
             _reactionsHandler = reactionsHandler;
             _logger = logger;
             _commandList = BuildCommandList();
+            _commandRegistrations = _commandList.Values
+                .Where(c => !string.IsNullOrWhiteSpace(c.Registration.SubCommandName))
+                .Select(c => c.Registration)
+                .ToList();
         }
 
         /// <summary>
@@ -57,10 +62,7 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Services
         public IReadOnlyCollection<DiscordCommandRegistration> GetCommandRegistrations()
         {
             // Return all subcommand registrations (excluding the parent "board" command)
-            return _commandList.Values
-                .Where(c => c.Registration.Name != "board")
-                .Select(c => c.Registration)
-                .ToList();
+            return _commandRegistrations;
         }
 
             /// <summary>
@@ -75,9 +77,9 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Services
         {
             try
             {
-                // Extract subcommand name from options
-                var firstOption = command.Data.Options?.FirstOrDefault();
-                var subcommandName = firstOption?.Name;
+                // Extract subcommand name from options via pure policy helper.
+                var subcommandName = BoardCommandDispatchPolicy.ResolveSubcommandName(
+                    command.Data.Options?.Select(option => option.Name) ?? []);
                 if (string.IsNullOrEmpty(subcommandName))
                 {
                     return false;
@@ -88,7 +90,7 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Services
                     return false;
                 }
 
-                if (commandItem.RequiresAdmin && !user.GuildPermissions.Administrator)
+                if (BoardCommandDispatchPolicy.ShouldDenyForAdmin(commandItem.RequiresAdmin, user.GuildPermissions.Administrator))
                 {
                     await command.FollowupAsync("You need Administrator permission to run this command.", ephemeral: true);
                     return false;
@@ -136,6 +138,40 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Services
         }
 
         /// <summary>
+        /// Routes team-toggle button interactions to the reactions handler.
+        /// </summary>
+        public Task HandleButtonInteractionAsync(
+            SocketMessageComponent component,
+            SocketGuild guild,
+            SocketGuildUser user,
+            IPluginContext context)
+        {
+            return _reactionsHandler.HandleButtonInteractionAsync(component, guild, user, context);
+        }
+
+        /// <summary>
+        /// Routes board admin action button clicks (e.g. Refresh Board) to the teams handler.
+        /// </summary>
+        public Task HandleBoardActionButtonAsync(
+            SocketMessageComponent component,
+            SocketGuild guild,
+            SocketGuildUser user,
+            IPluginContext context)
+        {
+            return _teamsHandler.HandleRefreshBoardButtonAsync(component, guild, user, context);
+        }
+
+        /// <summary>
+        /// Routes board modal submissions (e.g. Add Team form) to the teams handler.
+        /// </summary>
+        public Task HandleBoardModalAsync(
+            SocketModal modal,
+            SocketGuild guild,
+            SocketGuildUser user,
+            IPluginContext context)
+        {
+            return _teamsHandler.HandleAddTeamModalAsync(modal, guild, user, context);
+        }
         /// Builds an in-memory command catalog used for dispatch and registration metadata.
         /// </summary>
         private IReadOnlyDictionary<string, CommandListItem> BuildCommandList()

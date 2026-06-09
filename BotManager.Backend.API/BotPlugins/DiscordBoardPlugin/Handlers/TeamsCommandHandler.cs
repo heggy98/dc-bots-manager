@@ -42,7 +42,7 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
 
             if (string.IsNullOrWhiteSpace(teamName) || string.IsNullOrWhiteSpace(leaderName))
             {
-                await command.FollowupAsync(userHint, ephemeral: true);
+                await SendCommandResponseAsync(command, userHint, context);
                 await LogCommandUsageAsync(teamCommand, command.User, false, "Missing required parameters", context);
                 return;
             }
@@ -56,7 +56,7 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
                 if (existingTeam != null)
                 {
                     var conflictMsg = teamCommand?.InvalidArgumentsMessage ?? $"Tým '{teamName}' již existuje!";
-                    await command.FollowupAsync(conflictMsg, ephemeral: true);
+                    await SendCommandResponseAsync(command, conflictMsg, context);
                     await LogCommandUsageAsync(teamCommand, command.User, false, "Team already exists", context);
                     return;
                 }
@@ -74,7 +74,7 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
 
                 if (availableEmojis.Count == 0)
                 {
-                    await command.FollowupAsync("No unique emojis are available for another team on this board.", ephemeral: true);
+                    await SendCommandResponseAsync(command, "No unique emojis are available for another team on this board.", context);
                     await LogCommandUsageAsync(teamCommand, command.User, false, "No unique emojis available", context);
                     return;
                 }
@@ -102,13 +102,13 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
 
                 // Log success
                 context.Logger.LogInformation("BotId={BotId}: Team '{TeamName}' created successfully with role {RoleId}", context.Bot.BotId, teamName, role.Id);
-                await command.FollowupAsync(string.Format(successMsg, teamName), ephemeral: true);
+                await SendCommandResponseAsync(command, string.Format(successMsg, teamName), context);
                 await LogCommandUsageAsync(teamCommand, command.User, true, null, context);
             }
             catch (Exception ex)
             {
                 context.Logger.LogError(ex, "BotId={BotId}: Error adding team", context.Bot.BotId);
-                await command.FollowupAsync(string.Format(errorMsg, ex.Message), ephemeral: true);
+                await SendCommandResponseAsync(command, string.Format(errorMsg, ex.Message), context);
                 await LogCommandUsageAsync(teamCommand, command.User, false, ex.Message, context);
             }
         }
@@ -128,7 +128,7 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
 
             if (string.IsNullOrWhiteSpace(teamName))
             {
-                await command.FollowupAsync(userHint, ephemeral: true);
+                await SendCommandResponseAsync(command, userHint, context);
                 await LogCommandUsageAsync(teamCommand, command.User, false, "Missing team name", context);
                 return;
             }
@@ -142,7 +142,7 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
                 if (teamToRemove == null)
                 {
                     var notFoundMsg = teamCommand?.InvalidArgumentsMessage ?? $"Tým '{teamName}' nebyl nalezen!";
-                    await command.FollowupAsync(notFoundMsg, ephemeral: true);
+                    await SendCommandResponseAsync(command, notFoundMsg, context);
                     await LogCommandUsageAsync(teamCommand, command.User, false, "Team not found", context);
                     return;
                 }
@@ -162,13 +162,13 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
                 await SyncBoardReactionsIfPresentAsync(context, teamsData);
 
                 context.Logger.LogInformation("BotId={BotId}: Team '{TeamName}' removed successfully", context.Bot.BotId, teamName);
-                await command.FollowupAsync(string.Format(successMsg, teamName), ephemeral: true);
+                await SendCommandResponseAsync(command, string.Format(successMsg, teamName), context);
                 await LogCommandUsageAsync(teamCommand, command.User, true, null, context);
             }
             catch (Exception ex)
             {
                 context.Logger.LogError(ex, "BotId={BotId}: Error removing team", context.Bot.BotId);
-                await command.FollowupAsync(string.Format(errorMsg, ex.Message), ephemeral: true);
+                await SendCommandResponseAsync(command, string.Format(errorMsg, ex.Message), context);
                 await LogCommandUsageAsync(teamCommand, command.User, false, ex.Message, context);
             }
         }
@@ -191,7 +191,7 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
 
             if (string.IsNullOrWhiteSpace(teamName))
             {
-                await command.FollowupAsync(userHint, ephemeral: true);
+                await SendCommandResponseAsync(command, userHint, context);
                 await LogCommandUsageAsync(teamCommand, command.User, false, "Missing team name", context);
                 return;
             }
@@ -205,7 +205,7 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
                 if (teamToEdit == null)
                 {
                     var notFoundMsg = teamCommand?.InvalidArgumentsMessage ?? $"Tým '{teamName}' nebyl nalezen!";
-                    await command.FollowupAsync(notFoundMsg, ephemeral: true);
+                    await SendCommandResponseAsync(command, notFoundMsg, context);
                     await LogCommandUsageAsync(teamCommand, command.User, false, "Team not found", context);
                     return;
                 }
@@ -217,7 +217,7 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
                     if (teamsData.Teams.Any(t => t.Name == newName && t.Name != teamName))
                     {
                         var conflictMsg = teamCommand?.InvalidArgumentsMessage ?? $"Tým se jménem '{newName}' již existuje!";
-                        await command.FollowupAsync(conflictMsg, ephemeral: true);
+                        await SendCommandResponseAsync(command, conflictMsg, context);
                         await LogCommandUsageAsync(teamCommand, command.User, false, "New team name conflicts", context);
                         return;
                     }
@@ -248,13 +248,13 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
                 await RefreshBoardMessageAsync(context, teamsData);
 
                 context.Logger.LogInformation("BotId={BotId}: Team '{TeamName}' modified successfully", context.Bot.BotId, teamName);
-                await command.FollowupAsync(string.Format(successMsg, teamName), ephemeral: true);
+                await SendCommandResponseAsync(command, string.Format(successMsg, teamName), context);
                 await LogCommandUsageAsync(teamCommand, command.User, true, null, context);
             }
             catch (Exception ex)
             {
                 context.Logger.LogError(ex, "BotId={BotId}: Error editing team", context.Bot.BotId);
-                await command.FollowupAsync(string.Format(errorMsg, ex.Message), ephemeral: true);
+                await SendCommandResponseAsync(command, string.Format(errorMsg, ex.Message), context);
                 await LogCommandUsageAsync(teamCommand, command.User, false, ex.Message, context);
             }
         }
@@ -273,7 +273,7 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
             var guildUser = command.User as SocketGuildUser;
             if (!guildUser?.GuildPermissions.Administrator ?? true && command.User.Id != guild.OwnerId)
             {
-                await command.FollowupAsync(adminOnlyMsg, ephemeral: true);
+                await SendCommandResponseAsync(command, adminOnlyMsg, context);
                 await LogCommandUsageAsync(teamCommand, command.User, false, "Permission denied", context);
                 return;
             }
@@ -286,23 +286,23 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
                 if (!teamsData.Teams.Any())
                 {
                     var emptyMsg = teamCommand?.SuccessMessage ?? "Nejsou registrovány žádné týmy.";
-                    await command.FollowupAsync(emptyMsg, ephemeral: true);
+                    await SendCommandResponseAsync(command, emptyMsg, context);
                     await LogCommandUsageAsync(teamCommand, command.User, true, null, context);
                     return;
                 }
 
                 var boardUpdated = await RefreshBoardMessageAsync(context, teamsData);
 
-                await command.FollowupAsync(boardUpdated
+                await SendCommandResponseAsync(command, boardUpdated
                     ? "Seznam týmů byl aktualizován na board zprávě."
-                    : "Týmy byly načteny, ale board zprávu se nepodařilo aktualizovat.", ephemeral: true);
+                    : "Týmy byly načteny, ale board zprávu se nepodařilo aktualizovat.", context);
                 context.Logger.LogInformation("BotId={BotId}: Teams list displayed, total: {TeamCount}", context.Bot.BotId, teamsData.Teams.Count);
                 await LogCommandUsageAsync(teamCommand, command.User, true, null, context);
             }
             catch (Exception ex)
             {
                 context.Logger.LogError(ex, "BotId={BotId}: Error showing teams list", context.Bot.BotId);
-                await command.FollowupAsync(string.Format(errorMsg, ex.Message), ephemeral: true);
+                await SendCommandResponseAsync(command, string.Format(errorMsg, ex.Message), context);
                 await LogCommandUsageAsync(teamCommand, command.User, false, ex.Message, context);
             }
         }
@@ -323,21 +323,21 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
                 var service = context.ServiceProvider.GetService(typeof(IDiscordBotService)) as IDiscordBotService;
                 if (service == null)
                 {
-                    await command.FollowupAsync("Discord bot service is not available.", ephemeral: true);
+                    await SendCommandResponseAsync(command, "Discord bot service is not available.", context);
                     await LogCommandUsageAsync(boardCommand, command.User, false, "Discord bot service unavailable", context);
                     return;
                 }
 
                 var boardUpdated = await service.RefreshBoardMessageAsync(context.Bot.BotId, teamsBoard);
-                await command.FollowupAsync(boardUpdated
+                await SendCommandResponseAsync(command, boardUpdated
                     ? "Team board was inserted."
-                    : "Failed to insert team board.", ephemeral: true);
+                    : "Failed to insert team board.", context);
                 await LogCommandUsageAsync(boardCommand, command.User, boardUpdated, boardUpdated ? null : "Board update failed", context);
             }
             catch (Exception ex)
             {
                 context.Logger.LogError(ex, "BotId={BotId}: Error inserting board", context.Bot.BotId);
-                await command.FollowupAsync($"Error inserting board: {ex.Message}", ephemeral: true);
+                await SendCommandResponseAsync(command, $"Error inserting board: {ex.Message}", context);
                 await LogCommandUsageAsync(boardCommand, command.User, false, ex.Message, context);
             }
         }
@@ -387,6 +387,129 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
         private static string? GetStringOption(SocketSlashCommand command, string optionName)
         {
             return command.Data.Options.SelectMany(x => x.Options).FirstOrDefault(o => o.Name == optionName)?.Value as string;
+        }
+
+        /// <summary>
+        /// Handles the Refresh Board admin button click: re-publishes the board message ephemerally.
+        /// Only users with Administrator permission or the guild owner may use this.
+        /// </summary>
+        public async Task HandleRefreshBoardButtonAsync(
+            SocketMessageComponent component,
+            SocketGuild guild,
+            SocketGuildUser user,
+            IPluginContext context)
+        {
+            if (!user.GuildPermissions.Administrator && user.Id != guild.OwnerId)
+            {
+                await component.FollowupAsync("❌ Only administrators can refresh the board.", ephemeral: true);
+                return;
+            }
+
+            try
+            {
+                var teamsData = await context.TeamsDataService.GetAsync(context.Bot.BotId);
+                var botConfig = await context.BotDataService.GetAsync(context.Bot.BotId);
+                var teamsBoard = BoardMessageFactory.FromTeams(teamsData, botConfig);
+
+                var service = context.ServiceProvider.GetService(typeof(IDiscordBotService)) as IDiscordBotService;
+                if (service == null)
+                {
+                    await component.FollowupAsync("Discord bot service is not available.", ephemeral: true);
+                    return;
+                }
+
+                var refreshed = await service.RefreshBoardMessageAsync(context.Bot.BotId, teamsBoard);
+                await component.FollowupAsync(
+                    refreshed ? "✅ Board refreshed successfully." : "❌ Failed to refresh the board.",
+                    ephemeral: true);
+            }
+            catch (Exception ex)
+            {
+                context.Logger.LogError(ex, "BotId={BotId}: Error refreshing board via button", context.Bot.BotId);
+                await component.FollowupAsync($"An error occurred: {ex.Message}", ephemeral: true);
+            }
+        }
+
+        /// <summary>
+        /// Handles the Add Team modal submission: validates inputs, creates the team and Discord role,
+        /// saves to storage and refreshes the board message.
+        /// Only users with Administrator permission or the guild owner may submit this form.
+        /// </summary>
+        public async Task HandleAddTeamModalAsync(
+            SocketModal modal,
+            SocketGuild guild,
+            SocketGuildUser user,
+            IPluginContext context)
+        {
+            if (!user.GuildPermissions.Administrator && user.Id != guild.OwnerId)
+            {
+                await modal.FollowupAsync("❌ Only administrators can add teams.", ephemeral: true);
+                return;
+            }
+
+            var components = modal.Data.Components.ToList();
+            var teamName = components.FirstOrDefault(c => c.CustomId == "team_name")?.Value?.Trim() ?? "";
+            var leaderName = components.FirstOrDefault(c => c.CustomId == "leader_name")?.Value?.Trim() ?? "";
+            var contact = components.FirstOrDefault(c => c.CustomId == "contact_info")?.Value?.Trim() ?? "";
+
+            if (string.IsNullOrWhiteSpace(teamName) || string.IsNullOrWhiteSpace(leaderName))
+            {
+                await modal.FollowupAsync("Team name and leader name are required.", ephemeral: true);
+                return;
+            }
+
+            try
+            {
+                var teamsData = await context.TeamsDataService.GetAsync(context.Bot.BotId);
+
+                if (teamsData.Teams.Any(t => t.Name.Equals(teamName, StringComparison.OrdinalIgnoreCase)))
+                {
+                    await modal.FollowupAsync($"❌ A team named **{teamName}** already exists.", ephemeral: true);
+                    return;
+                }
+
+                var usedEmojis = teamsData.Teams
+                    .Select(t => string.IsNullOrWhiteSpace(t.Emoji) ? "🎯" : t.Emoji.Trim())
+                    .ToHashSet(StringComparer.Ordinal);
+
+                var catalog = await _emojiCatalogService.GetEmojiCatalogAsync();
+                var availableEmojis = catalog
+                    .Where(e => !string.IsNullOrWhiteSpace(e))
+                    .Select(e => e.Trim())
+                    .Where(e => !usedEmojis.Contains(e))
+                    .ToList();
+
+                var emoji = availableEmojis.Count > 0
+                    ? availableEmojis[Random.Shared.Next(availableEmojis.Count)]
+                    : "🎯";
+
+                var randomColor = new Color((uint)Random.Shared.Next(0x1000000));
+                await guild.CreateRoleAsync(teamName, color: randomColor);
+
+                var newTeam = new TeamDto
+                {
+                    Name = teamName,
+                    LeaderName = leaderName,
+                    Contact = contact,
+                    Emoji = emoji
+                };
+
+                teamsData.Teams.Add(newTeam);
+                await context.TeamsDataService.SaveAsync(context.Bot.BotId, teamsData);
+                await RefreshBoardMessageAsync(context, teamsData);
+                await SyncBoardReactionsIfPresentAsync(context, teamsData);
+
+                context.Logger.LogInformation(
+                    "BotId={BotId}: Team '{TeamName}' created via Add Team modal by user {UserId}",
+                    context.Bot.BotId, teamName, user.Id);
+
+                await modal.FollowupAsync($"✅ Team **{teamName}** was added successfully!", ephemeral: true);
+            }
+            catch (Exception ex)
+            {
+                context.Logger.LogError(ex, "BotId={BotId}: Error adding team via modal", context.Bot.BotId);
+                await modal.FollowupAsync($"An error occurred: {ex.Message}", ephemeral: true);
+            }
         }
     }
 }

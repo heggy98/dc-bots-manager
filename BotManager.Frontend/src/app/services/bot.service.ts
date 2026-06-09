@@ -70,6 +70,7 @@ export interface BotTeamsDto {
 }
 
 export interface AdminBotDetailDto extends AdminBotDto {
+  isTokenAuthorized: boolean;
   configuration: BotConfigurationDto;
   guilds: string[];
   logs: BotLogDto[];
@@ -84,6 +85,10 @@ export interface CreateBotDto {
 
 export interface UpdateBotVisibilityDto {
   isPublic: boolean;
+}
+
+export interface UpdateBotTokenDto {
+  botToken: string;
 }
 
 export interface BoardConfigListItemDto {
@@ -175,6 +180,13 @@ export class BotService {
    */
   updateBotVisibility(id: number, request: UpdateBotVisibilityDto): Observable<void> {
     return this.http.put<void>(`/api/bot/admin/${id}/visibility`, request);
+  }
+
+  /**
+   * Updates bot token after backend authorization check.
+   */
+  updateBotToken(id: number, request: UpdateBotTokenDto): Observable<void> {
+    return this.http.put<void>(`/api/bot/admin/${id}/token`, request);
   }
 
   /**

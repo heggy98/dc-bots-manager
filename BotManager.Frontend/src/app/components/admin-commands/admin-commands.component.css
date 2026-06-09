@@ -4,8 +4,20 @@
   gap: 16px;
 }
 
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-color);
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .command-group {
   overflow: hidden;
+  animation: riseIn 420ms ease;
 }
 
 .cmd-header {
@@ -42,6 +54,8 @@
   font-size: 0.85rem;
   color: var(--text-muted);
   font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .subcommand-cell {
@@ -56,5 +70,18 @@
 .table-note {
   margin-top: 6px;
   font-size: 0.8rem;
+}
+
+@media (max-width: 760px) {
+  .page-header .btn {
+    width: 100%;
+  }
+
+  .commands-table-wrap {
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 4px;
+    background: var(--bg-glass);
+  }
 }
 

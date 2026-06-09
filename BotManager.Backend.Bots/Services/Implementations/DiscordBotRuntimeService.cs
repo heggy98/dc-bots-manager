@@ -98,6 +98,7 @@ namespace BotManager.Backend.Bots.Services.Implementations
                 _client.Connected += ConnectedAsync;
                 _client.Disconnected += DisconnectedAsync;
                 _client.LatencyUpdated += LatencyUpdatedAsync;
+                _client.InteractionCreated += HandleInteractionCreatedAsync;
                 _client.SlashCommandExecuted += HandleSlashCommandExecutedAsync;
                 _client.ReactionAdded += HandleReactionAddedEventAsync;
                 _client.ReactionRemoved += HandleReactionRemovedEventAsync;
@@ -275,19 +276,22 @@ namespace BotManager.Backend.Bots.Services.Implementations
                     targetMessage = await _boardMessageLocator.FindBoardMessageAsync(boardChannel, BoardMessageMarker);
                 }
 
+                var components = BuildBoardComponents(boardMessage);
+
                 if (targetMessage != null)
                 {
                     await targetMessage.ModifyAsync(m =>
                     {
                         m.Content = BoardMessageMarker;
                         m.Embed = embed.Build();
+                        m.Components = components.Build();
                     });
 
                     botConfig.BoardMessageId = targetMessage.Id;
                 }
                 else
                 {
-                    var newMessage = await boardChannel.SendMessageAsync(BoardMessageMarker, embed: embed.Build());
+                    var newMessage = await boardChannel.SendMessageAsync(BoardMessageMarker, embed: embed.Build(), components: components.Build());
                     botConfig.BoardMessageId = newMessage.Id;
                 }
 
@@ -516,7 +520,7 @@ namespace BotManager.Backend.Bots.Services.Implementations
                     await _notificationService.NotifyBotStatusChangedAsync(_currentBotId.Value, BotStatus.Reconnecting);
                 }
 
-                _ = Task.Run(() => MarkBotOfflineAfterGracePeriodAsync(_currentBotId.Value, ex, disconnectGeneration, isGatewayReconnect));
+                _ = MarkBotOfflineAfterGracePeriodAsync(_currentBotId.Value, ex, disconnectGeneration, isGatewayReconnect);
             }
 
             await Task.CompletedTask;
@@ -562,6 +566,121 @@ namespace BotManager.Backend.Bots.Services.Implementations
             }
 
             await Task.CompletedTask;
+        }
+
+        /// <summary>
+        /// Prefix used in button custom IDs for team toggle interactions.
+        /// </summary>
+        internal const string TeamTogglePrefix = "team_toggle:";
+
+        /// <summary>
+        /// Prefix used in select-menu custom IDs for team toggle interactions.
+        /// </summary>
+        internal const string TeamSelectPrefix = "team_select:";
+
+        /// <summary>
+        /// Prefix used in button custom IDs for board admin action buttons.
+        /// </summary>
+        internal const string BoardActionPrefix = "board_action:";
+
+        /// <summary>Custom ID of the Add Team admin button.</summary>
+        internal const string BoardAddTeamActionId = "board_action:add_team";
+
+        /// <summary>Custom ID of the Refresh Board admin button.</summary>
+        internal const string BoardRefreshActionId = "board_action:refresh";
+
+        /// <summary>Prefix used in modal custom IDs for board modal submissions.</summary>
+        internal const string BoardModalPrefix = "board_modal:";
+
+        /// <summary>Custom ID of the Add Team modal.</summary>
+        internal const string BoardAddTeamModalId = "board_modal:add_team";
+
+        /// <summary>
+        /// Builds the message components for the board message.
+        /// Rows 0-3 hold team select menus (up to 100 teams total).
+        /// Row 4 is reserved for admin action buttons (Add Team, Refresh Board).
+        /// Picking a team from a menu toggles the user's membership in that team role.
+        /// </summary>
+        private static ComponentBuilder BuildBoardComponents(BoardMessageDto boardMessage)
+        {
+            var builder = new ComponentBuilder();
+            const int maxTeamMenus = 4;      // rows 0-3
+            const int maxOptionsPerMenu = 25;
+            const int maxTeamsTotal = maxTeamMenus * maxOptionsPerMenu; // 100
+            const int maxTeamNameValueLength = 100;
+            const int maxLabelLength = 100;
+
+            var entries = boardMessage.Entries.Take(maxTeamsTotal).ToList();
+            var menuCount = (int)Math.Ceiling(entries.Count / (double)maxOptionsPerMenu);
+
+            for (var menuIndex = 0; menuIndex < menuCount; menuIndex++)
+            {
+                var menuEntries = entries
+                    .Skip(menuIndex * maxOptionsPerMenu)
+                    .Take(maxOptionsPerMenu)
+                    .ToList();
+
+                var select = new SelectMenuBuilder()
+                    .WithCustomId($"{TeamSelectPrefix}{menuIndex}")
+                    .WithPlaceholder($"Choose your team ({menuIndex + 1}/{menuCount})")
+                    .WithMinValues(1)
+                    .WithMaxValues(1);
+
+                foreach (var entry in menuEntries)
+                {
+                    var teamValue = entry.Title.Length > maxTeamNameValueLength
+                        ? entry.Title[..maxTeamNameValueLength]
+                        : entry.Title;
+                    var label = entry.Title.Length > maxLabelLength
+                        ? entry.Title[..maxLabelLength]
+                        : entry.Title;
+
+                    var option = new SelectMenuOptionBuilder()
+                        .WithLabel(label)
+                        .WithValue(teamValue);
+
+                    if (!string.IsNullOrWhiteSpace(entry.Emoji) && Emoji.TryParse(entry.Emoji.Trim(), out var parsedEmoji))
+                    {
+                        option.WithEmote(parsedEmoji);
+                    }
+
+                    select.AddOption(option);
+                }
+
+                builder.WithSelectMenu(select, row: menuIndex);
+            }
+
+            // Admin action row — always on row 4.
+            builder.WithButton(new ButtonBuilder()
+                .WithLabel("Add Team")
+                .WithCustomId(BoardAddTeamActionId)
+                .WithStyle(ButtonStyle.Success)
+                .WithEmote(new Emoji("➕")), row: 4);
+
+            builder.WithButton(new ButtonBuilder()
+                .WithLabel("Refresh Board")
+                .WithCustomId(BoardRefreshActionId)
+                .WithStyle(ButtonStyle.Secondary)
+                .WithEmote(new Emoji("🔄")), row: 4);
+
+            return builder;
+        }
+
+        /// <summary>
+        /// Builds the Discord modal shown when an admin clicks the Add Team button.
+        /// </summary>
+        private static Modal BuildAddTeamModal()
+        {
+            return new ModalBuilder()
+                .WithTitle("Add New Team")
+                .WithCustomId(BoardAddTeamModalId)
+                .AddTextInput("Team Name", "team_name", TextInputStyle.Short,
+                    placeholder: "e.g. Alpha Squad", required: true, maxLength: 100)
+                .AddTextInput("Leader Name", "leader_name", TextInputStyle.Short,
+                    placeholder: "e.g. John Doe", required: true, maxLength: 100)
+                .AddTextInput("Contact", "contact_info", TextInputStyle.Short,
+                    placeholder: "e.g. @johndoe or #channel", required: false, maxLength: 100)
+                .Build();
         }
 
         /// <summary>
@@ -809,39 +928,337 @@ namespace BotManager.Backend.Bots.Services.Implementations
             _client.Connected -= ConnectedAsync;
             _client.Disconnected -= DisconnectedAsync;
             _client.LatencyUpdated -= LatencyUpdatedAsync;
+            _client.InteractionCreated -= HandleInteractionCreatedAsync;
             _client.SlashCommandExecuted -= HandleSlashCommandExecutedAsync;
             _client.ReactionAdded -= HandleReactionAddedEventAsync;
             _client.ReactionRemoved -= HandleReactionRemovedEventAsync;
         }
 
         /// <summary>
+        /// Receives interactions at the earliest gateway stage, acknowledges slash commands quickly,
+        /// and fire-and-forgets team-toggle button interactions.
+        /// </summary>
+        private async Task HandleInteractionCreatedAsync(SocketInteraction interaction)
+        {
+            try
+            {
+                if (interaction is SocketMessageComponent component)
+                {
+                    // Team toggle controls (select menu, legacy button) — defer ephemerally then process.
+                    if (component.Data.CustomId.StartsWith(TeamSelectPrefix, StringComparison.Ordinal)
+                        || component.Data.CustomId.StartsWith(TeamTogglePrefix, StringComparison.Ordinal))
+                    {
+                        if (await EnsureComponentDeferredAsync(component, component.Data.CustomId))
+                        {
+                            _ = HandleButtonInteractionInternalAsync(component);
+                        }
+
+                        return;
+                    }
+
+                    // "Add Team" button — the modal IS the initial response; cannot defer first.
+                    if (component.Data.CustomId == BoardAddTeamActionId)
+                    {
+                        await TryShowModalAsync(component, BuildAddTeamModal());
+                        return;
+                    }
+
+                    // Other board action buttons (e.g. Refresh Board) — defer ephemerally then process.
+                    if (component.Data.CustomId.StartsWith(BoardActionPrefix, StringComparison.Ordinal))
+                    {
+                        if (await EnsureComponentDeferredAsync(component, component.Data.CustomId))
+                        {
+                            _ = HandleBoardActionButtonInternalAsync(component);
+                        }
+
+                        return;
+                    }
+                }
+
+                // Modal submissions (e.g. the Add Team form).
+                if (interaction is SocketModal modal &&
+                    modal.Data.CustomId.StartsWith(BoardModalPrefix, StringComparison.Ordinal))
+                {
+                    if (await EnsureModalDeferredAsync(modal, modal.Data.CustomId))
+                    {
+                        _ = HandleBoardModalInternalAsync(modal);
+                    }
+
+                    return;
+                }
+
+                if (interaction is not SocketSlashCommand slashCommand)
+                {
+                    return;
+                }
+
+                var interactionAgeAtHandlerStartMs = Math.Max(0L, (long)(DateTimeOffset.UtcNow - slashCommand.CreatedAt).TotalMilliseconds);
+                var deferResult = await EnsureInteractionDeferredAsync(slashCommand);
+
+                _logger.LogInformation(
+                    "InteractionCreated defer for {CommandName} outcome={Outcome} acknowledged={Acknowledged} deferElapsedMs={DeferElapsedMs} interactionAgeAtDeferMs={InteractionAgeAtDeferMs}",
+                    slashCommand.CommandName,
+                    deferResult.Outcome,
+                    deferResult.IsAcknowledged,
+                    deferResult.AttemptElapsedMs,
+                    interactionAgeAtHandlerStartMs + deferResult.AttemptElapsedMs);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "InteractionCreated handler swallowed exception for interaction type {InteractionType}", interaction.Type);
+            }
+        }
+
+        /// <summary>
+        /// Attempts to defer a message component interaction and normalizes expected timeout/duplicate-ack failures.
+        /// </summary>
+        private async Task<bool> EnsureComponentDeferredAsync(SocketMessageComponent component, string source)
+        {
+            if (component.HasResponded)
+            {
+                return true;
+            }
+
+            try
+            {
+                await component.DeferAsync(ephemeral: true);
+                return true;
+            }
+            catch (TimeoutException ex)
+            {
+                _logger.LogWarning(ex, "Timed out while deferring component interaction {Source}", source);
+                return component.HasResponded;
+            }
+            catch (Discord.Net.HttpException ex) when ((int?)ex.DiscordCode == 40060 || (int?)ex.DiscordCode == 10062)
+            {
+                return component.HasResponded;
+            }
+        }
+
+        /// <summary>
+        /// Attempts to defer a modal interaction and normalizes expected timeout/duplicate-ack failures.
+        /// </summary>
+        private async Task<bool> EnsureModalDeferredAsync(SocketModal modal, string source)
+        {
+            if (modal.HasResponded)
+            {
+                return true;
+            }
+
+            try
+            {
+                await modal.DeferAsync(ephemeral: true);
+                return true;
+            }
+            catch (TimeoutException ex)
+            {
+                _logger.LogWarning(ex, "Timed out while deferring modal interaction {Source}", source);
+                return modal.HasResponded;
+            }
+            catch (Discord.Net.HttpException ex) when ((int?)ex.DiscordCode == 40060 || (int?)ex.DiscordCode == 10062)
+            {
+                return modal.HasResponded;
+            }
+        }
+
+        /// <summary>
+        /// Attempts to respond to a component with a modal, swallowing duplicate-ack and timeout cases.
+        /// </summary>
+        private async Task TryShowModalAsync(SocketMessageComponent component, Modal modal)
+        {
+            try
+            {
+                await component.RespondWithModalAsync(modal);
+            }
+            catch (TimeoutException ex)
+            {
+                _logger.LogWarning(ex, "Timed out while responding with modal for component {CustomId}", component.Data.CustomId);
+            }
+            catch (Discord.Net.HttpException ex) when ((int?)ex.DiscordCode == 40060 || (int?)ex.DiscordCode == 10062)
+            {
+                // Already acknowledged/expired interaction; no further response possible.
+            }
+        }
+
+        /// <summary>
+        /// Resolves plugin context and dispatches a board admin action button click (e.g. Refresh Board).
+        /// </summary>
+        private async Task HandleBoardActionButtonInternalAsync(SocketMessageComponent component)
+        {
+            if (!_currentBotId.HasValue)
+            {
+                return;
+            }
+
+            if (component.User is not SocketGuildUser guildUser || guildUser.IsBot)
+            {
+                return;
+            }
+
+            var guild = guildUser.Guild;
+
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var serviceProvider = scope.ServiceProvider;
+                var db = serviceProvider.GetRequiredService<BotManagerDbContext>();
+
+                var bot = await db.Bots.FindAsync(_currentBotId.Value);
+                if (bot == null)
+                {
+                    return;
+                }
+
+                var setup = TryPreparePluginContext(serviceProvider, bot, db, $"board_action:{component.Data.CustomId}");
+                if (!setup.Success || setup.Plugin == null || setup.PluginContext == null)
+                {
+                    return;
+                }
+
+                if (!_pluginInitialized)
+                {
+                    await setup.Plugin.InitializeAsync(setup.PluginContext);
+                    _pluginInitialized = true;
+                }
+
+                await setup.Plugin.HandleBoardActionButtonAsync(component, guild, guildUser, setup.PluginContext);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unhandled error while dispatching board action button {CustomId}", component.Data.CustomId);
+            }
+        }
+
+        /// <summary>
+        /// Resolves plugin context and dispatches a board modal submission (e.g. Add Team form).
+        /// </summary>
+        private async Task HandleBoardModalInternalAsync(SocketModal modal)
+        {
+            if (!_currentBotId.HasValue)
+            {
+                return;
+            }
+
+            if (modal.User is not SocketGuildUser guildUser || guildUser.IsBot)
+            {
+                return;
+            }
+
+            var guild = guildUser.Guild;
+
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var serviceProvider = scope.ServiceProvider;
+                var db = serviceProvider.GetRequiredService<BotManagerDbContext>();
+
+                var bot = await db.Bots.FindAsync(_currentBotId.Value);
+                if (bot == null)
+                {
+                    return;
+                }
+
+                var setup = TryPreparePluginContext(serviceProvider, bot, db, $"board_modal:{modal.Data.CustomId}");
+                if (!setup.Success || setup.Plugin == null || setup.PluginContext == null)
+                {
+                    return;
+                }
+
+                if (!_pluginInitialized)
+                {
+                    await setup.Plugin.InitializeAsync(setup.PluginContext);
+                    _pluginInitialized = true;
+                }
+
+                await setup.Plugin.HandleBoardModalAsync(modal, guild, guildUser, setup.PluginContext);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unhandled error while dispatching board modal {CustomId}", modal.Data.CustomId);
+            }
+        }
+
+        /// <summary>
+        /// Resolves plugin context and dispatches a team-toggle button click to the active plugin.
+        /// </summary>
+        private async Task HandleButtonInteractionInternalAsync(SocketMessageComponent component)
+        {
+            if (!_currentBotId.HasValue)
+            {
+                return;
+            }
+
+            if (component.User is not SocketGuildUser guildUser || guildUser.IsBot)
+            {
+                return;
+            }
+
+            var guild = guildUser.Guild;
+
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var serviceProvider = scope.ServiceProvider;
+                var db = serviceProvider.GetRequiredService<BotManagerDbContext>();
+
+                var bot = await db.Bots.FindAsync(_currentBotId.Value);
+                if (bot == null)
+                {
+                    return;
+                }
+
+                var setup = TryPreparePluginContext(serviceProvider, bot, db, "button:team_toggle");
+                if (!setup.Success || setup.Plugin == null || setup.PluginContext == null)
+                {
+                    return;
+                }
+
+                if (!_pluginInitialized)
+                {
+                    await setup.Plugin.InitializeAsync(setup.PluginContext);
+                    _pluginInitialized = true;
+                }
+
+                await setup.Plugin.HandleButtonInteractionAsync(component, guild, guildUser, setup.PluginContext);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unhandled error while dispatching button interaction {CustomId}", component.Data.CustomId);
+            }
+        }
+
+        /// <summary>
         /// Receives reaction-added events and forwards them for plugin processing.
         /// </summary>
-        private async Task HandleReactionAddedEventAsync(
+        private Task HandleReactionAddedEventAsync(
             Cacheable<IUserMessage, ulong> cachedMessage,
             Cacheable<IMessageChannel, ulong> cachedChannel,
             SocketReaction reaction)
         {
-            await HandleReactionEventInternalAsync(
+            _ = HandleReactionEventInternalAsync(
                 dispatchType: ReactionDispatchType.Added,
                 cachedMessage: cachedMessage,
                 cachedChannel: cachedChannel,
                 reaction: reaction);
+
+            return Task.CompletedTask;
         }
 
             /// <summary>
             /// Receives reaction-removed events and forwards them for plugin processing.
             /// </summary>
-        private async Task HandleReactionRemovedEventAsync(
+        private Task HandleReactionRemovedEventAsync(
             Cacheable<IUserMessage, ulong> cachedMessage,
             Cacheable<IMessageChannel, ulong> cachedChannel,
             SocketReaction reaction)
         {
-            await HandleReactionEventInternalAsync(
+            _ = HandleReactionEventInternalAsync(
                 dispatchType: ReactionDispatchType.Removed,
                 cachedMessage: cachedMessage,
                 cachedChannel: cachedChannel,
                 reaction: reaction);
+
+            return Task.CompletedTask;
         }
 
             /// <summary>
@@ -923,11 +1340,21 @@ namespace BotManager.Backend.Bots.Services.Implementations
         /// <summary>
         /// Handles slash command execution by preparing plugin context and dispatching the command.
         /// </summary>
-        private Task HandleSlashCommandExecutedAsync(SocketSlashCommand command)
+        private async Task HandleSlashCommandExecutedAsync(SocketSlashCommand command)
         {
-            // Keep gateway thread unblocked; process command in background.
-            _ = Task.Run(() => HandleSlashCommandExecutedCoreAsync(command));
-            return Task.CompletedTask;
+            var interactionAgeAtHandlerStartMs = Math.Max(0L, (long)(DateTimeOffset.UtcNow - command.CreatedAt).TotalMilliseconds);
+            var deferResult = await EnsureInteractionDeferredAsync(command);
+
+            _logger.LogInformation(
+                "Slash command {CommandName} defer outcome={Outcome} acknowledged={Acknowledged} deferElapsedMs={DeferElapsedMs} interactionAgeAtDeferMs={InteractionAgeAtDeferMs}",
+                command.CommandName,
+                deferResult.Outcome,
+                deferResult.IsAcknowledged,
+                deferResult.AttemptElapsedMs,
+                interactionAgeAtHandlerStartMs + deferResult.AttemptElapsedMs);
+
+            // Do not block the Discord gateway task with long-running command work.
+            _ = HandleSlashCommandExecutedCoreAsync(command);
         }
 
         /// <summary>
@@ -976,6 +1403,12 @@ namespace BotManager.Backend.Bots.Services.Implementations
                     await SendInteractionMessageAsync(command, "Příkaz nebyl pluginem zpracován.");
                 }
             }
+            catch (Discord.Net.HttpException ex) when ((int?)ex.DiscordCode == 10015 || (int?)ex.DiscordCode == 10062)
+            {
+                _logger.LogWarning(ex,
+                    "Interaction token expired while handling slash command {CommandName}. The command may have completed but Discord cannot accept follow-up messages.",
+                    command.CommandName);
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Unhandled error while dispatching slash command {CommandName} to plugin", command.CommandName);
@@ -1020,6 +1453,35 @@ namespace BotManager.Backend.Bots.Services.Implementations
         }
 
         /// <summary>
+        /// Acknowledges slash interaction early to keep within Discord's 3-second response window.
+        /// </summary>
+        private async Task<InteractionDeferResult> EnsureInteractionDeferredAsync(SocketSlashCommand command)
+        {
+            var stopwatch = Stopwatch.StartNew();
+
+            if (command.HasResponded)
+            {
+                return new InteractionDeferResult(IsAcknowledged: true, Outcome: "already-responded", AttemptElapsedMs: stopwatch.ElapsedMilliseconds);
+            }
+
+            try
+            {
+                await command.DeferAsync(ephemeral: true);
+                return new InteractionDeferResult(IsAcknowledged: true, Outcome: "deferred", AttemptElapsedMs: stopwatch.ElapsedMilliseconds);
+            }
+            catch (TimeoutException ex)
+            {
+                _logger.LogWarning(ex, "Timed out while deferring interaction for command {CommandName}", command.CommandName);
+                return new InteractionDeferResult(IsAcknowledged: command.HasResponded, Outcome: "timeout", AttemptElapsedMs: stopwatch.ElapsedMilliseconds);
+            }
+            catch (Discord.Net.HttpException ex) when ((int?)ex.DiscordCode == 40060 || (int?)ex.DiscordCode == 10062)
+            {
+                // Interaction was already acknowledged by another branch.
+                return new InteractionDeferResult(IsAcknowledged: command.HasResponded, Outcome: $"http-{ex.DiscordCode}", AttemptElapsedMs: stopwatch.ElapsedMilliseconds);
+            }
+        }
+
+        /// <summary>
         /// Sends an interaction response or follow-up depending on command response state.
         /// </summary>
         private static async Task SendInteractionMessageAsync(SocketSlashCommand command, string message)
@@ -1040,6 +1502,14 @@ namespace BotManager.Backend.Bots.Services.Implementations
                 // Interaction was already acknowledged by another branch; send as follow-up instead.
                 await command.FollowupAsync(message, ephemeral: true);
             }
+            catch (Discord.Net.HttpException ex) when ((int?)ex.DiscordCode == 10015 || (int?)ex.DiscordCode == 10062)
+            {
+                // Interaction webhook/token is no longer valid; nothing can be sent to Discord at this point.
+            }
+            catch (TimeoutException)
+            {
+                // Discord's 3-second response window was missed; command work may still have completed.
+            }
         }
 
         /// <summary>
@@ -1059,5 +1529,10 @@ namespace BotManager.Backend.Bots.Services.Implementations
             public static SlashPluginSetupResult Fail(string userMessage)
                 => new(false, null, null, userMessage);
         }
+
+        /// <summary>
+        /// Captures defer attempt telemetry for slash-command interactions.
+        /// </summary>
+        private sealed record InteractionDeferResult(bool IsAcknowledged, string Outcome, long AttemptElapsedMs);
     }
 }

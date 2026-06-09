@@ -80,8 +80,8 @@ export class AdminHomeComponent implements OnInit {
         this.toastr.success(this.i18n.t('admin.create_success'), this.i18n.t('admin.register'));
         this.loadBots();
       },
-      error: () => {
-        this.formError = this.i18n.t('admin.create_error');
+      error: (err) => {
+        this.formError = err?.error ?? this.i18n.t('admin.create_error');
         this.formLoading = false;
         this.toastr.error(this.formError, this.i18n.t('admin.register'));
       }

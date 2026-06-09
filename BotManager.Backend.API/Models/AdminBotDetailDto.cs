@@ -18,6 +18,7 @@ namespace BotManager.Backend.API.Models
         public int Errors24h { get; set; }
         public DateTime? LastStartedAt { get; set; }
         public DateTime? LastStoppedAt { get; set; }
+        public bool IsTokenAuthorized { get; set; }
 
         public BotConfigurationDto Configuration { get; set; } = new();
         public List<BotLogDto> Logs { get; set; } = new();

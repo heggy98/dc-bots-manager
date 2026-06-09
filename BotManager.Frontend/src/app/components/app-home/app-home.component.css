@@ -1,5 +1,5 @@
-.home-header { text-align: center; margin-bottom: 40px; }
-.home-header h1 { font-size: 2.5rem; font-weight: 700; margin-bottom: 8px; letter-spacing: -1px; }
+.home-header { text-align: center; margin-bottom: 40px; animation: riseIn 440ms ease; }
+.home-header h1 { font-size: clamp(1.9rem, 4vw, 2.9rem); font-weight: 800; margin-bottom: 8px; letter-spacing: -0.04em; }
 .home-header p { color: var(--text-secondary); font-size: 1.1rem; }
 
 .bot-card-header {
@@ -30,3 +30,13 @@
 .discord-subtitle { margin: 0 0 6px 0; font-size: 0.82rem; color: var(--text-muted); }
 .server-count { margin: 0 0 6px 0; font-size: 0.78rem; color: var(--text-muted); }
 .status-time { margin: 4px 0 0; font-size: 0.78rem; color: var(--text-muted); }
+
+@media (max-width: 640px) {
+  .home-header {
+    margin-bottom: 26px;
+  }
+
+  .home-header p {
+    font-size: 0.96rem;
+  }
+}

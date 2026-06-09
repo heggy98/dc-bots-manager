@@ -62,6 +62,7 @@ try
     builder.Services.AddOpenApi();
     builder.Services.AddHttpClient();
     builder.Services.AddMemoryCache();
+    builder.Services.AddDataProtection();
 
     // SignalR for real-time bot event delivery
     builder.Services.AddSignalR(options =>
@@ -103,6 +104,7 @@ try
     builder.Services.AddScoped<ISystemConfigService, SystemConfigService>();
     builder.Services.AddScoped<IUserIdentityResolver, UserIdentityResolver>();
     builder.Services.AddScoped<DiscordBotIdentityService>();
+    builder.Services.AddScoped<IBotTokenSecurityService, BotTokenSecurityService>();
     builder.Services.AddSingleton<IEmojiCatalogService, EmojiCatalogService>();
     builder.Services.AddSingleton<IBotNotificationService, BotNotificationService>();
 

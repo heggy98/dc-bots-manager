@@ -74,8 +74,6 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin
         /// </summary>
         public async Task<bool> HandleCommandAsync(SocketSlashCommand command, IPluginContext context)
         {
-            await command.DeferAsync(ephemeral: true);
-
             var channel = command.Channel as SocketTextChannel;
             var user = command.User as SocketGuildUser;
             var guild = user?.Guild;
@@ -151,6 +149,66 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin
             }
 
             await commandService.HandleReactionRemovedAsync(cachedMessage, channel, reaction, guild, user, context);
+        }
+
+        /// <summary>
+        /// Handles a team-toggle button interaction for board message role assignment.
+        /// </summary>
+        public async Task HandleButtonInteractionAsync(
+            SocketMessageComponent component,
+            SocketGuild guild,
+            SocketGuildUser user,
+            IPluginContext context)
+        {
+            var commandService = ResolveCommandService(context);
+            if (commandService == null)
+            {
+                context.Logger.LogWarning("Command service is not available for button interaction handling.");
+                await component.FollowupAsync("Command service is not available.", ephemeral: true);
+                return;
+            }
+
+            await commandService.HandleButtonInteractionAsync(component, guild, user, context);
+        }
+
+        /// <summary>
+        /// Handles an admin board action button click (e.g. Refresh Board).
+        /// </summary>
+        public async Task HandleBoardActionButtonAsync(
+            SocketMessageComponent component,
+            SocketGuild guild,
+            SocketGuildUser user,
+            IPluginContext context)
+        {
+            var commandService = ResolveCommandService(context);
+            if (commandService == null)
+            {
+                context.Logger.LogWarning("Command service is not available for board action button handling.");
+                await component.FollowupAsync("Command service is not available.", ephemeral: true);
+                return;
+            }
+
+            await commandService.HandleBoardActionButtonAsync(component, guild, user, context);
+        }
+
+        /// <summary>
+        /// Handles a board modal submission (e.g. the Add Team form).
+        /// </summary>
+        public async Task HandleBoardModalAsync(
+            SocketModal modal,
+            SocketGuild guild,
+            SocketGuildUser user,
+            IPluginContext context)
+        {
+            var commandService = ResolveCommandService(context);
+            if (commandService == null)
+            {
+                context.Logger.LogWarning("Command service is not available for board modal handling.");
+                await modal.FollowupAsync("Command service is not available.", ephemeral: true);
+                return;
+            }
+
+            await commandService.HandleBoardModalAsync(modal, guild, user, context);
         }
 
         /// <summary>

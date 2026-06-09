@@ -1,7 +1,7 @@
-.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; padding-bottom: 18px; border-bottom: 1px solid var(--border-color); }
-.page-header h2 { margin: 0 0 6px 0; font-size: 1.8rem; font-weight: 700; }
-.header-actions { display: flex; gap: 10px; }
-.form-panel { max-width: 550px; margin-bottom: 28px; }
+.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; padding-bottom: 18px; border-bottom: 1px solid var(--border-color); gap: 14px; flex-wrap: wrap; }
+.page-header h2 { margin: 0 0 6px 0; font-size: clamp(1.4rem, 2.4vw, 1.9rem); font-weight: 800; letter-spacing: -0.03em; }
+.header-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.form-panel { max-width: 560px; margin-bottom: 28px; animation: riseIn 420ms ease; }
 .form-panel h3 { margin: 0 0 18px; }
 
 .bot-admin-card { display: flex; flex-direction: column; gap: 16px; }
@@ -18,3 +18,23 @@
 .stat-box { background: var(--bg-glass); padding: 12px; border-radius: 10px; text-align: center; border: 1px solid var(--border-color); }
 .stat-label { font-size: 0.78rem; color: var(--text-muted); display: block; margin-bottom: 4px; }
 .stat-value { font-size: 1.2rem; font-weight: 700; }
+
+@media (max-width: 860px) {
+	.header-actions {
+		width: 100%;
+	}
+
+	.header-actions .btn {
+		flex: 1;
+	}
+}
+
+@media (max-width: 640px) {
+	.bot-card-top {
+		align-items: flex-start;
+	}
+
+	.bot-stats-row {
+		grid-template-columns: 1fr;
+	}
+}

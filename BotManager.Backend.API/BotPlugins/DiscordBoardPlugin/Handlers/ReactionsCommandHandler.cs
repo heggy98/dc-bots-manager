@@ -38,7 +38,7 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
             var guildUser = command.User as SocketGuildUser;
             if (!guildUser?.GuildPermissions.Administrator ?? true && command.User.Id != guild.OwnerId)
             {
-                await command.FollowupAsync(adminOnlyMsg, ephemeral: true);
+                await SendCommandResponseAsync(command, adminOnlyMsg, context);
                 await LogCommandUsageAsync(syncCommand, command.User, false, "Permission denied", context);
                 return;
             }
@@ -48,7 +48,7 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
                 var botConfig = await context.BotDataService.GetAsync(context.Bot.BotId);
                 if (!ulong.TryParse(botConfig.BoardChannelId, out var boardChannelId))
                 {
-                    await command.FollowupAsync("Board channel is not configured.", ephemeral: true);
+                    await SendCommandResponseAsync(command, "Board channel is not configured.", context);
                     await LogCommandUsageAsync(syncCommand, command.User, false, "Board channel missing", context);
                     return;
                 }
@@ -56,7 +56,7 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
                 var boardChannel = guild.GetTextChannel(boardChannelId);
                 if (boardChannel == null)
                 {
-                    await command.FollowupAsync("Configured board channel was not found.", ephemeral: true);
+                    await SendCommandResponseAsync(command, "Configured board channel was not found.", context);
                     await LogCommandUsageAsync(syncCommand, command.User, false, "Board channel not found", context);
                     return;
                 }
@@ -74,7 +74,7 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
 
                 if (boardMessage == null)
                 {
-                    await command.FollowupAsync("Board message was not found. Run /board insert first.", ephemeral: true);
+                    await SendCommandResponseAsync(command, "Board message was not found. Run /board insert first.", context);
                     await LogCommandUsageAsync(syncCommand, command.User, false, "Board message not found", context);
                     return;
                 }
@@ -82,7 +82,7 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
                 var teamsData = await context.TeamsDataService.GetAsync(context.Bot.BotId);
                 if (!teamsData.Teams.Any())
                 {
-                    await command.FollowupAsync("No teams are configured, so no reactions were added.", ephemeral: true);
+                    await SendCommandResponseAsync(command, "No teams are configured, so no reactions were added.", context);
                     await LogCommandUsageAsync(syncCommand, command.User, true, null, context);
                     return;
                 }
@@ -139,15 +139,14 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
                 var suffix = clearedReactions
                     ? string.Empty
                     : " Existing reactions could not be removed; only missing reactions were added.";
-                await command.FollowupAsync(
-                    $"{successMsg} Added {addedCount} reactions. Created {rolesCreated} roles. Removed {rolesRemoved} stale board roles.{suffix}",
-                    ephemeral: true);
+                await SendCommandResponseAsync(command, 
+                    $"{successMsg} Added {addedCount} reactions. Created {rolesCreated} roles. Removed {rolesRemoved} stale board roles.{suffix}", context);
                 await LogCommandUsageAsync(syncCommand, command.User, true, null, context);
             }
             catch (Exception ex)
             {
                 context.Logger.LogError(ex, "BotId={BotId}: Error syncing board reactions", context.Bot.BotId);
-                await command.FollowupAsync(string.Format(errorMsg, ex.Message), ephemeral: true);
+                await SendCommandResponseAsync(command, string.Format(errorMsg, ex.Message), context);
                 await LogCommandUsageAsync(syncCommand, command.User, false, ex.Message, context);
             }
         }
@@ -171,14 +170,14 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
             var guildUser = command.User as SocketGuildUser;
             if (!guildUser?.GuildPermissions.Administrator ?? true && command.User.Id != guild.OwnerId)
             {
-                await command.FollowupAsync(adminOnlyMsg, ephemeral: true);
+                await SendCommandResponseAsync(command, adminOnlyMsg, context);
                 await LogCommandUsageAsync(reactionCommand, command.User, false, "Permission denied", context);
                 return;
             }
 
             if (targetChannelValue == null)
             {
-                await command.FollowupAsync(userHint, ephemeral: true);
+                await SendCommandResponseAsync(command, userHint, context);
                 await LogCommandUsageAsync(reactionCommand, command.User, false, "No target channel specified", context);
                 return;
             }
@@ -191,7 +190,7 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
                 if (!teamsData.Teams.Any())
                 {
                     var emptyMsg = reactionCommand?.InvalidArgumentsMessage ?? "Nejsou registrovány žádné týmy!";
-                    await command.FollowupAsync(emptyMsg, ephemeral: true);
+                    await SendCommandResponseAsync(command, emptyMsg, context);
                     await LogCommandUsageAsync(reactionCommand, command.User, false, "No teams available", context);
                     return;
                 }
@@ -231,13 +230,13 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
                 }
 
                 context.Logger.LogInformation("BotId={BotId}: Moved role selection message to channel {ChannelId}", context.Bot.BotId, targetChannelValue.Id);
-                await command.FollowupAsync(string.Format(successMsg), ephemeral: true);
+                await SendCommandResponseAsync(command, string.Format(successMsg), context);
                 await LogCommandUsageAsync(reactionCommand, command.User, true, null, context);
             }
             catch (Exception ex)
             {
                 context.Logger.LogError(ex, "BotId={BotId}: Error moving reaction message", context.Bot.BotId);
-                await command.FollowupAsync(string.Format(errorMsg, ex.Message), ephemeral: true);
+                await SendCommandResponseAsync(command, string.Format(errorMsg, ex.Message), context);
                 await LogCommandUsageAsync(reactionCommand, command.User, false, ex.Message, context);
             }
         }
@@ -395,11 +394,13 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
         {
             var created = 0;
             var removed = 0;
+            var guildRolesByName = guild.Roles
+                .GroupBy(role => role.Name, StringComparer.Ordinal)
+                .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
 
             foreach (var teamName in currentTeamNames)
             {
-                var exists = guild.Roles.Any(role => string.Equals(role.Name, teamName, StringComparison.Ordinal));
-                if (exists)
+                if (guildRolesByName.ContainsKey(teamName))
                 {
                     continue;
                 }
@@ -409,6 +410,11 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
                     var randomColor = new Color((uint)Random.Shared.Next(0x1000000));
                     await guild.CreateRoleAsync(teamName, color: randomColor);
                     created++;
+                    var createdRole = guild.Roles.FirstOrDefault(r => r.Name.Equals(teamName, StringComparison.Ordinal));
+                    if (createdRole != null)
+                    {
+                        guildRolesByName[teamName] = createdRole;
+                    }
                     context.Logger.LogInformation("BotId={BotId}: Created missing board role '{RoleName}' during sync-reactions", context.Bot.BotId, teamName);
                 }
                 catch (Exception ex)
@@ -418,13 +424,12 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
             }
 
             var staleBoardRoles = previousBoardRoleNames
-                .Where(previousRole => !currentTeamNames.Contains(previousRole))
+                .Except(currentTeamNames, StringComparer.Ordinal)
                 .ToList();
 
             foreach (var staleRoleName in staleBoardRoles)
             {
-                var role = guild.Roles.FirstOrDefault(r => string.Equals(r.Name, staleRoleName, StringComparison.Ordinal));
-                if (role == null)
+                if (!guildRolesByName.TryGetValue(staleRoleName, out var role))
                 {
                     continue;
                 }
@@ -433,6 +438,7 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
                 {
                     await role.DeleteAsync();
                     removed++;
+                    guildRolesByName.Remove(staleRoleName);
                     context.Logger.LogInformation("BotId={BotId}: Removed stale board role '{RoleName}' during sync-reactions", context.Bot.BotId, staleRoleName);
                 }
                 catch (Exception ex)
@@ -482,6 +488,81 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
             }
 
             return user.Username;
+        }
+
+        /// <summary>
+        /// Handles a team-toggle button click: adds or removes the team role for the user
+        /// depending on whether they already hold it, then responds ephemerally.
+        /// </summary>
+        public async Task HandleButtonInteractionAsync(
+            SocketMessageComponent component,
+            SocketGuild guild,
+            SocketGuildUser user,
+            IPluginContext context)
+        {
+            const string buttonPrefix = "team_toggle:";
+            const string selectPrefix = "team_select:";
+
+            string? teamName = null;
+            if (component.Data.CustomId.StartsWith(buttonPrefix, StringComparison.Ordinal))
+            {
+                teamName = component.Data.CustomId[buttonPrefix.Length..];
+            }
+            else if (component.Data.CustomId.StartsWith(selectPrefix, StringComparison.Ordinal))
+            {
+                teamName = component.Data.Values.FirstOrDefault();
+            }
+            else
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(teamName))
+            {
+                await component.FollowupAsync("Could not determine team from button.", ephemeral: true);
+                return;
+            }
+
+            try
+            {
+                // Find an existing guild role whose name matches the stored team name.
+                var role = guild.Roles.FirstOrDefault(r => r.Name.Equals(teamName, StringComparison.Ordinal));
+
+                // If the role does not exist yet, create it (same behaviour as the reaction handler).
+                if (role == null)
+                {
+                    var randomColor = new Color((uint)Random.Shared.Next(0x1000000));
+                    await guild.CreateRoleAsync(teamName, color: randomColor);
+                    role = guild.Roles.FirstOrDefault(r => r.Name.Equals(teamName, StringComparison.Ordinal));
+                    if (role == null)
+                    {
+                        await component.FollowupAsync("Failed to create team role.", ephemeral: true);
+                        return;
+                    }
+                    context.Logger.LogInformation("BotId={BotId}: Created role '{RoleName}' via button interaction", context.Bot.BotId, teamName);
+                }
+
+                var userTag = BuildUserTag(user);
+                var hasRole = user.Roles.Any(r => r.Id == role.Id);
+
+                if (hasRole)
+                {
+                    await user.RemoveRoleAsync(role);
+                    context.Logger.LogInformation("BotId={BotId}: Removed role '{RoleName}' from user {UserTag} via button", context.Bot.BotId, teamName, userTag);
+                    await component.FollowupAsync($"✅ You left **{teamName}**.", ephemeral: true);
+                }
+                else
+                {
+                    await user.AddRoleAsync(role);
+                    context.Logger.LogInformation("BotId={BotId}: Assigned role '{RoleName}' to user {UserTag} via button", context.Bot.BotId, teamName, userTag);
+                    await component.FollowupAsync($"✅ You joined **{teamName}**.", ephemeral: true);
+                }
+            }
+            catch (Exception ex)
+            {
+                context.Logger.LogError(ex, "BotId={BotId}: Error handling button interaction for team '{TeamName}'", context.Bot.BotId, teamName);
+                await component.FollowupAsync("An error occurred while processing your request.", ephemeral: true);
+            }
         }
     }
 }

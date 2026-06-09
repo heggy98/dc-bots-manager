@@ -1,4 +1,5 @@
 using BotManager.Backend.API.Models;
+using BotManager.Backend.Bots.Services.Contracts;
 using BotManager.Backend.Bots.Services.Implementations;
 using BotManager.Backend.Shared.Models;
 using BotManager.Backend.Entities;
@@ -19,6 +20,7 @@ namespace BotManager.Backend.API.Controllers
         private readonly DiscordBotIdentityService _discordBotIdentityService;
         private readonly IUserIdentityResolver _userIdentityResolver;
         private readonly IEmojiCatalogService _emojiCatalogService;
+        private readonly IBotTokenSecurityService _botTokenSecurityService;
         private readonly ILogger<BotController> _logger;
 
         /// <summary>
@@ -30,6 +32,7 @@ namespace BotManager.Backend.API.Controllers
             DiscordBotIdentityService discordBotIdentityService,
             IUserIdentityResolver userIdentityResolver,
             IEmojiCatalogService emojiCatalogService,
+            IBotTokenSecurityService botTokenSecurityService,
             ILogger<BotController> logger)
         {
             _db = db;
@@ -37,6 +40,7 @@ namespace BotManager.Backend.API.Controllers
             _discordBotIdentityService = discordBotIdentityService;
             _userIdentityResolver = userIdentityResolver;
             _emojiCatalogService = emojiCatalogService;
+            _botTokenSecurityService = botTokenSecurityService;
             _logger = logger;
         }
 
@@ -57,7 +61,10 @@ namespace BotManager.Backend.API.Controllers
         [HttpGet("public")]
         public async Task<IActionResult> GetPublicBots()
         {
-            var bots = await _db.Bots.Where(b => b.IsPublic).ToListAsync();
+            var bots = await _db.Bots
+                .AsNoTracking()
+                .Where(b => b.IsPublic)
+                .ToListAsync();
 
             var dtoTasks = bots.Select(MapPublicBotDtoAsync);
 
@@ -79,8 +86,8 @@ namespace BotManager.Backend.API.Controllers
             }
 
             var bots = await _db.Bots
+                .AsNoTracking()
                 .Where(b => b.OwnerUserId == ownerUserId)
-                .Include(b => b.Histories)
                 .ToListAsync();
             var usageStats = await LoadUsageStats24hAsync();
 
@@ -97,7 +104,9 @@ namespace BotManager.Backend.API.Controllers
         [HttpGet("admin")]
         public async Task<IActionResult> GetAdminBots()
         {
-            var bots = await _db.Bots.Include(b => b.Histories).ToListAsync();
+            var bots = await _db.Bots
+                .AsNoTracking()
+                .ToListAsync();
             var usageStats = await LoadUsageStats24hAsync();
 
             var dtoTasks = bots.Select(bot => MapAdminBotDtoAsync(bot, usageStats));
@@ -116,6 +125,18 @@ namespace BotManager.Backend.API.Controllers
             if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.BotToken))
                 return BadRequest("Name and Token are required.");
 
+            var normalizedRawToken = _botTokenSecurityService.NormalizeRawToken(request.BotToken);
+            if (string.IsNullOrWhiteSpace(normalizedRawToken))
+            {
+                return BadRequest("Bot token is invalid.");
+            }
+
+            var isAuthorized = await IsDiscordTokenAuthorizedAsync(normalizedRawToken);
+            if (!isAuthorized)
+            {
+                return BadRequest("Bot token is not authorized by Discord API.");
+            }
+
             var ownerUserId = GetCurrentUserIdentifier();
             if (string.IsNullOrWhiteSpace(ownerUserId))
             {
@@ -125,7 +146,7 @@ namespace BotManager.Backend.API.Controllers
             var newBot = new Bot
             {
                 Name = request.Name,
-                BotToken = request.BotToken,
+                BotToken = _botTokenSecurityService.ProtectForStorage(normalizedRawToken),
                 OwnerUserId = ownerUserId,
                 IsPublic = request.IsPublic
             };
@@ -144,24 +165,38 @@ namespace BotManager.Backend.API.Controllers
         public async Task<IActionResult> GetBotDetail(int id)
         {
             var bot = await _db.Bots
-                .Include(b => b.Histories.OrderByDescending(h => h.StartedAt).Take(50))
+                .AsNoTracking()
                 .FirstOrDefaultAsync(b => b.BotId == id);
 
             if (bot == null) return NotFound();
+
+            var histories = await _db.BotRunHistories
+                .AsNoTracking()
+                .Where(h => h.BotId == id)
+                .OrderByDescending(h => h.StartedAt)
+                .Take(50)
+                .ToListAsync();
 
             var logs = await LoadBotLogsAsync(bot, 80);
             var usageStats = await LoadUsageStats24hAsync();
 
             var botConfig = await _botService.GetBotDataAsync(id);
-            var (identity, guilds) = await LoadDiscordMetadataAsync(bot.BotToken);
+
+            var tokenAuthorized = TryResolveRawToken(bot.BotToken, out var rawToken)
+                && await IsDiscordTokenAuthorizedAsync(rawToken!);
+
+            var (identity, guilds) = tokenAuthorized
+                ? await LoadDiscordMetadataAsync(rawToken!)
+                : (null, []);
 
             var dto = new AdminBotDetailDto
             {
                 BotId = bot.BotId,
                 Name = bot.Name,
-                BotToken = bot.BotToken,
+                BotToken = _botTokenSecurityService.BuildMaskedToken(bot.BotToken),
                 OwnerUserId = bot.OwnerUserId,
                 IsPublic = bot.IsPublic,
+                IsTokenAuthorized = tokenAuthorized,
                 DiscordBotName = identity?.Name,
                 DiscordBotAvatarUrl = identity?.AvatarUrl,
                 ServerCount = guilds.Count > 0 ? guilds.Count : null,
@@ -173,7 +208,7 @@ namespace BotManager.Backend.API.Controllers
                 Errors24h = usageStats.TryGetValue(bot.BotId, out var errorStats) ? errorStats.Errors24h : 0,
                 Configuration = botConfig,
                 Logs = logs,
-                Histories = bot.Histories.Select(h => new BotHistoryDto
+                Histories = histories.Select(h => new BotHistoryDto
                 {
                     Id = h.Id,
                     StartedAt = h.StartedAt,
@@ -217,7 +252,13 @@ namespace BotManager.Backend.API.Controllers
         /// </summary>
         private async Task<BotPublicDto> MapPublicBotDtoAsync(Bot bot)
         {
-            var (identity, guilds) = await LoadDiscordMetadataAsync(bot.BotToken);
+            DiscordBotIdentity? identity = null;
+            List<string> guilds = [];
+
+            if (TryResolveRawToken(bot.BotToken, out var rawToken))
+            {
+                (identity, guilds) = await LoadDiscordMetadataAsync(rawToken!);
+            }
 
             return new BotPublicDto
             {
@@ -239,13 +280,19 @@ namespace BotManager.Backend.API.Controllers
         /// </summary>
         private async Task<AdminBotDto> MapAdminBotDtoAsync(Bot bot, Dictionary<int, (int Requests24h, int Errors24h)> usageStats)
         {
-            var (identity, guilds) = await LoadDiscordMetadataAsync(bot.BotToken);
+            DiscordBotIdentity? identity = null;
+            List<string> guilds = [];
+
+            if (TryResolveRawToken(bot.BotToken, out var rawToken))
+            {
+                (identity, guilds) = await LoadDiscordMetadataAsync(rawToken!);
+            }
 
             return new AdminBotDto
             {
                 BotId = bot.BotId,
                 Name = bot.Name,
-                BotToken = bot.BotToken,
+                BotToken = _botTokenSecurityService.BuildMaskedToken(bot.BotToken),
                 OwnerUserId = bot.OwnerUserId,
                 IsPublic = bot.IsPublic,
                 DiscordBotName = identity?.Name,
@@ -300,6 +347,43 @@ namespace BotManager.Backend.API.Controllers
             await _db.SaveChangesAsync();
 
             _logger.LogInformation("Bot {BotId} visibility updated to {IsPublic}", id, request.IsPublic);
+            return Ok();
+        }
+
+        /// <summary>
+        /// Updates bot token after validating it against Discord API.
+        /// </summary>
+        [Authorize]
+        [HttpPut("admin/{id}/token")]
+        public async Task<IActionResult> UpdateBotToken(int id, [FromBody] UpdateBotTokenRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.BotToken))
+            {
+                return BadRequest("Bot token is required.");
+            }
+
+            var normalizedRawToken = _botTokenSecurityService.NormalizeRawToken(request.BotToken);
+            if (string.IsNullOrWhiteSpace(normalizedRawToken))
+            {
+                return BadRequest("Bot token is invalid.");
+            }
+
+            var isAuthorized = await IsDiscordTokenAuthorizedAsync(normalizedRawToken);
+            if (!isAuthorized)
+            {
+                return BadRequest("Bot token is not authorized by Discord API.");
+            }
+
+            var (bot, errorResult) = await GetBotOrNotFoundAsync(id);
+            if (errorResult != null)
+            {
+                return errorResult;
+            }
+
+            bot!.BotToken = _botTokenSecurityService.ProtectForStorage(normalizedRawToken);
+            await _db.SaveChangesAsync();
+
+            _logger.LogInformation("Bot {BotId} token updated after Discord authorization check", id);
             return Ok();
         }
 
@@ -592,32 +676,34 @@ namespace BotManager.Backend.API.Controllers
 
             var botMarker = $"BotId={bot!.BotId}";
 
-            var systemLogs = await _db.SystemLogs
-                .Where(l => l.Message.Contains(botMarker))
-                .ToListAsync();
+            var systemLogsQuery = _db.SystemLogs
+                .Where(l => l.Message.Contains(botMarker));
 
-            var commandLogs = await _db.CommandUsageLogs
-                .Where(l => l.BotCommand != null && l.BotCommand.BotId == id)
-                .ToListAsync();
+            var commandLogsQuery = _db.CommandUsageLogs
+                .Where(l => _db.BotCommands
+                    .Where(c => c.BotId == id)
+                    .Select(c => c.CommandId)
+                    .Contains(l.CommandId));
 
-            if (systemLogs.Count > 0)
+            var systemLogsCount = await systemLogsQuery.CountAsync();
+            var commandLogsCount = await commandLogsQuery.CountAsync();
+
+            if (systemLogsCount > 0)
             {
-                _db.SystemLogs.RemoveRange(systemLogs);
+                await systemLogsQuery.ExecuteDeleteAsync();
             }
 
-            if (commandLogs.Count > 0)
+            if (commandLogsCount > 0)
             {
-                _db.CommandUsageLogs.RemoveRange(commandLogs);
+                await commandLogsQuery.ExecuteDeleteAsync();
             }
-
-            await _db.SaveChangesAsync();
 
             _logger.LogInformation("Cleared logs for bot {BotId}. SystemLogs={SystemCount}, CommandLogs={CommandCount}",
                 id,
-                systemLogs.Count,
-                commandLogs.Count);
+                systemLogsCount,
+                commandLogsCount);
 
-            return Ok(new { removedSystemLogs = systemLogs.Count, removedCommandLogs = commandLogs.Count });
+            return Ok(new { removedSystemLogs = systemLogsCount, removedCommandLogs = commandLogsCount });
         }
 
         /// <summary>
@@ -633,19 +719,18 @@ namespace BotManager.Backend.API.Controllers
                 return errorResult;
             }
 
-            var histories = await _db.BotRunHistories
-                .Where(h => h.BotId == id)
-                .ToListAsync();
+            var historiesQuery = _db.BotRunHistories
+                .Where(h => h.BotId == id);
 
-            if (histories.Count > 0)
+            var removedCount = await historiesQuery.CountAsync();
+            if (removedCount > 0)
             {
-                _db.BotRunHistories.RemoveRange(histories);
-                await _db.SaveChangesAsync();
+                await historiesQuery.ExecuteDeleteAsync();
             }
 
-            _logger.LogInformation("Cleared run history for bot {BotId}. Histories={Count}", id, histories.Count);
+            _logger.LogInformation("Cleared run history for bot {BotId}. Histories={Count}", id, removedCount);
 
-            return Ok(new { removedHistories = histories.Count });
+            return Ok(new { removedHistories = removedCount });
         }
 
         /// <summary>
@@ -656,6 +741,7 @@ namespace BotManager.Backend.API.Controllers
             var botMarker = $"BotId={bot.BotId}";
 
             var systemLogs = await _db.SystemLogs
+                .AsNoTracking()
                 .Where(l =>
                     l.Category.Contains("Bot") ||
                     l.Message.Contains(bot.Name) ||
@@ -665,19 +751,34 @@ namespace BotManager.Backend.API.Controllers
                 .Select(l => new BotLogDto { Timestamp = l.Timestamp, Level = l.Level, Message = l.Message })
                 .ToListAsync();
 
-            var commandLogs = await _db.CommandUsageLogs
-                .Where(l => l.BotCommand != null && l.BotCommand.BotId == bot.BotId)
-                .OrderByDescending(l => l.ExecutedAt)
+            var commandRows = await (from log in _db.CommandUsageLogs.AsNoTracking()
+                                     join command in _db.BotCommands.AsNoTracking()
+                                         on log.CommandId equals command.CommandId
+                                     where command.BotId == bot.BotId
+                                     orderby log.ExecutedAt descending
+                                     select new
+                                     {
+                                         log.ExecutedAt,
+                                         log.IsSuccess,
+                                         log.UserId,
+                                         log.UserName,
+                                         log.ErrorMessage,
+                                         command.CommandName,
+                                         command.SubCommandName
+                                     })
                 .Take(take)
-                .Select(l => new BotLogDto
-                {
-                    Timestamp = l.ExecutedAt,
-                    Level = l.IsSuccess ? "Information" : "Warning",
-                    Message = l.IsSuccess
-                        ? $"{FormatCommandLabel(l.BotCommand!)} by {l.UserName ?? l.UserId.ToString()} - OK"
-                        : $"{FormatCommandLabel(l.BotCommand!)} by {l.UserName ?? l.UserId.ToString()} - FAILED: {l.ErrorMessage ?? "Unknown error"}"
-                })
                 .ToListAsync();
+
+            var commandLogs = commandRows
+                .Select(row => new BotLogDto
+                {
+                    Timestamp = row.ExecutedAt,
+                    Level = row.IsSuccess ? "Information" : "Warning",
+                    Message = row.IsSuccess
+                        ? $"{FormatCommandLabel(row.CommandName, row.SubCommandName)} by {row.UserName ?? row.UserId.ToString()} - OK"
+                        : $"{FormatCommandLabel(row.CommandName, row.SubCommandName)} by {row.UserName ?? row.UserId.ToString()} - FAILED: {row.ErrorMessage ?? "Unknown error"}"
+                })
+                .ToList();
 
             return systemLogs
                 .Concat(commandLogs)
@@ -694,13 +795,19 @@ namespace BotManager.Backend.API.Controllers
             var from = DateTime.UtcNow.AddHours(-24);
 
             return await _db.CommandUsageLogs
-                .Where(log => log.BotCommand != null && log.ExecutedAt >= from)
-                .GroupBy(log => log.BotCommand!.BotId)
+                .AsNoTracking()
+                .Where(log => log.ExecutedAt >= from)
+                .Join(
+                    _db.BotCommands.AsNoTracking(),
+                    log => log.CommandId,
+                    command => command.CommandId,
+                    (log, command) => new { log.IsSuccess, command.BotId })
+                .GroupBy(x => x.BotId)
                 .Select(group => new
                 {
                     BotId = group.Key,
                     Requests24h = group.Count(),
-                    Errors24h = group.Count(log => !log.IsSuccess)
+                    Errors24h = group.Count(x => !x.IsSuccess)
                 })
                 .ToDictionaryAsync(
                     row => row.BotId,
@@ -753,14 +860,37 @@ namespace BotManager.Backend.API.Controllers
             return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
         }
 
-        private static string FormatCommandLabel(BotCommand cmd)
+        private bool TryResolveRawToken(string storedToken, out string? rawToken)
         {
-            if (cmd.CommandName.StartsWith("reaction-", StringComparison.OrdinalIgnoreCase))
+            rawToken = null;
+            if (!_botTokenSecurityService.TryGetRawToken(storedToken, out var extracted))
             {
-                return $"[{cmd.CommandName}]";
+                return false;
             }
 
-            return $"/{cmd.CommandName}{(string.IsNullOrWhiteSpace(cmd.SubCommandName) ? string.Empty : $" {cmd.SubCommandName}")}";
+            rawToken = extracted;
+            return !string.IsNullOrWhiteSpace(rawToken);
+        }
+
+        private async Task<bool> IsDiscordTokenAuthorizedAsync(string rawToken)
+        {
+            var identity = await _discordBotIdentityService.GetIdentityAsync(rawToken);
+            return identity != null;
+        }
+
+        private static string FormatCommandLabel(BotCommand cmd)
+        {
+            return FormatCommandLabel(cmd.CommandName, cmd.SubCommandName);
+        }
+
+        private static string FormatCommandLabel(string commandName, string? subCommandName)
+        {
+            if (commandName.StartsWith("reaction-", StringComparison.OrdinalIgnoreCase))
+            {
+                return $"[{commandName}]";
+            }
+
+            return $"/{commandName}{(string.IsNullOrWhiteSpace(subCommandName) ? string.Empty : $" {subCommandName}")}";
         }
 
         /// <summary>
@@ -835,6 +965,11 @@ namespace BotManager.Backend.API.Controllers
         public sealed class UpdateBotVisibilityRequest
         {
             public bool IsPublic { get; set; }
+        }
+
+        public sealed class UpdateBotTokenRequest
+        {
+            public string BotToken { get; set; } = string.Empty;
         }
 
         public sealed class CreateBoardConfigurationRequest

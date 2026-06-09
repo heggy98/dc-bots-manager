@@ -24,6 +24,7 @@ namespace BotManager.Backend.Bots.Services.Implementations
         private readonly CommandManagementService _commandManagementService;
         private readonly IDiscordCommandProvider _discordCommandProvider;
         private readonly IBotNotificationService _notificationService;
+        private readonly IBotTokenSecurityService _botTokenSecurityService;
 
         /// <summary>
         /// Creates a new bot management service.
@@ -36,7 +37,8 @@ namespace BotManager.Backend.Bots.Services.Implementations
             IBotDataService botDataService,
             CommandManagementService commandManagementService,
             IDiscordCommandProvider discordCommandProvider,
-            IBotNotificationService notificationService)
+            IBotNotificationService notificationService,
+            IBotTokenSecurityService botTokenSecurityService)
         {
             _db = db;
             _logger = logger;
@@ -46,6 +48,7 @@ namespace BotManager.Backend.Bots.Services.Implementations
             _commandManagementService = commandManagementService;
             _discordCommandProvider = discordCommandProvider;
             _notificationService = notificationService;
+            _botTokenSecurityService = botTokenSecurityService;
         }
 
         /// <summary>
@@ -77,7 +80,12 @@ namespace BotManager.Backend.Bots.Services.Implementations
                 await _db.SaveChangesAsync();
                 await _notificationService.NotifyBotStatusChangedAsync(botId, BotStatus.Connecting);
 
-                await _discordBotService.StartAsync(bot.BotId, bot.BotToken);
+                if (!_botTokenSecurityService.TryGetRawToken(bot.BotToken, out var rawToken))
+                {
+                    throw new InvalidOperationException("Stored bot token is missing or invalid.");
+                }
+
+                await _discordBotService.StartAsync(bot.BotId, rawToken);
 
                 bot.Status = BotStatus.Online;
                 await _db.SaveChangesAsync();

@@ -28,27 +28,29 @@ namespace BotManager.Backend.Bots.Services.Implementations
                 return cts;
             });
 
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    await Task.Delay(_window, cts.Token);
-                    await _onElapsed(botId, cts.Token);
-                }
-                catch (OperationCanceledException)
-                {
-                    // Superseded by a newer event.
-                }
-                finally
-                {
-                    if (Pending.TryGetValue(botId, out var current) && ReferenceEquals(current, cts))
-                    {
-                        Pending.TryRemove(botId, out _);
-                    }
+            _ = ExecuteDebouncedCallbackAsync(botId, cts);
+        }
 
-                    cts.Dispose();
+        private async Task ExecuteDebouncedCallbackAsync(int botId, CancellationTokenSource cts)
+        {
+            try
+            {
+                await Task.Delay(_window, cts.Token);
+                await _onElapsed(botId, cts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                // Superseded by a newer event.
+            }
+            finally
+            {
+                if (Pending.TryGetValue(botId, out var current) && ReferenceEquals(current, cts))
+                {
+                    Pending.TryRemove(botId, out _);
                 }
-            });
+
+                cts.Dispose();
+            }
         }
     }
 }

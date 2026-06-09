@@ -37,8 +37,14 @@ namespace BotManager.Backend.API.Controllers
                 return Unauthorized("Unable to resolve current user identity.");
             }
 
+            var ownerBotIds = _db.Bots
+                .AsNoTracking()
+                .Where(b => b.OwnerUserId == ownerUserId)
+                .Select(b => b.BotId);
+
             var commands = await _db.BotCommands
-                .Where(c => c.Bot != null && c.Bot.OwnerUserId == ownerUserId)
+                .AsNoTracking()
+                .Where(c => ownerBotIds.Contains(c.BotId))
                 .OrderBy(c => c.CommandName)
                 .ToListAsync();
 
@@ -91,11 +97,14 @@ namespace BotManager.Backend.API.Controllers
                 return Unauthorized("Unable to resolve current user identity.");
             }
 
+            var ownerBotIds = _db.Bots
+                .Where(b => b.OwnerUserId == ownerUserId)
+                .Select(b => b.BotId);
+
             var commands = await _db.BotCommands
                 .Where(c => c.CommandName == commandName
                     && c.SubCommandName == subCommandName
-                    && c.Bot != null
-                    && c.Bot.OwnerUserId == ownerUserId)
+                    && ownerBotIds.Contains(c.BotId))
                 .ToListAsync();
 
             if (commands.Count == 0)
