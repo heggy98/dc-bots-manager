@@ -122,6 +122,7 @@ namespace BotManager.Backend.API.Controllers
         /// Creates a new bot and initializes its default configuration row.
         /// </summary>
         [Authorize]
+        [AdminAudit("bot.create", "bot", TargetIdFromResult = true)]
         [HttpPost]
         public async Task<IActionResult> CreateBot([FromBody] CreateBotDto request)
         {
@@ -324,6 +325,7 @@ namespace BotManager.Backend.API.Controllers
         /// Updates persisted bot configuration values.
         /// </summary>
         [Authorize]
+        [AdminAudit("bot.config.update", "bot")]
         [HttpPut("admin/{id}/config")]
         public async Task<IActionResult> UpdateBotConfiguration(int id, [FromBody] BotConfigurationDto request)
         {
@@ -337,6 +339,7 @@ namespace BotManager.Backend.API.Controllers
         /// Updates bot visibility for public listing.
         /// </summary>
         [Authorize]
+        [AdminAudit("bot.visibility", "bot", DetailArguments = ["request"])]
         [HttpPut("admin/{id}/visibility")]
         public async Task<IActionResult> UpdateBotVisibility(int id, [FromBody] UpdateBotVisibilityRequest request)
         {
@@ -357,6 +360,7 @@ namespace BotManager.Backend.API.Controllers
         /// Enables or disables automatic start of the bot when the API starts.
         /// </summary>
         [Authorize]
+        [AdminAudit("bot.autostart", "bot", DetailArguments = ["request"])]
         [HttpPut("admin/{id}/autostart")]
         public async Task<IActionResult> UpdateBotAutoStart(int id, [FromBody] UpdateBotAutoStartRequest request)
         {
@@ -377,6 +381,7 @@ namespace BotManager.Backend.API.Controllers
         /// Updates bot token after validating it against Discord API.
         /// </summary>
         [Authorize]
+        [AdminAudit("bot.token.update", "bot")]
         [HttpPut("admin/{id}/token")]
         public async Task<IActionResult> UpdateBotToken(int id, [FromBody] UpdateBotTokenRequest request)
         {
@@ -414,6 +419,7 @@ namespace BotManager.Backend.API.Controllers
         /// Starts the specified bot instance.
         /// </summary>
         [Authorize]
+        [AdminAudit("bot.start", "bot")]
         [HttpPost("admin/{id}/start")]
         public async Task<IActionResult> StartBot(int id)
         {
@@ -424,6 +430,7 @@ namespace BotManager.Backend.API.Controllers
         /// Stops the specified bot instance.
         /// </summary>
         [Authorize]
+        [AdminAudit("bot.stop", "bot")]
         [HttpPost("admin/{id}/stop")]
         public async Task<IActionResult> StopBot(int id)
         {
@@ -434,6 +441,7 @@ namespace BotManager.Backend.API.Controllers
         /// Restarts the specified bot instance.
         /// </summary>
         [Authorize]
+        [AdminAudit("bot.restart", "bot")]
         [HttpPost("admin/{id}/restart")]
         public async Task<IActionResult> RestartBot(int id)
         {
@@ -458,6 +466,7 @@ namespace BotManager.Backend.API.Controllers
         /// Saves group data for a bot.
         /// </summary>
         [Authorize]
+        [AdminAudit("groups.save", "bot", DetailArguments = ["boardConfigurationId"])]
         [HttpPost("admin/{id}/groups")]
         public async Task<IActionResult> SaveGroups(int id, [FromBody] BotGroupsDto groupsData, [FromQuery] int? boardConfigurationId = null)
         {
@@ -487,6 +496,7 @@ namespace BotManager.Backend.API.Controllers
         /// Saves team-shaped data after mapping to group storage format.
         /// </summary>
         [Authorize]
+        [AdminAudit("teams.save", "bot", DetailArguments = ["boardConfigurationId"])]
         [HttpPost("admin/{id}/teams")]
         public async Task<IActionResult> SaveTeams(int id, [FromBody] BotTeamsDto teamsData, [FromQuery] int? boardConfigurationId = null)
         {
@@ -558,6 +568,7 @@ namespace BotManager.Backend.API.Controllers
         /// Creates a board configuration row for a bot.
         /// </summary>
         [Authorize]
+        [AdminAudit("board.create", "bot")]
         [HttpPost("admin/{id}/boards")]
         public async Task<IActionResult> CreateBoard(int id, [FromBody] CreateBoardConfigurationRequest request)
         {
@@ -595,6 +606,7 @@ namespace BotManager.Backend.API.Controllers
         /// Sets the active board configuration for a bot.
         /// </summary>
         [Authorize]
+        [AdminAudit("board.activate", "bot", DetailArguments = ["request"])]
         [HttpPut("admin/{id}/boards/active")]
         public async Task<IActionResult> SetActiveBoard(int id, [FromBody] SetActiveBoardRequest request)
         {
@@ -622,6 +634,7 @@ namespace BotManager.Backend.API.Controllers
         /// Deletes a board configuration and any board-scoped teams bound to it.
         /// </summary>
         [Authorize]
+        [AdminAudit("board.delete", "board", TargetIdRouteKey = "boardConfigurationId")]
         [HttpDelete("admin/{id}/boards/{boardConfigurationId}")]
         public async Task<IActionResult> DeleteBoard(int id, int boardConfigurationId)
         {
@@ -662,6 +675,7 @@ namespace BotManager.Backend.API.Controllers
         /// Updates board configuration fields for a specific board.
         /// </summary>
         [Authorize]
+        [AdminAudit("board.update", "board", TargetIdRouteKey = "boardConfigurationId")]
         [HttpPut("admin/{id}/boards/{boardConfigurationId}")]
         public async Task<IActionResult> UpdateBoard(int id, int boardConfigurationId, [FromBody] UpdateBoardConfigurationRequest request)
         {
@@ -688,6 +702,7 @@ namespace BotManager.Backend.API.Controllers
         /// Deletes system and command usage logs related to a bot.
         /// </summary>
         [Authorize]
+        [AdminAudit("logs.clear", "bot")]
         [HttpDelete("admin/{id}/logs")]
         public async Task<IActionResult> ClearBotLogs(int id)
         {
@@ -731,6 +746,7 @@ namespace BotManager.Backend.API.Controllers
         /// Deletes run history entries for a bot.
         /// </summary>
         [Authorize]
+        [AdminAudit("history.clear", "bot")]
         [HttpDelete("admin/{id}/history")]
         public async Task<IActionResult> ClearBotRunHistory(int id)
         {

@@ -196,6 +196,7 @@ namespace BotManager.Backend.API.Controllers
         /// every access token issued so far.
         /// </summary>
         [Authorize]
+        [AdminAudit("auth.logout_all", "auth")]
         [HttpPost("logout-all")]
         public async Task<IActionResult> LogoutAll()
         {

@@ -56,5 +56,45 @@ namespace BotManager.Backend.API.Controllers
                 .ToListAsync();
             return Ok(logs);
         }
+
+        /// <summary>
+        /// Returns recent admin audit entries (who changed what) ordered by newest first,
+        /// optionally filtered by target.
+        /// </summary>
+        [Authorize]
+        [HttpGet("admin-audit")]
+        public async Task<IActionResult> GetAdminAuditLogs([FromQuery] int take = 100,
+            [FromQuery] string? targetType = null, [FromQuery] string? targetId = null)
+        {
+            take = Math.Clamp(take, 1, MaxTake);
+            var query = _db.AdminAuditLogs.AsNoTracking();
+            if (!string.IsNullOrWhiteSpace(targetType))
+            {
+                query = query.Where(l => l.TargetType == targetType);
+                if (!string.IsNullOrWhiteSpace(targetId))
+                {
+                    query = query.Where(l => l.TargetId == targetId);
+                }
+            }
+
+            var logs = await query
+                .OrderByDescending(l => l.Timestamp)
+                .ThenByDescending(l => l.Id)
+                .Take(take)
+                .Select(l => new
+                {
+                    l.Id,
+                    // Stored as UTC; mark it so the JSON carries a "Z" suffix.
+                    Timestamp = DateTime.SpecifyKind(l.Timestamp, DateTimeKind.Utc),
+                    l.ActorEmail,
+                    l.Action,
+                    l.TargetType,
+                    l.TargetId,
+                    l.Details,
+                    l.IpAddress
+                })
+                .ToListAsync();
+            return Ok(logs);
+        }
     }
 }

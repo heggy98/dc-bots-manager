@@ -24,15 +24,18 @@ namespace BotManager.Backend.API.Controllers
         private readonly BotManagerDbContext _db;
         private readonly ISystemConfigService _configService;
         private readonly ILogger<SystemConfigController> _logger;
+        private readonly IAdminAuditService _audit;
 
         /// <summary>
         /// Creates a new system configuration controller.
         /// </summary>
-        public SystemConfigController(BotManagerDbContext db, ISystemConfigService configService, ILogger<SystemConfigController> logger)
+        public SystemConfigController(BotManagerDbContext db, ISystemConfigService configService, ILogger<SystemConfigController> logger,
+            IAdminAuditService audit)
         {
             _db = db;
             _configService = configService;
             _logger = logger;
+            _audit = audit;
         }
 
         /// <summary>
@@ -115,11 +118,13 @@ namespace BotManager.Backend.API.Controllers
 
                 await _db.SaveChangesAsync();
                 _logger.LogInformation("Board global config updated: {Key} = {Value}", dto.Key, dto.Value);
+                await _audit.LogAsync(HttpContext, "config.update", "config", dto.Key);
                 return Ok();
             }
 
             await _configService.SetValueAsync(dto.Key, dto.Value);
             _logger.LogInformation("System config updated: {Key} = {Value}", dto.Key, dto.Value);
+            await _audit.LogAsync(HttpContext, "config.update", "config", dto.Key);
             return Ok();
         }
 

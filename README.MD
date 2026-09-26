@@ -93,7 +93,7 @@ Optional settings:
 - `ReverseProxy:KnownNetworks` – trusted proxy networks in CIDR notation
 - `Cors:AllowedOrigins` – allowed frontend origins (default `http://localhost:4200`, `https://localhost:4200`)
 - `ReverseProxy:KnownProxies` – IPs of trusted reverse proxies; only these may set `X-Forwarded-For`
-- `LogRetention:SystemLogsDays` / `CommandUsageDays` / `LoginAuditDays` – log retention (defaults 30 / 90 / 90)
+- `LogRetention:SystemLogsDays` / `CommandUsageDays` / `LoginAuditDays` / `AdminAuditDays` – log retention (defaults 30 / 90 / 90 / 365). Admin actions (bot lifecycle, token/visibility changes, boards, teams, config, logout-all, 2FA changes) are recorded in the admin audit log (Logs page → Admin Audit tab, `GET /api/systemlogs/admin-audit`).
 - `DataProtection:CertificatePath` / `DataProtection:CertificatePassword` – certificate used to encrypt the
   Data Protection key ring. Keys are stored in the database (`DataProtectionKeys`); on Windows they are protected
   with DPAPI automatically, on Linux/containers configure a certificate.

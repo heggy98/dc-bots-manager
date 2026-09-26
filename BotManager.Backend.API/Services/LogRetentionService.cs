@@ -5,7 +5,8 @@ namespace BotManager.Backend.API.Services
 {
     /// <summary>
     /// Periodically deletes old rows from log and audit tables so they do not grow without bound.
-    /// Retention (days) is configurable via LogRetention:SystemLogsDays, :CommandUsageDays and :LoginAuditDays.
+    /// Retention (days) is configurable via LogRetention:SystemLogsDays, :CommandUsageDays, :LoginAuditDays
+    /// and :AdminAuditDays.
     /// </summary>
     public class LogRetentionService : BackgroundService
     {
@@ -61,6 +62,7 @@ namespace BotManager.Backend.API.Services
             var systemCutoff = now.AddDays(-GetDays("LogRetention:SystemLogsDays", 30));
             var usageCutoff = now.AddDays(-GetDays("LogRetention:CommandUsageDays", 90));
             var auditCutoff = now.AddDays(-GetDays("LogRetention:LoginAuditDays", 90));
+            var adminAuditCutoff = now.AddDays(-GetDays("LogRetention:AdminAuditDays", 365));
 
             var removedSystem = await DeleteInBatchesAsync(
                 () => db.SystemLogs.Where(l => l.Timestamp < systemCutoff).OrderBy(l => l.Id).Take(BatchSize).ExecuteDeleteAsync(cancellationToken));
@@ -68,17 +70,19 @@ namespace BotManager.Backend.API.Services
                 () => db.CommandUsageLogs.Where(l => l.ExecutedAt < usageCutoff).OrderBy(l => l.UsageId).Take(BatchSize).ExecuteDeleteAsync(cancellationToken));
             var removedAudit = await DeleteInBatchesAsync(
                 () => db.LoginAuditLogs.Where(l => l.Timestamp < auditCutoff).OrderBy(l => l.Id).Take(BatchSize).ExecuteDeleteAsync(cancellationToken));
+            var removedAdminAudit = await DeleteInBatchesAsync(
+                () => db.AdminAuditLogs.Where(l => l.Timestamp < adminAuditCutoff).OrderBy(l => l.Id).Take(BatchSize).ExecuteDeleteAsync(cancellationToken));
 
             // Refresh tokens: drop rows that expired more than a day ago (revoked ones are kept until expiry
             // so that reuse of a rotated token is still detected).
             var tokenCutoff = now.AddDays(-1);
             await db.RefreshTokens.Where(t => t.ExpiresAt < tokenCutoff).ExecuteDeleteAsync(cancellationToken);
 
-            if (removedSystem + removedUsage + removedAudit > 0)
+            if (removedSystem + removedUsage + removedAudit + removedAdminAudit > 0)
             {
                 _logger.LogInformation(
-                    "Log retention removed SystemLogs={SystemLogs}, CommandUsageLogs={CommandUsageLogs}, LoginAuditLogs={LoginAuditLogs}",
-                    removedSystem, removedUsage, removedAudit);
+                    "Log retention removed SystemLogs={SystemLogs}, CommandUsageLogs={CommandUsageLogs}, LoginAuditLogs={LoginAuditLogs}, AdminAuditLogs={AdminAuditLogs}",
+                    removedSystem, removedUsage, removedAudit, removedAdminAudit);
             }
         }
 

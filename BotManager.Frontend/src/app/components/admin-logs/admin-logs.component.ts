@@ -1,7 +1,9 @@
 import { ChangeDetectionStrategy, Component, OnInit, signal } from '@angular/core';
-import { LogService, SystemLogDto, LoginAuditDto } from '../../services/log.service';
+import { AdminAuditDto, LogService, SystemLogDto, LoginAuditDto } from '../../services/log.service';
 import { CommonModule } from '@angular/common';
 import { I18nService } from '../../services/i18n.service';
+
+type LogsTab = 'system' | 'login' | 'admin';
 
 @Component({
   selector: 'app-admin-logs',
@@ -14,7 +16,8 @@ import { I18nService } from '../../services/i18n.service';
 export class AdminLogsComponent implements OnInit {
   readonly systemLogs = signal<SystemLogDto[]>([]);
   readonly loginLogs = signal<LoginAuditDto[]>([]);
-  readonly activeTab = signal<'system' | 'login'>('system');
+  readonly adminLogs = signal<AdminAuditDto[]>([]);
+  readonly activeTab = signal<LogsTab>('system');
   readonly loading = signal(true);
 
   /**
@@ -56,12 +59,16 @@ export class AdminLogsComponent implements OnInit {
         this.loginLogs.set(data);
       }
     });
+    this.logService.getAdminAuditLogs().subscribe({
+      next: (data) => this.adminLogs.set(data),
+      error: () => this.adminLogs.set([])
+    });
   }
 
   /**
    * Switches the active logs tab.
    */
-  setTab(tab: 'system' | 'login'): void { this.activeTab.set(tab); }
+  setTab(tab: LogsTab): void { this.activeTab.set(tab); }
 
   /**
    * Stable identity for log rows.
