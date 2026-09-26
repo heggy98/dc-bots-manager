@@ -42,15 +42,9 @@ namespace BotManager.Backend.Bots.Services.Implementations
 
                 if (existingCommand != null)
                 {
-                    // Update existing command
-                    existingCommand.Description = description;
-                    existingCommand.MinimumPermissionLevel = minPermissionLevel;
-                    existingCommand.UserHint = userHint;
-                    existingCommand.SuccessMessage = successMessage;
-                    existingCommand.PermissionMessage = permissionMessage;
-                    existingCommand.ErrorMessage = errorMessage;
-                    existingCommand.UpdatedAt = DateTime.UtcNow;
-                    _context.BotCommands.Update(existingCommand);
+                    // Keep admin customizations (texts, permission level, enabled flag, imported config):
+                    // defaults are only applied when the command is registered for the first time.
+                    return;
                 }
                 else
                 {
