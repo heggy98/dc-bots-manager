@@ -3,11 +3,11 @@
     <a routerLink="/" (click)="closeMobileMenu()">🤖 BotManager</a>
   </div>
 
-  <button class="nav-toggle" type="button" (click)="toggleMobileMenu()" [attr.aria-expanded]="mobileMenuOpen">
-    {{ mobileMenuOpen ? '✕' : '☰' }}
+  <button class="nav-toggle" type="button" (click)="toggleMobileMenu()" [attr.aria-expanded]="mobileMenuOpen()">
+    {{ mobileMenuOpen() ? '✕' : '☰' }}
   </button>
 
-  <div class="nav-links" [class.open]="mobileMenuOpen">
+  <div class="nav-links" [class.open]="mobileMenuOpen()">
     @if (authService.isLoggedIn()) {
       <a routerLink="/admin" class="nav-link" (click)="closeMobileMenu()">{{ i18n.t('nav.dashboard') }}</a>
     }

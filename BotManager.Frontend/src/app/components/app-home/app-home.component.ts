@@ -1,31 +1,33 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, signal } from '@angular/core';
 import { BotService, BotPublicDto } from '../../services/bot.service';
 import { CommonModule } from '@angular/common';
 import { I18nService } from '../../services/i18n.service';
+import { ClockService } from '../../services/clock.service';
 
 @Component({
   selector: 'app-app-home',
   standalone: true,
   imports: [CommonModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './app-home.component.html',
   styleUrls: ['./app-home.component.css']
 })
 export class AppHomeComponent implements OnInit {
-  bots: BotPublicDto[] = [];
-  loading = true;
+  readonly bots = signal<BotPublicDto[]>([]);
+  readonly loading = signal(true);
 
   /**
    * Creates a new public home component.
    */
-  constructor(private botService: BotService, public i18n: I18nService) { }
+  constructor(private botService: BotService, public i18n: I18nService, private clock: ClockService) { }
 
   /**
    * Loads public bot cards on startup.
    */
   ngOnInit(): void {
     this.botService.getPublicBots().subscribe({
-      next: (data) => { this.bots = data; this.loading = false; },
-      error: () => { this.loading = false; }
+      next: (data) => { this.bots.set(data); this.loading.set(false); },
+      error: () => { this.loading.set(false); }
     });
   }
 
@@ -66,7 +68,7 @@ export class AppHomeComponent implements OnInit {
         return '—';
       }
 
-      const seconds = Math.floor((Date.now() - startedAt.getTime()) / 1000);
+      const seconds = Math.floor((this.clock.now() - startedAt.getTime()) / 1000);
       return this.formatDuration(seconds);
     }
 
@@ -75,7 +77,7 @@ export class AppHomeComponent implements OnInit {
       return '—';
     }
 
-    const seconds = Math.floor((Date.now() - stoppedAt.getTime()) / 1000);
+    const seconds = Math.floor((this.clock.now() - stoppedAt.getTime()) / 1000);
     if (seconds < 0) {
       return '—';
     }

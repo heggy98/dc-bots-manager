@@ -5,17 +5,17 @@
   </div>
   <div class="header-actions">
     <button class="btn btn-primary" (click)="toggleAddBot()">
-      {{ showForm ? i18n.t('admin.cancel') : i18n.t('admin.add_bot') }}
+      {{ showForm() ? i18n.t('admin.cancel') : i18n.t('admin.add_bot') }}
     </button>
     <button class="btn btn-outline" (click)="logout()">{{ i18n.t('nav.logout') }}</button>
   </div>
 </div>
 
-@if (showForm) {
+@if (showForm()) {
   <div class="panel form-panel">
     <h3>{{ i18n.t('admin.register_bot') }}</h3>
-    @if (formError) {
-      <div class="error-alert">{{ formError }}</div>
+    @if (formError()) {
+      <div class="error-alert">{{ formError() }}</div>
     }
     <form (ngSubmit)="createBot()">
       <div class="form-group">
@@ -31,24 +31,24 @@
         <input type="checkbox" [(ngModel)]="newBotIsPublic" name="botIsPublic" id="botIsPublic" />
         <label for="botIsPublic" style="margin:0;">{{ i18n.t('admin.public_bot') }}</label>
       </div>
-      <button type="submit" class="btn btn-primary w-100" [disabled]="formLoading">
-        {{ formLoading ? i18n.t('admin.creating') : i18n.t('admin.register') }}
+      <button type="submit" class="btn btn-primary w-100" [disabled]="formLoading()">
+        {{ formLoading() ? i18n.t('admin.creating') : i18n.t('admin.register') }}
       </button>
     </form>
   </div>
 }
 
-@if (loading) {
+@if (loading()) {
   <div class="loading-spinner">{{ i18n.t('admin.loading') }}</div>
 }
 
-@if (!loading && bots.length === 0) {
+@if (!loading() && bots().length === 0) {
   <div class="loading-spinner">{{ i18n.t('admin.no_bots') }}</div>
 }
 
-@if (!loading && bots.length > 0) {
+@if (!loading() && bots().length > 0) {
   <div class="bot-grid">
-    @for (bot of bots; track trackByBot($index, bot)) {
+    @for (bot of bots(); track trackByBot($index, bot)) {
       <div class="card bot-admin-card">
         <div class="bot-card-top">
           <div class="bot-avatar">
@@ -95,7 +95,7 @@
           @if (!isOnline(bot)) {
             <button
               class="btn btn-primary"
-              [disabled]="actionLoadingBotId === bot.botId"
+              [disabled]="actionLoadingBotId() === bot.botId"
               (click)="startBot(bot.botId)">
               {{ i18n.t('bot.start') }}
             </button>
@@ -103,7 +103,7 @@
           @if (isOnline(bot)) {
             <button
               class="btn btn-outline-red"
-              [disabled]="actionLoadingBotId === bot.botId"
+              [disabled]="actionLoadingBotId() === bot.botId"
               (click)="stopBot(bot.botId)">
               {{ i18n.t('bot.stop') }}
             </button>

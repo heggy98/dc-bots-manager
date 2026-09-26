@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input, Output, EventEmitter } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 
@@ -7,7 +7,8 @@ import { FormsModule } from '@angular/forms';
   standalone: true,
   imports: [FormsModule],
   templateUrl: './json-editor-modal.component.html',
-  styleUrl: './json-editor-modal.component.css'
+  styleUrl: './json-editor-modal.component.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class JsonEditorModalComponent {
   @Input() isOpen = false;

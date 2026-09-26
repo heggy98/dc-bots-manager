@@ -3,21 +3,21 @@
   <p>{{ i18n.t('home.subtitle') }}</p>
 </div>
 
-@if (loading) {
+@if (loading()) {
   <div class="loading-spinner">
     {{ i18n.t('admin.loading') }}
   </div>
 }
 
-@if (!loading && bots.length === 0) {
+@if (!loading() && bots().length === 0) {
   <div class="loading-spinner">
     {{ i18n.t('home.no_bots') }}
   </div>
 }
 
-@if (!loading && bots.length > 0) {
+@if (!loading() && bots().length > 0) {
   <div class="bot-grid">
-    @for (bot of bots; track trackByBot($index, bot)) {
+    @for (bot of bots(); track trackByBot($index, bot)) {
       <div class="card bot-card">
         <div class="bot-card-header">
           <div class="bot-avatar">

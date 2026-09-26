@@ -1,13 +1,13 @@
-@if (loading) {
+@if (loading()) {
   <div class="loading-spinner">Loading...</div>
 }
-@if (error) {
+@if (error()) {
   <div class="error-alert">
-    {{ error }} <a routerLink="/admin">← Back</a>
+    {{ error() }} <a routerLink="/admin">← Back</a>
   </div>
 }
 
-@if (!loading && bot) {
+@if (!loading() && bot(); as bot) {
   <div>
     <div class="page-header">
       <a routerLink="/admin" class="breadcrumb">{{ i18n.t("bot.back") }}</a>
@@ -133,7 +133,7 @@
             class="btn btn-sm visibility-toggle-btn"
             [class.btn-outline-red]="bot.isPublic"
             [class.btn-primary]="!bot.isPublic"
-            [disabled]="visibilityLoading"
+            [disabled]="visibilityLoading()"
             (click)="setPublicVisibility(!bot.isPublic)"
             style="margin-top: 4px"
             >
@@ -272,17 +272,17 @@
                     <h3 style="margin:0">{{ i18n.t("bot.boards") }}</h3>
                     <button class="btn btn-primary btn-sm" (click)="addBoard()">{{ i18n.t("bot.board_add") }}</button>
                   </div>
-                  @if (boardsLoading) {
+                  @if (boardsLoading()) {
                     <div class="loading-spinner-small">Loading...</div>
                   }
-                  @if (!boardsLoading && boards.length === 0) {
+                  @if (!boardsLoading() && boards().length === 0) {
                     <div class="text-muted" style="padding:8px 0;">
                       {{ i18n.t("bot.boards_empty") }}
                     </div>
                   }
-                  @if (!boardsLoading && boards.length > 0) {
+                  @if (!boardsLoading() && boards().length > 0) {
                     <div class="boards-list">
-                      @for (board of boards; track trackByBoard($index, board)) {
+                      @for (board of boards(); track trackByBoard($index, board)) {
                         <div class="board-card" [class.board-card-active]="board.isActive">
                           <div class="board-card-header">
                             <div class="board-card-badges">
@@ -303,7 +303,7 @@
                               <button class="btn btn-outline btn-sm" (click)="openTeamsForBoard(board)">
                                 {{ i18n.t("bot.board_edit_teams") }}
                               </button>
-                              @if (boards.length > 1) {
+                              @if (boards().length > 1) {
                                 <button class="btn btn-outline-red btn-sm" (click)="deleteBoard(board.boardConfigurationId)">
                                   {{ i18n.t("bot.board_delete") }}
                                 </button>
@@ -340,26 +340,26 @@
 
         <!-- Modals -->
         <app-config-edit-modal
-          [isOpen]="showConfigModal"
-          [config]="bot?.configuration"
+          [isOpen]="showConfigModal()"
+          [config]="bot()?.configuration"
           (close)="closeConfigModal()"
           (save)="saveConfig($event)"
           >
         </app-config-edit-modal>
 
         <app-board-config-edit-modal
-          [isOpen]="showBoardConfigModal"
-          [board]="selectedBoardForConfig"
+          [isOpen]="showBoardConfigModal()"
+          [board]="selectedBoardForConfig()"
           (close)="closeBoardConfigModal()"
           (save)="saveBoardConfig($event)"
           >
         </app-board-config-edit-modal>
 
         <app-teams-edit-modal
-          [isOpen]="showTeamsModal"
-          [teamsData]="teamsData"
-          [isSaving]="teamsSaveInProgress"
-          [savePhase]="teamsSavePhase"
+          [isOpen]="showTeamsModal()"
+          [teamsData]="teamsData()"
+          [isSaving]="teamsSaveInProgress()"
+          [savePhase]="teamsSavePhase()"
           (close)="closeTeamsModal()"
           (save)="saveTeamsAndEmojis($event)"
           (openJsonEditor)="openJsonEditor($event)"
@@ -367,15 +367,15 @@
         </app-teams-edit-modal>
 
         <app-json-editor-modal
-          [isOpen]="showJsonEditor"
-          [type]="jsonEditorType"
-          [data]="jsonEditorData"
+          [isOpen]="showJsonEditor()"
+          [type]="jsonEditorType()"
+          [data]="jsonEditorData()"
           (close)="closeJsonEditor()"
           (save)="saveJsonData($event)"
           >
         </app-json-editor-modal>
 
-        @if (requireTokenRefresh) {
+        @if (requireTokenRefresh()) {
           <div class="token-refresh-overlay">
             <div class="token-refresh-modal">
               <h3>{{ i18n.t('bot.token_refresh_title') }}</h3>
@@ -388,21 +388,21 @@
                   type="password"
                   [(ngModel)]="newBotToken"
                   placeholder="Discord developer token"
-                  [disabled]="tokenRefreshLoading"
+                  [disabled]="tokenRefreshLoading()"
                   />
               </div>
-              @if (tokenRefreshError) {
+              @if (tokenRefreshError()) {
                 <div class="error-alert" style="margin-top: 8px;">
-                  {{ tokenRefreshError }}
+                  {{ tokenRefreshError() }}
                 </div>
               }
               <button
                 class="btn btn-primary w-100"
                 style="margin-top: 12px;"
-                [disabled]="!newBotToken || tokenRefreshLoading"
+                [disabled]="!newBotToken() || tokenRefreshLoading()"
                 (click)="submitTokenRefresh()"
                 >
-                {{ tokenRefreshLoading ? i18n.t('admin.creating') : i18n.t('bot.token_refresh_save') }}
+                {{ tokenRefreshLoading() ? i18n.t('admin.creating') : i18n.t('bot.token_refresh_save') }}
               </button>
             </div>
           </div>
