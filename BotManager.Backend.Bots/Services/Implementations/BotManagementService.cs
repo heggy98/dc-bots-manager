@@ -25,6 +25,7 @@ namespace BotManager.Backend.Bots.Services.Implementations
         private readonly IDiscordCommandProvider _discordCommandProvider;
         private readonly IBotNotificationService _notificationService;
         private readonly IBotTokenSecurityService _botTokenSecurityService;
+        private readonly IBotAlertService _alertService;
 
         /// <summary>
         /// Creates a new bot management service.
@@ -38,7 +39,8 @@ namespace BotManager.Backend.Bots.Services.Implementations
             CommandManagementService commandManagementService,
             IDiscordCommandProvider discordCommandProvider,
             IBotNotificationService notificationService,
-            IBotTokenSecurityService botTokenSecurityService)
+            IBotTokenSecurityService botTokenSecurityService,
+            IBotAlertService alertService)
         {
             _db = db;
             _logger = logger;
@@ -49,6 +51,7 @@ namespace BotManager.Backend.Bots.Services.Implementations
             _discordCommandProvider = discordCommandProvider;
             _notificationService = notificationService;
             _botTokenSecurityService = botTokenSecurityService;
+            _alertService = alertService;
         }
 
         /// <summary>
@@ -104,6 +107,8 @@ namespace BotManager.Backend.Bots.Services.Implementations
                 await _notificationService.NotifyHistoryUpdatedAsync(botId);
 
                 _logger.LogInformation("Bot {BotId} ({Name}) started successfully", bot.BotId, bot.Name);
+                // Only delivered when a down alert for this bot is outstanding; never blocks the request.
+                _ = _alertService.NotifyAsync(new BotAlert(bot.BotId, bot.Name, BotAlertKind.Recovered, "Bot started successfully."));
                 return true;
             }
             catch (Exception ex)
@@ -121,6 +126,8 @@ namespace BotManager.Backend.Bots.Services.Implementations
                 await _notificationService.NotifyBotStatusChangedAsync(botId, BotStatus.Offline);
                 await _notificationService.NotifyHistoryUpdatedAsync(botId);
                 _logger.LogError(ex, "Failed to start bot {BotId} ({Name})", bot.BotId, bot.Name);
+                // Alert delivery never throws and must not delay the API response.
+                _ = _alertService.NotifyAsync(new BotAlert(bot.BotId, bot.Name, BotAlertKind.StartFailed, $"{ex.GetType().Name}: {ex.Message}"));
                 return false;
             }
         }

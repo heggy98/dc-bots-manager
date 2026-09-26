@@ -21,6 +21,7 @@ namespace BotManager.Backend.Bots.Services.Implementations
         private readonly IPluginRegistry _pluginRegistry;
         private readonly IBoardMessageLocator _boardMessageLocator;
         private readonly IBotNotificationService _notificationService;
+        private readonly IBotAlertService _alertService;
 
         /// <summary>
         /// Creates a new Discord runtime service.
@@ -31,7 +32,8 @@ namespace BotManager.Backend.Bots.Services.Implementations
             IServiceScopeFactory scopeFactory,
             IPluginRegistry pluginRegistry,
             IBoardMessageLocator boardMessageLocator,
-            IBotNotificationService notificationService)
+            IBotNotificationService notificationService,
+            IBotAlertService alertService)
         {
             _logger = logger;
             _loggerFactory = loggerFactory;
@@ -39,6 +41,7 @@ namespace BotManager.Backend.Bots.Services.Implementations
             _pluginRegistry = pluginRegistry;
             _boardMessageLocator = boardMessageLocator;
             _notificationService = notificationService;
+            _alertService = alertService;
         }
 
         /// <summary>
@@ -70,7 +73,8 @@ namespace BotManager.Backend.Bots.Services.Implementations
                     _scopeFactory,
                     _pluginRegistry,
                     _boardMessageLocator,
-                    _notificationService);
+                    _notificationService,
+                    _alertService);
 
                 try
                 {

@@ -46,7 +46,8 @@ namespace BotManager.Backend.Bots.Services.Implementations
             IServiceScopeFactory scopeFactory,
             IPluginRegistry pluginRegistry,
             IBoardMessageLocator boardMessageLocator,
-            IBotNotificationService notificationService)
+            IBotNotificationService notificationService,
+            IBotAlertService alertService)
         {
             _botId = botId;
             _logger = logger;
@@ -55,7 +56,7 @@ namespace BotManager.Backend.Bots.Services.Implementations
             _reactionDispatcher = new DiscordReactionDispatcher(botId, logger, scopeFactory, _pluginHost, HasCurrentBot, () => _client);
             _interactionDispatcher = new DiscordInteractionDispatcher(botId, logger, scopeFactory, _pluginHost, HasCurrentBot);
             _boardPublisher = new BoardMessagePublisher(logger, scopeFactory, boardMessageLocator, _reactionDispatcher.InvalidateBoardMessageIds);
-            _statusTracker = new GatewayStatusTracker(botId, logger, scopeFactory, notificationService);
+            _statusTracker = new GatewayStatusTracker(botId, logger, scopeFactory, notificationService, alertService);
         }
 
         /// <summary>

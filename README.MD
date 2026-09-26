@@ -94,6 +94,13 @@ Optional settings:
 - `Cors:AllowedOrigins` – allowed frontend origins (default `http://localhost:4200`, `https://localhost:4200`)
 - `ReverseProxy:KnownProxies` – IPs of trusted reverse proxies; only these may set `X-Forwarded-For`
 - `LogRetention:SystemLogsDays` / `CommandUsageDays` / `LoginAuditDays` – log retention (defaults 30 / 90 / 90)
+- `Alerts:DiscordWebhookUrl` – Discord webhook that receives alerts when a bot goes down (marked Offline after the
+  30 s disconnect grace period, or a failed start) and when it is back online
+- `Alerts:Smtp:Host` / `Port` / `User` / `Password` / `From` / `To` / `UseSsl` – the same alerts by e-mail (STARTTLS,
+  default port 587; `To` may contain several comma-separated addresses)
+- `Alerts:DebounceMinutes` – at most one down alert per bot within this window (default 10); a "back online" alert is
+  only sent after a delivered down alert, so a flapping bot cannot spam. `Alerts:NotifyRecovery` (default `true`)
+  toggles recovery alerts. Alerts never contain tokens; delivery failures are only logged.
 - `DataProtection:CertificatePath` / `DataProtection:CertificatePassword` – certificate used to encrypt the
   Data Protection key ring. Keys are stored in the database (`DataProtectionKeys`); on Windows they are protected
   with DPAPI automatically, on Linux/containers configure a certificate.

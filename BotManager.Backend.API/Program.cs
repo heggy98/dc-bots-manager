@@ -176,6 +176,8 @@ try
     builder.Services.AddScoped<IBotTokenSecurityService, BotTokenSecurityService>();
     builder.Services.AddSingleton<IEmojiCatalogService, EmojiCatalogService>();
     builder.Services.AddSingleton<IBotNotificationService, BotNotificationService>();
+    // Bot down/recovery alerts (Alerts:DiscordWebhookUrl and/or Alerts:Smtp:*; all optional).
+    builder.Services.AddBotAlerts(builder.Configuration);
 
     var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
     if (corsOrigins == null || corsOrigins.Length == 0)

@@ -23,6 +23,7 @@ namespace BotManager.Backend.Bots.Services.Implementations
         private readonly ILogger _logger;
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly IBotNotificationService _notificationService;
+        private readonly IBotAlertService _alertService;
 
         /// <summary>
         /// Creates a new gateway status tracker.
@@ -31,12 +32,14 @@ namespace BotManager.Backend.Bots.Services.Implementations
             int botId,
             ILogger logger,
             IServiceScopeFactory scopeFactory,
-            IBotNotificationService notificationService)
+            IBotNotificationService notificationService,
+            IBotAlertService alertService)
         {
             _botId = botId;
             _logger = logger;
             _scopeFactory = scopeFactory;
             _notificationService = notificationService;
+            _alertService = alertService;
         }
 
         /// <summary>
@@ -119,6 +122,11 @@ namespace BotManager.Backend.Bots.Services.Implementations
                 _logger.LogWarning("Persisted unexpected disconnect to DB for bot {BotId}. Reason={Reason}", _botId, reason);
                 await _notificationService.NotifyBotStatusChangedAsync(_botId, BotStatus.Offline);
                 await _notificationService.NotifyHistoryUpdatedAsync(_botId);
+                await _alertService.NotifyAsync(new BotAlert(
+                    _botId,
+                    bot.Name,
+                    BotAlertKind.Offline,
+                    ex == null ? reason : $"{reason}: {ex.GetType().Name}: {ex.Message}"));
             }
             catch (Exception persistEx)
             {
@@ -154,6 +162,7 @@ namespace BotManager.Backend.Bots.Services.Implementations
                 _logger.LogInformation("Restored bot {BotId} to Online after reconnect.", _botId);
                 await _notificationService.NotifyBotStatusChangedAsync(_botId, BotStatus.Online);
                 await _notificationService.NotifyHistoryUpdatedAsync(_botId);
+                await _alertService.NotifyAsync(new BotAlert(_botId, bot.Name, BotAlertKind.Recovered, "Gateway reconnected."));
             }
             catch (Exception ex)
             {

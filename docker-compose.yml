@@ -39,6 +39,16 @@ services:
       Auth__CookieSecure: ${AUTH_COOKIE_SECURE:-false}
       DataProtection__CertificatePath: ${DATA_PROTECTION_CERT_PATH:-}
       DataProtection__CertificatePassword: ${DATA_PROTECTION_CERT_PASSWORD:-}
+      # Optional bot down/recovery alerts (Discord webhook and/or SMTP e-mail).
+      Alerts__DiscordWebhookUrl: ${ALERT_DISCORD_WEBHOOK_URL:-}
+      Alerts__DebounceMinutes: ${ALERT_DEBOUNCE_MINUTES:-10}
+      Alerts__Smtp__Host: ${ALERT_SMTP_HOST:-}
+      Alerts__Smtp__Port: ${ALERT_SMTP_PORT:-587}
+      Alerts__Smtp__User: ${ALERT_SMTP_USER:-}
+      Alerts__Smtp__Password: ${ALERT_SMTP_PASSWORD:-}
+      Alerts__Smtp__From: ${ALERT_SMTP_FROM:-}
+      Alerts__Smtp__To: ${ALERT_SMTP_TO:-}
+      Alerts__Smtp__UseSsl: ${ALERT_SMTP_USE_SSL:-true}
     networks: [backend]
 
   web:
