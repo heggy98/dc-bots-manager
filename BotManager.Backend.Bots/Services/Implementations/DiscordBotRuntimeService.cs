@@ -4,6 +4,7 @@ using BotManager.Backend.Shared.Models;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
+using System.Diagnostics.Metrics;
 
 namespace BotManager.Backend.Bots.Services.Implementations
 {
@@ -21,6 +22,8 @@ namespace BotManager.Backend.Bots.Services.Implementations
         private readonly IPluginRegistry _pluginRegistry;
         private readonly IBoardMessageLocator _boardMessageLocator;
         private readonly IBotNotificationService _notificationService;
+        private readonly IBotAlertService _alertService;
+        private readonly BotManagerMetrics _metrics;
 
         /// <summary>
         /// Creates a new Discord runtime service.
@@ -31,7 +34,9 @@ namespace BotManager.Backend.Bots.Services.Implementations
             IServiceScopeFactory scopeFactory,
             IPluginRegistry pluginRegistry,
             IBoardMessageLocator boardMessageLocator,
-            IBotNotificationService notificationService)
+            IBotNotificationService notificationService,
+            IBotAlertService alertService,
+            BotManagerMetrics metrics)
         {
             _logger = logger;
             _loggerFactory = loggerFactory;
@@ -39,6 +44,16 @@ namespace BotManager.Backend.Bots.Services.Implementations
             _pluginRegistry = pluginRegistry;
             _boardMessageLocator = boardMessageLocator;
             _notificationService = notificationService;
+            _alertService = alertService;
+            _metrics = metrics;
+            metrics.ObserveRuntime(
+                () => _sessions.Values.Count(s => s.IsRunning()),
+                () => _sessions
+                    .Where(entry => entry.Value.IsRunning())
+                    .Select(entry => new Measurement<int>(
+                        entry.Value.Latency,
+                        new KeyValuePair<string, object?>("bot_id", entry.Key.ToString(System.Globalization.CultureInfo.InvariantCulture))))
+                    .ToList());
         }
 
         /// <summary>
@@ -70,7 +85,9 @@ namespace BotManager.Backend.Bots.Services.Implementations
                     _scopeFactory,
                     _pluginRegistry,
                     _boardMessageLocator,
-                    _notificationService);
+                    _notificationService,
+                    _alertService,
+                    _metrics);
 
                 try
                 {

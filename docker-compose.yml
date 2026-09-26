@@ -32,12 +32,29 @@ services:
       GoogleAuth__ClientId: ${GOOGLE_CLIENT_ID:-}
       Recaptcha__SiteKey: ${RECAPTCHA_SITE_KEY:-}
       Recaptcha__SecretKey: ${RECAPTCHA_SECRET_KEY:-}
-      # nginx (frontend container) is the only trusted proxy.
+      # nginx (frontend container) is the only trusted proxy. It always sends the real client IP as a single
+      # X-Forwarded-For entry (also behind the optional Caddy TLS proxy, see docker-compose.https.yml).
       ReverseProxy__KnownNetworks__0: "172.28.0.0/16"
-      # Plain http on localhost; set to true (default) when served over https.
+      # Plain http on localhost; docker-compose.https.yml forces true.
       Auth__CookieSecure: ${AUTH_COOKIE_SECURE:-false}
       DataProtection__CertificatePath: ${DATA_PROTECTION_CERT_PATH:-}
       DataProtection__CertificatePassword: ${DATA_PROTECTION_CERT_PASSWORD:-}
+      # Optional bot down/recovery alerts (Discord webhook and/or SMTP e-mail).
+      Alerts__DiscordWebhookUrl: ${ALERT_DISCORD_WEBHOOK_URL:-}
+      Alerts__DebounceMinutes: ${ALERT_DEBOUNCE_MINUTES:-10}
+      Alerts__Smtp__Host: ${ALERT_SMTP_HOST:-}
+      Alerts__Smtp__Port: ${ALERT_SMTP_PORT:-587}
+      Alerts__Smtp__User: ${ALERT_SMTP_USER:-}
+      Alerts__Smtp__Password: ${ALERT_SMTP_PASSWORD:-}
+      Alerts__Smtp__From: ${ALERT_SMTP_FROM:-}
+      Alerts__Smtp__To: ${ALERT_SMTP_TO:-}
+      Alerts__Smtp__UseSsl: ${ALERT_SMTP_USE_SSL:-true}
+      # Prometheus /metrics on the internal network only (never proxied by nginx; proxied requests are rejected).
+      Metrics__Enabled: ${METRICS_ENABLED:-true}
+      Metrics__ApiKey: ${METRICS_API_KEY:-}
+      # Optional OTLP collector for traces + metrics, e.g. http://otel-collector:4317.
+      OpenTelemetry__OtlpEndpoint: ${OTLP_ENDPOINT:-}
+      OpenTelemetry__OtlpProtocol: ${OTLP_PROTOCOL:-grpc}
     networks: [backend]
 
   web:
@@ -48,6 +65,38 @@ services:
       - "8080:8080"
     networks: [backend]
 
+  # --- Optional monitoring: docker compose --profile monitoring up -d ---
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    profiles: [monitoring]
+    depends_on: [api]
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-15d}
+    volumes:
+      - ./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    networks: [backend]
+
+  grafana:
+    image: grafana/grafana:12.1.1
+    profiles: [monitoring]
+    depends_on: [prometheus]
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      # Set GRAFANA_ADMIN_PASSWORD in .env; the "admin" fallback is only acceptable because Grafana listens on localhost.
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+    volumes:
+      - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deploy/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      # Local only; tunnel (ssh -L 3000:localhost:3000) or put it behind your own proxy for remote access.
+      - "127.0.0.1:3000:3000"
+    networks: [backend]
+
 networks:
   backend:
     ipam:
@@ -56,3 +105,5 @@ networks:
 
 volumes:
   mssql-data:
+  prometheus-data:
+  grafana-data:

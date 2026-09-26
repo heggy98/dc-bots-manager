@@ -94,6 +94,18 @@ Optional settings:
 - `Cors:AllowedOrigins` – allowed frontend origins (default `http://localhost:4200`, `https://localhost:4200`)
 - `ReverseProxy:KnownProxies` – IPs of trusted reverse proxies; only these may set `X-Forwarded-For`
 - `LogRetention:SystemLogsDays` / `CommandUsageDays` / `LoginAuditDays` – log retention (defaults 30 / 90 / 90)
+- `Alerts:DiscordWebhookUrl` – Discord webhook that receives alerts when a bot goes down (marked Offline after the
+  30 s disconnect grace period, or a failed start) and when it is back online
+- `Alerts:Smtp:Host` / `Port` / `User` / `Password` / `From` / `To` / `UseSsl` – the same alerts by e-mail (STARTTLS,
+  default port 587; `To` may contain several comma-separated addresses)
+- `Alerts:DebounceMinutes` – at most one down alert per bot within this window (default 10); a "back online" alert is
+  only sent after a delivered down alert, so a flapping bot cannot spam. `Alerts:NotifyRecovery` (default `true`)
+  toggles recovery alerts. Alerts never contain tokens; delivery failures are only logged.
+- `Metrics:Enabled` – serves Prometheus metrics at `/metrics` (default `false`; `true` in docker-compose). Only direct,
+  non-proxied requests are answered (requests carrying `X-Forwarded-*` get 404), or – when `Metrics:ApiKey` is set – only
+  requests with `Authorization: Bearer <key>`. nginx and Caddy never expose `/metrics`.
+- `OpenTelemetry:OtlpEndpoint` / `OtlpProtocol` (`grpc` or `http/protobuf`) / `ServiceName` – export traces
+  (ASP.NET Core, HttpClient, SQL) and metrics to an OTLP collector. Discord webhook/interaction URLs are never traced.
 - `DataProtection:CertificatePath` / `DataProtection:CertificatePassword` – certificate used to encrypt the
   Data Protection key ring. Keys are stored in the database (`DataProtectionKeys`); on Windows they are protected
   with DPAPI automatically, on Linux/containers configure a certificate.
@@ -158,6 +170,47 @@ docker compose up -d --build
 
 The app runs at `http://localhost:8080` (nginx serves the SPA and proxies `/api` and `/hubs` to the API on the same
 origin). Health: `GET /health` (API incl. database), `GET /health/live`.
+
+### Monitoring (Prometheus + Grafana)
+
+```bash
+# .env: GRAFANA_ADMIN_PASSWORD=<strong password>, METRICS_ENABLED=true (default)
+docker compose --profile monitoring up -d
+```
+
+Prometheus scrapes `api:8080/metrics` on the internal network (not published); Grafana runs on `http://127.0.0.1:3000`
+with a provisioned Prometheus datasource and the "BotManager overview" dashboard. Custom metrics (meter `BotManager`):
+
+| Metric | Type | Labels |
+| --- | --- | --- |
+| `bots_running` | gauge | – |
+| `gateway_latency_ms` | gauge | `bot_id` |
+| `commands_executed_total` | counter | `command`, `success` |
+| `bot_disconnects_total` | counter | `bot_id` |
+| `alerts_sent_total` | counter | `kind`, `channel`, `success` |
+
+plus ASP.NET Core (`http_server_request_duration_seconds`), HttpClient and .NET runtime metrics.
+
+### HTTPS with Caddy (Let's Encrypt)
+
+For a public deployment, `docker-compose.https.yml` adds a [Caddy](https://caddyserver.com) reverse proxy that
+terminates TLS with an automatically obtained and renewed Let's Encrypt certificate:
+
+```bash
+# .env: DOMAIN=bots.example.com, ACME_EMAIL=you@example.com (DNS of DOMAIN -> this host, ports 80/443 open)
+docker compose -f docker-compose.yml -f docker-compose.https.yml up -d --build
+```
+
+- The app is served at `https://${DOMAIN}`; http (port 80) redirects to https. Caddy sends HSTS
+  (`Strict-Transport-Security: max-age=31536000`).
+- The override forces `Auth__CookieSecure=true` and no longer publishes the plain `8080` port, so nginx is reachable only
+  through Caddy. Without the override the stack keeps working on `http://localhost:8080` as before.
+- Proxy chain: client → Caddy (`172.29.0.10` on the `edge` network) → nginx → API. nginx trusts `X-Forwarded-For` /
+  `X-Forwarded-Proto` only from Caddy's fixed address (`set_real_ip_from`), resolves the real client IP and forwards it to
+  the API as a single `X-Forwarded-For` entry; the API trusts only nginx (`ReverseProxy__KnownNetworks__0=172.28.0.0/16`),
+  so login lockouts and rate limits apply to the real client IP.
+- Certificates and ACME account are stored in the `caddy-data` volume (keep it to avoid Let's Encrypt rate limits).
+- Set `COMPOSE_FILE=docker-compose.yml:docker-compose.https.yml` in `.env` to use plain `docker compose` commands.
 
 ### Build solution
 

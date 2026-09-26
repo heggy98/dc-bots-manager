@@ -1,0 +1,15 @@
+# Prometheus for the `monitoring` compose profile: scrapes the API directly on the internal network
+# (the API serves /metrics only to non-proxied requests; nginx and Caddy never expose it).
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: botmanager-api
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["api:8080"]
+    # When Metrics__ApiKey is set on the API, add:
+    # authorization:
+    #   type: Bearer
+    #   credentials: <same key>
