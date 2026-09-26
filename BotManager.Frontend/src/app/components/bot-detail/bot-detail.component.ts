@@ -12,11 +12,11 @@ import { BoardConfigEditModalComponent } from './board-config-edit-modal.compone
 import { ToastrService } from 'ngx-toastr';
 import { BotEventsService } from '../../services/bot-events.service';
 import { forkJoin, Subscription } from 'rxjs';
-import { ClockService } from '../../services/clock.service';
+import { LiveDurationComponent } from '../live-duration/live-duration.component';
 
 @Component({
   selector: 'app-bot-detail',
-  imports: [CommonModule, FormsModule, RouterLink, TeamsEditModalComponent, JsonEditorModalComponent, ConfigEditModalComponent, BoardConfigEditModalComponent],
+  imports: [CommonModule, FormsModule, RouterLink, TeamsEditModalComponent, JsonEditorModalComponent, ConfigEditModalComponent, BoardConfigEditModalComponent, LiveDurationComponent],
   templateUrl: './bot-detail.component.html',
   styleUrl: './bot-detail.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -40,7 +40,6 @@ export class BotDetailComponent implements OnInit, OnDestroy {
   private fallbackSyncIntervalId: ReturnType<typeof setInterval> | null = null;
   private configMessageTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly destroyRef = inject(DestroyRef);
-  private readonly clock = inject(ClockService);
 
   // Config Modal
   readonly showConfigModal = signal(false);
@@ -602,38 +601,6 @@ export class BotDetailComponent implements OnInit, OnDestroy {
     }
 
     return this.toDate(bot.lastStoppedAt ?? bot.lastStartedAt);
-  }
-
-  /**
-   * Returns elapsed time text for current status reference point.
-   */
-  getStatusDurationText(): string {
-    const bot = this.bot();
-    if (!bot) {
-      return '—';
-    }
-
-    if (this.isOnline()) {
-      const startedAt = this.toDate(bot.lastStartedAt);
-      if (!startedAt) {
-        return '—';
-      }
-
-      const seconds = Math.floor((this.clock.now() - startedAt.getTime()) / 1000);
-      return this.formatDuration(seconds);
-    }
-
-    const stoppedAt = this.toDate(bot.lastStoppedAt);
-    if (!stoppedAt) {
-      return '—';
-    }
-
-    const seconds = Math.floor((this.clock.now() - stoppedAt.getTime()) / 1000);
-    if (seconds < 0) {
-      return '—';
-    }
-
-    return this.formatDuration(seconds);
   }
 
   /**

@@ -6,11 +6,11 @@ import { AuthService } from '../../services/auth.service';
 import { Router, RouterLink } from '@angular/router';
 import { I18nService } from '../../services/i18n.service';
 import { ToastrService } from 'ngx-toastr';
-import { ClockService } from '../../services/clock.service';
+import { LiveDurationComponent, parseApiDate } from '../live-duration/live-duration.component';
 
 @Component({
   selector: 'app-admin-home',
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, LiveDurationComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-home.component.html',
   styleUrl: './admin-home.component.css'
@@ -34,8 +34,7 @@ export class AdminHomeComponent implements OnInit {
     public authService: AuthService,
     private router: Router,
     private toastr: ToastrService,
-    public i18n: I18nService,
-    private clock: ClockService
+    public i18n: I18nService
   ) { }
 
   /**
@@ -103,13 +102,6 @@ export class AdminHomeComponent implements OnInit {
   }
 
   /**
-   * Formats current bot uptime as a short human-readable string.
-   */
-  getBotUptime(bot: AdminBotDto): string {
-    return this.getStatusDurationText(bot);
-  }
-
-  /**
    * Starts a bot from dashboard card actions.
    */
   startBot(botId: number): void {
@@ -157,52 +149,8 @@ export class AdminHomeComponent implements OnInit {
    */
   getStatusTimestamp(bot: AdminBotDto): Date | null {
     return this.isOnline(bot)
-      ? this.toDate(bot.lastStartedAt)
-      : this.toDate(bot.lastStoppedAt ?? bot.lastStartedAt);
-  }
-
-  /**
-   * Returns relative duration text for current status timestamp.
-   */
-  getStatusDurationText(bot: AdminBotDto): string {
-    if (this.isOnline(bot)) {
-      const startedAt = this.toDate(bot.lastStartedAt);
-      if (!startedAt) return '—';
-      const seconds = Math.floor((this.clock.now() - startedAt.getTime()) / 1000);
-      return this.formatDuration(seconds);
-    }
-
-    const stoppedAt = this.toDate(bot.lastStoppedAt);
-    if (!stoppedAt) return '—';
-    const seconds = Math.floor((this.clock.now() - stoppedAt.getTime()) / 1000);
-    if (seconds < 0) return '—';
-    return this.formatDuration(seconds);
-  }
-
-  /**
-   * Parses API date strings as UTC when timezone suffix is omitted.
-   */
-  private toDate(value?: string): Date | null {
-    if (!value) return null;
-    const hasZone = /[zZ]|[+-]\d\d:\d\d$/.test(value);
-    const normalized = hasZone ? value : `${value}Z`;
-    const parsed = new Date(normalized);
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
-  }
-
-  /**
-   * Formats duration seconds to compact day/hour/minute/second text.
-   */
-  private formatDuration(seconds?: number): string {
-    if (!seconds) return '—';
-    const d = Math.floor(seconds / 86400);
-    const h = Math.floor((seconds % 86400) / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = seconds % 60;
-    if (d > 0) return `${d}d ${h}h ${m}m ${s}s`;
-    if (h > 0) return `${h}h ${m}m ${s}s`;
-    if (m > 0) return `${m}m ${s}s`;
-    return `${s}s`;
+      ? parseApiDate(bot.lastStartedAt)
+      : parseApiDate(bot.lastStoppedAt ?? bot.lastStartedAt);
   }
 
   /**

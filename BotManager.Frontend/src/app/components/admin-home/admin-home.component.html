@@ -75,9 +75,7 @@
               <span class="uptime-label">
                 {{ i18n.t(isOnline(bot) ? 'bot.running' : 'bot.last_online') }}:
                 {{ getStatusTimestamp(bot) | date:'dd.MM.yyyy HH:mm' }}
-                @if (getStatusDurationText(bot) !== '—') {
-                  <span>({{ getStatusDurationText(bot) }})</span>
-                }
+                <app-live-duration [online]="isOnline(bot)" [startedAt]="bot.lastStartedAt" [stoppedAt]="bot.lastStoppedAt"></app-live-duration>
               </span>
             }
           </div>

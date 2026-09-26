@@ -7,6 +7,8 @@ import { Subject } from 'rxjs';
 
 import { BotDetailComponent } from './bot-detail.component';
 import { BotEventsService } from '../../services/bot-events.service';
+import { ClockService } from '../../services/clock.service';
+import { signal } from '@angular/core';
 
 describe('BotDetailComponent', () => {
   let component: BotDetailComponent;
@@ -32,6 +34,7 @@ describe('BotDetailComponent', () => {
 describe('BotDetailComponent (OnPush updates)', () => {
   let fixture: ComponentFixture<BotDetailComponent>;
   let httpMock: HttpTestingController;
+  const clockNow = signal(Date.parse('2026-01-01T10:00:00Z'));
   const events = {
     statusChanged$: new Subject<any>(),
     newLog$: new Subject<any>(),
@@ -51,7 +54,8 @@ describe('BotDetailComponent (OnPush updates)', () => {
         provideRouter([]),
         provideToastr(),
         { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ id: '5' }) } } },
-        { provide: BotEventsService, useValue: events }
+        { provide: BotEventsService, useValue: events },
+        { provide: ClockService, useValue: { now: clockNow.asReadonly() } }
       ]
     }).compileComponents();
 
@@ -63,6 +67,8 @@ describe('BotDetailComponent (OnPush updates)', () => {
       botId: 5,
       name: 'Test bot',
       status: 'Offline',
+      lastStartedAt: '2026-01-01T08:00:00Z',
+      lastStoppedAt: '2026-01-01T09:59:00Z',
       requests24h: 1,
       errors24h: 0,
       isPublic: false,
@@ -98,5 +104,17 @@ describe('BotDetailComponent (OnPush updates)', () => {
     fixture.detectChanges();
 
     expect(badge().classList).toContain('offline');
+  });
+
+  it('ticks the status duration without re-checking the bot-detail view', () => {
+    const duration = () => (fixture.nativeElement.querySelector('.bot-meta app-live-duration') as HTMLElement).textContent?.trim();
+    expect(duration()).toBe('(1m 0s)');
+
+    const parentRead = spyOn(fixture.componentInstance, 'getStatusTimestamp').and.callThrough();
+    clockNow.set(clockNow() + 5000);
+    fixture.detectChanges();
+
+    expect(duration()).toBe('(1m 5s)');
+    expect(parentRead).not.toHaveBeenCalled();
   });
 });

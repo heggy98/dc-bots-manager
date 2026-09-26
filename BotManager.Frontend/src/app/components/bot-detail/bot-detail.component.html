@@ -36,11 +36,11 @@
                   >
                   {{ i18n.t(getStatusLabelKey()) }}:
                   {{ getStatusTimestamp() | date: "dd.MM.yyyy HH:mm" }}
-                  @if (getStatusDurationText() !== '—') {
-                    <span
-                      >({{ getStatusDurationText() }})</span
-                      >
-                    }
+                  <app-live-duration
+                    [online]="isRunningState(bot.status)"
+                    [startedAt]="bot.lastStartedAt"
+                    [stoppedAt]="bot.lastStoppedAt"
+                  ></app-live-duration>
                   </span>
                 }
               </div>
