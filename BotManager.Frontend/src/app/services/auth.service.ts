@@ -7,6 +7,10 @@ export interface LoginRequest {
   password?: string;
   recaptchaToken?: string;
   googleIdToken?: string;
+  /** Authenticator app code (second step when 2FA is enabled). */
+  totpCode?: string;
+  /** Single-use recovery code, alternative to totpCode. */
+  recoveryCode?: string;
 }
 
 /**

@@ -33,6 +33,10 @@ export class LoginComponent implements OnInit, OnDestroy {
   isLoading = false;
   showCaptcha = false;
   failedAttempts = 0;
+  /** True once the backend asked for the second factor (password already accepted). */
+  twoFactorStep = false;
+  totpCode = '';
+  useRecoveryCode = false;
 
   private captchaSiteKey: string | null = null;
   private captchaToken: string | null = null;
@@ -82,13 +86,21 @@ export class LoginComponent implements OnInit, OnDestroy {
       return;
     }
 
+    const secondFactor = this.twoFactorStep ? this.totpCode.trim() : '';
+    if (this.twoFactorStep && !secondFactor) {
+      this.errorMessage = this.i18n.t('login.totp_required');
+      return;
+    }
+
     this.isLoading = true;
     this.errorMessage = '';
 
     this.authService.login({
       email: this.email,
       password: this.password,
-      recaptchaToken: this.captchaToken ?? undefined
+      recaptchaToken: this.captchaToken ?? undefined,
+      totpCode: this.twoFactorStep && !this.useRecoveryCode ? secondFactor.replace(/\s+/g, '') : undefined,
+      recoveryCode: this.twoFactorStep && this.useRecoveryCode ? secondFactor : undefined
     }).subscribe({
       next: () => {
         this.toastr.success(this.i18n.t('login.success'), this.i18n.t('login.title'));
@@ -96,8 +108,24 @@ export class LoginComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.isLoading = false;
-        this.failedAttempts++;
         this.resetCaptcha();
+        if (err.status === 401 && err.error?.twoFactorRequired) {
+          const wasInvalid = !!err.error?.invalidCode;
+          this.twoFactorStep = true;
+          this.totpCode = '';
+          if (!wasInvalid) {
+            // Password accepted; ask for the code without counting it as a failure.
+            this.errorMessage = '';
+            this.refreshAttemptStatus();
+            return;
+          }
+          this.failedAttempts++;
+          this.errorMessage = this.i18n.t('login.totp_invalid');
+          this.toastr.error(this.errorMessage, this.i18n.t('login.title'));
+          this.refreshAttemptStatus();
+          return;
+        }
+        this.failedAttempts++;
         if (err.status === 429) {
           this.errorMessage = this.i18n.t('login.error_locked');
         } else if (err.status === 400 && err.error?.captchaRequired) {
@@ -109,6 +137,25 @@ export class LoginComponent implements OnInit, OnDestroy {
         this.refreshAttemptStatus();
       }
     });
+  }
+
+  /**
+   * Leaves the second-factor step and returns to the credentials form.
+   */
+  backToCredentials(): void {
+    this.twoFactorStep = false;
+    this.totpCode = '';
+    this.useRecoveryCode = false;
+    this.errorMessage = '';
+  }
+
+  /**
+   * Switches between authenticator code and recovery code input.
+   */
+  toggleRecoveryCode(): void {
+    this.useRecoveryCode = !this.useRecoveryCode;
+    this.totpCode = '';
+    this.errorMessage = '';
   }
 
   /**

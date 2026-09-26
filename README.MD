@@ -94,6 +94,7 @@ Optional settings:
 - `Cors:AllowedOrigins` – allowed frontend origins (default `http://localhost:4200`, `https://localhost:4200`)
 - `ReverseProxy:KnownProxies` – IPs of trusted reverse proxies; only these may set `X-Forwarded-For`
 - `LogRetention:SystemLogsDays` / `CommandUsageDays` / `LoginAuditDays` / `AdminAuditDays` – log retention (defaults 30 / 90 / 90 / 365). Admin actions (bot lifecycle, token/visibility changes, boards, teams, config, logout-all, 2FA changes) are recorded in the admin audit log (Logs page → Admin Audit tab, `GET /api/systemlogs/admin-audit`).
+- `Auth:TotpIssuer` – issuer name shown in authenticator apps (default `BotManager`). Two-factor authentication (TOTP, RFC 6238) for the admin account is managed on the **Security** page (`/admin/security`): the secret is stored encrypted with Data Protection in `SystemConfigs` (`Auth.Totp*`), 8 single-use recovery codes are stored only as SHA-256 hashes. When enabled, `POST /api/auth/login` (and Google login) additionally require `totpCode` or `recoveryCode`; otherwise they answer `401 { twoFactorRequired: true }`. Lost device and recovery codes: delete the `Auth.Totp*` rows from `SystemConfigs` to reset 2FA.
 - `DataProtection:CertificatePath` / `DataProtection:CertificatePassword` – certificate used to encrypt the
   Data Protection key ring. Keys are stored in the database (`DataProtectionKeys`); on Windows they are protected
   with DPAPI automatically, on Linux/containers configure a certificate.

@@ -48,6 +48,7 @@ namespace BotManager.Backend.API.Controllers
             var boardGlobalConfig = await GetOrCreateBoardGlobalConfigAsync();
 
             var all = configs
+                .Where(c => !IsProtectedKey(c.Key))
                 .Select(c => new ConfigListItemDto
                 {
                     Id = c.Id,
@@ -95,6 +96,11 @@ namespace BotManager.Backend.API.Controllers
         [HttpPut]
         public async Task<IActionResult> Update([FromBody] ConfigUpdateDto dto)
         {
+            if (IsProtectedKey(dto.Key))
+            {
+                return BadRequest("This configuration key is managed by the security settings.");
+            }
+
             if (TryMapBoardGlobalKey(dto.Key, out var targetField))
             {
                 var boardGlobalConfig = await GetOrCreateBoardGlobalConfigAsync();
@@ -169,6 +175,12 @@ namespace BotManager.Backend.API.Controllers
 
             return field != BoardGlobalField.Unknown;
         }
+
+        /// <summary>
+        /// Keys owned by the 2FA settings (encrypted secret, recovery code hashes) are neither listed nor writable here.
+        /// </summary>
+        private static bool IsProtectedKey(string? key)
+            => key != null && key.StartsWith(TwoFactorService.KeyPrefix, StringComparison.OrdinalIgnoreCase);
 
         /// <summary>
         /// Converts empty string values to null before persistence.

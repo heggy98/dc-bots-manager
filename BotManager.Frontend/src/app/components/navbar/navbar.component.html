@@ -20,6 +20,9 @@
     @if (authService.loggedIn()) {
       <a routerLink="/admin/config" class="nav-link" (click)="closeMobileMenu()">{{ i18n.t('nav.config') }}</a>
     }
+    @if (authService.loggedIn()) {
+      <a routerLink="/admin/security" class="nav-link" (click)="closeMobileMenu()">{{ i18n.t('nav.security') }}</a>
+    }
 
     <div class="nav-controls">
       <button class="btn-icon" (click)="toggleTheme(); closeMobileMenu()"

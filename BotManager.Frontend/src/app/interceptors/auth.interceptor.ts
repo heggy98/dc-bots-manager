@@ -16,6 +16,14 @@ function isOwnApiUrl(url: string): boolean {
 }
 
 /**
+ * Auth endpoints whose 401 is a real answer (bad credentials, missing 2FA code) and must not trigger a refresh.
+ */
+function isSessionEndpoint(url: string): boolean {
+  return ['/api/auth/login', '/api/auth/google-login', '/api/auth/refresh', '/api/auth/logout']
+    .some(path => url === path || url.startsWith(path + '?'));
+}
+
+/**
  * Adds the CSRF header to own API requests. Authentication itself uses HttpOnly cookies sent by
  * the browser. On 401 the session is refreshed once and the request retried; if that fails the
  * user is sent to the login page.
@@ -39,7 +47,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
 
   return next(request).pipe(
     catchError((err: unknown) => {
-      if (!(err instanceof HttpErrorResponse) || err.status !== 401 || req.url.startsWith('/api/auth/')) {
+      if (!(err instanceof HttpErrorResponse) || err.status !== 401 || isSessionEndpoint(req.url)) {
         return throwError(() => err);
       }
 

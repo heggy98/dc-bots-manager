@@ -8,16 +8,30 @@
         </div>
 
         <form (ngSubmit)="onSubmit()">
-            <div class="form-group">
+            <div class="form-group" [hidden]="twoFactorStep">
                 <label for="email">{{ i18n.t('login.email') }}</label>
                 <input type="email" id="email" name="email" [(ngModel)]="email" required
                     placeholder="admin@example.com" />
             </div>
 
-            <div class="form-group">
+            <div class="form-group" [hidden]="twoFactorStep">
                 <label for="password">{{ i18n.t('login.password') }}</label>
                 <input type="password" id="password" name="password" [(ngModel)]="password" required
                     placeholder="••••••••" />
+            </div>
+
+            <div class="form-group two-factor" *ngIf="twoFactorStep">
+                <p class="text-muted">{{ i18n.t(useRecoveryCode ? 'login.recovery_hint' : 'login.totp_hint') }}</p>
+                <label for="totpCode">{{ i18n.t(useRecoveryCode ? 'login.recovery_code' : 'login.totp_code') }}</label>
+                <input id="totpCode" name="totpCode" [(ngModel)]="totpCode" autocomplete="one-time-code"
+                    [attr.inputmode]="useRecoveryCode ? null : 'numeric'"
+                    [placeholder]="useRecoveryCode ? 'XXXXX-XXXXX' : '123456'" autofocus />
+                <div class="two-factor-links">
+                    <button type="button" class="link-button" (click)="toggleRecoveryCode()">
+                        {{ i18n.t(useRecoveryCode ? 'login.use_totp' : 'login.use_recovery') }}
+                    </button>
+                    <button type="button" class="link-button" (click)="backToCredentials()">{{ i18n.t('login.back') }}</button>
+                </div>
             </div>
 
             <div class="form-group recaptcha" *ngIf="showCaptcha">

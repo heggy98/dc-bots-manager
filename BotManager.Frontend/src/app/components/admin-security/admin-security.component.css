@@ -1,0 +1,25 @@
+.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border-color); gap: 12px; flex-wrap: wrap; }
+.page-header h2 { margin: 0 0 6px; font-size: clamp(1.35rem, 2.5vw, 1.8rem); letter-spacing: -0.03em; }
+
+.security-panel { max-width: 720px; margin-bottom: 20px; }
+.panel-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.panel-title h3 { margin: 0; }
+
+.setup-steps { padding-left: 20px; margin: 12px 0; }
+.qr-wrapper { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+.qr-wrapper img { background: #fff; border-radius: 8px; padding: 6px; }
+.secret { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.secret-value { font-family: var(--font-mono, monospace); word-break: break-all; font-size: 0.95rem; user-select: all; }
+
+.inline-form { margin-top: 12px; }
+.inline-form input:not([type="checkbox"]) { max-width: 320px; }
+.checkbox { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-weight: normal; }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.recovery-panel { border: 1px solid var(--warning); }
+.recovery-codes { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin: 12px 0; }
+.recovery-codes code { font-family: var(--font-mono, monospace); font-size: 1rem; letter-spacing: 0.05em; }
+
+@media (max-width: 720px) {
+  .actions .btn { width: 100%; }
+}
