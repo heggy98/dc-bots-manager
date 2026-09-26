@@ -1,0 +1,35 @@
+version: 2
+updates:
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      microsoft:
+        patterns: ["Microsoft.*", "System.*"]
+      testing:
+        patterns: ["xunit*", "Microsoft.NET.Test.Sdk", "coverlet*", "Testcontainers*"]
+
+  - package-ecosystem: npm
+    directory: /BotManager.Frontend
+    schedule:
+      interval: weekly
+    groups:
+      angular:
+        patterns: ["@angular/*", "@angular-devkit/*", "zone.js", "typescript"]
+    ignore:
+      # Major Angular upgrades need `ng update` migrations; do them manually.
+      - dependency-name: "@angular/*"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+
+  - package-ecosystem: docker
+    directories:
+      - /BotManager.Backend.API
+      - /BotManager.Frontend
+    schedule:
+      interval: monthly

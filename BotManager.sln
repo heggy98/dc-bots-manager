@@ -19,6 +19,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BotManager.Backend.Bots.Tes
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BotManager.Backend.API.Tests", "BotManager.Backend.API.Tests\BotManager.Backend.API.Tests.csproj", "{4AC90DB4-2A1C-4C61-A379-8EF89D66C312}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BotManager.Backend.API.IntegrationTests", "BotManager.Backend.API.IntegrationTests\BotManager.Backend.API.IntegrationTests.csproj", "{C038010B-AF99-46F0-BD18-82266089F15A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -113,6 +115,18 @@ Global
 		{4AC90DB4-2A1C-4C61-A379-8EF89D66C312}.Release|x64.Build.0 = Release|Any CPU
 		{4AC90DB4-2A1C-4C61-A379-8EF89D66C312}.Release|x86.ActiveCfg = Release|Any CPU
 		{4AC90DB4-2A1C-4C61-A379-8EF89D66C312}.Release|x86.Build.0 = Release|Any CPU
+		{C038010B-AF99-46F0-BD18-82266089F15A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C038010B-AF99-46F0-BD18-82266089F15A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C038010B-AF99-46F0-BD18-82266089F15A}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{C038010B-AF99-46F0-BD18-82266089F15A}.Debug|x64.Build.0 = Debug|Any CPU
+		{C038010B-AF99-46F0-BD18-82266089F15A}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{C038010B-AF99-46F0-BD18-82266089F15A}.Debug|x86.Build.0 = Debug|Any CPU
+		{C038010B-AF99-46F0-BD18-82266089F15A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C038010B-AF99-46F0-BD18-82266089F15A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C038010B-AF99-46F0-BD18-82266089F15A}.Release|x64.ActiveCfg = Release|Any CPU
+		{C038010B-AF99-46F0-BD18-82266089F15A}.Release|x64.Build.0 = Release|Any CPU
+		{C038010B-AF99-46F0-BD18-82266089F15A}.Release|x86.ActiveCfg = Release|Any CPU
+		{C038010B-AF99-46F0-BD18-82266089F15A}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

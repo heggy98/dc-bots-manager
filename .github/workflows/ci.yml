@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (build + tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Restore
+        run: dotnet restore BotManager.sln
+      - name: Build
+        run: dotnet build BotManager.sln --no-restore -c Release -warnaserror
+      - name: Unit tests
+        run: >
+          dotnet test BotManager.sln --no-build -c Release
+          --filter "FullyQualifiedName!~IntegrationTests"
+      - name: Integration tests (SQL Server via Testcontainers)
+        run: dotnet test BotManager.Backend.API.IntegrationTests --no-build -c Release
+      - name: Vulnerable packages
+        run: |
+          dotnet list BotManager.sln package --vulnerable --include-transitive | tee vulnerable.txt
+          ! grep -qE "(High|Critical)" vulnerable.txt
+
+  frontend:
+    name: Frontend (build + tests)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: BotManager.Frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: BotManager.Frontend/package-lock.json
+      - run: npm ci
+      - run: npx ng build --configuration production
+      - name: Unit tests
+        run: npx ng test --watch=false --browsers=ChromeHeadlessNoSandbox
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+  docker:
+    name: Docker images
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build API image
+        run: docker build -f BotManager.Backend.API/Dockerfile -t botmanager-api:ci .
+      - name: Build web image
+        run: docker build -t botmanager-web:ci BotManager.Frontend
