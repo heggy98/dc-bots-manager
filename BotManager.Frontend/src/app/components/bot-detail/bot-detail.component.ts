@@ -31,6 +31,7 @@ export class BotDetailComponent implements OnInit, OnDestroy {
   readonly configLoading = signal(false);
   readonly configMessage = signal('');
   readonly visibilityLoading = signal(false);
+  readonly autoStartLoading = signal(false);
   readonly requireTokenRefresh = signal(false);
   readonly newBotToken = signal('');
   readonly tokenRefreshLoading = signal(false);
@@ -459,6 +460,32 @@ export class BotDetailComponent implements OnInit, OnDestroy {
         this.configMessage.set('✗');
         this.configLoading.set(false);
         this.toastr.error('Failed to save bot configuration.', 'Save Failed');
+      }
+    });
+  }
+
+  /**
+   * Enables or disables automatic start of the bot when the server starts.
+   */
+  setAutoStart(autoStart: boolean): void {
+    const bot = this.bot();
+    if (!bot || this.autoStartLoading() || !!bot.autoStart === autoStart) {
+      return;
+    }
+
+    const previous = !!bot.autoStart;
+    this.bot.update(b => b && { ...b, autoStart });
+    this.autoStartLoading.set(true);
+
+    this.botService.updateBotAutoStart(this.botId, { autoStart }).subscribe({
+      next: () => {
+        this.autoStartLoading.set(false);
+        this.toastr.success(this.i18n.t('bot.autostart_updated'), 'Updated');
+      },
+      error: () => {
+        this.autoStartLoading.set(false);
+        this.bot.update(b => b && { ...b, autoStart: previous });
+        this.toastr.error(this.i18n.t('bot.autostart_update_failed'), 'Update Failed');
       }
     });
   }

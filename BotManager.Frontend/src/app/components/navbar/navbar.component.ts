@@ -1,7 +1,5 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, inject, signal } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { NavigationEnd, Router, RouterLink } from '@angular/router';
-import { filter, fromEvent } from 'rxjs';
+import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 
 import { AuthService } from '../../services/auth.service';
 import { ThemeService } from '../../services/theme.service';
@@ -25,19 +23,7 @@ export class NavbarComponent {
     public authService: AuthService,
     public themeService: ThemeService,
     public i18n: I18nService
-  ) {
-    // authService.isLoggedIn() is not reactive (reads localStorage). Login/logout
-    // are always followed by a navigation, so re-check the view after each one,
-    // and when another tab changes storage.
-    const cdr = inject(ChangeDetectorRef);
-    const destroyRef = inject(DestroyRef);
-    inject(Router).events
-      .pipe(filter(e => e instanceof NavigationEnd), takeUntilDestroyed(destroyRef))
-      .subscribe(() => cdr.markForCheck());
-    fromEvent(window, 'storage')
-      .pipe(takeUntilDestroyed(destroyRef))
-      .subscribe(() => cdr.markForCheck());
-  }
+  ) { }
 
   /**
    * Toggles application theme.

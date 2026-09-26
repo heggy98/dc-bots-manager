@@ -63,6 +63,17 @@ export class AdminHomeComponent implements OnInit {
   logout(): void { this.authService.logout(); this.router.navigate(['/']); }
 
   /**
+   * Ends all sessions on every device (after confirmation) and navigates to the login page.
+   */
+  logoutAll(): void {
+    if (!confirm(this.i18n.t('nav.logout_all_confirm'))) return;
+    this.authService.logoutAll().subscribe({
+      next: () => this.router.navigate(['/login']),
+      error: () => this.router.navigate(['/login'])
+    });
+  }
+
+  /**
    * Toggles the create-bot form visibility.
    */
   toggleAddBot(): void { this.showForm.update(v => !v); this.formError.set(''); }

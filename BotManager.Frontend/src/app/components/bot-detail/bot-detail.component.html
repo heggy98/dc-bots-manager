@@ -139,6 +139,15 @@
             >
             {{ bot.isPublic ? i18n.t("bot.make_private") : i18n.t("bot.make_public") }}
           </button>
+          <label class="server-count autostart-toggle" style="display: flex; align-items: center; gap: 8px; margin-top: 12px; cursor: pointer">
+            <input
+              type="checkbox"
+              [checked]="!!bot.autoStart"
+              [disabled]="autoStartLoading()"
+              (change)="setAutoStart($any($event.target).checked)"
+              />
+            {{ i18n.t("bot.autostart") }}
+          </label>
         </div>
         <!-- Right: Stats + Logs + History -->
         <div class="right-col">

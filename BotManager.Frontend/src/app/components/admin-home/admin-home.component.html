@@ -8,6 +8,7 @@
       {{ showForm() ? i18n.t('admin.cancel') : i18n.t('admin.add_bot') }}
     </button>
     <button class="btn btn-outline" (click)="logout()">{{ i18n.t('nav.logout') }}</button>
+    <button class="btn btn-outline" (click)="logoutAll()" [title]="i18n.t('nav.logout_all_hint')">{{ i18n.t('nav.logout_all') }}</button>
   </div>
 </div>
 

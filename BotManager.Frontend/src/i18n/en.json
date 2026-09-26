@@ -140,5 +140,11 @@
   "footer.uptime": "BotManager running for",
   "status.Online": "Connected",
   "status.Offline": "Disconnected",
-  "status.Working": "Working"
+  "status.Working": "Working",
+  "nav.logout_all": "Log out everywhere",
+  "nav.logout_all_hint": "End all sessions on every device",
+  "nav.logout_all_confirm": "Log out on all devices? All active sessions will end.",
+  "bot.autostart": "Start automatically when the server starts",
+  "bot.autostart_updated": "Auto-start setting updated.",
+  "bot.autostart_update_failed": "Failed to update auto-start."
 }

@@ -20,6 +20,7 @@ export interface AdminBotDto {
   botToken: string;
   ownerUserId: string;
   isPublic: boolean;
+  autoStart?: boolean;
   discordBotName?: string;
   discordBotAvatarUrl?: string;
   serverCount?: number;
@@ -84,6 +85,10 @@ export interface CreateBotDto {
 
 export interface UpdateBotVisibilityDto {
   isPublic: boolean;
+}
+
+export interface UpdateBotAutoStartDto {
+  autoStart: boolean;
 }
 
 export interface UpdateBotTokenDto {
@@ -181,6 +186,13 @@ export class BotService {
    */
   updateBotVisibility(id: number, request: UpdateBotVisibilityDto): Observable<void> {
     return this.http.put<void>(`/api/bot/admin/${id}/visibility`, request);
+  }
+
+  /**
+   * Enables or disables automatic start of the bot when the server starts.
+   */
+  updateBotAutoStart(id: number, request: UpdateBotAutoStartDto): Observable<void> {
+    return this.http.put<void>(`/api/bot/admin/${id}/autostart`, request);
   }
 
   /**

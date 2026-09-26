@@ -8,16 +8,16 @@
   </button>
 
   <div class="nav-links" [class.open]="mobileMenuOpen()">
-    @if (authService.isLoggedIn()) {
+    @if (authService.loggedIn()) {
       <a routerLink="/admin" class="nav-link" (click)="closeMobileMenu()">{{ i18n.t('nav.dashboard') }}</a>
     }
-    @if (authService.isLoggedIn()) {
+    @if (authService.loggedIn()) {
       <a routerLink="/admin/commands" class="nav-link" (click)="closeMobileMenu()">{{ i18n.t('nav.commands') }}</a>
     }
-    @if (authService.isLoggedIn()) {
+    @if (authService.loggedIn()) {
       <a routerLink="/admin/logs" class="nav-link" (click)="closeMobileMenu()">{{ i18n.t('nav.logs') }}</a>
     }
-    @if (authService.isLoggedIn()) {
+    @if (authService.loggedIn()) {
       <a routerLink="/admin/config" class="nav-link" (click)="closeMobileMenu()">{{ i18n.t('nav.config') }}</a>
     }
 
@@ -32,7 +32,7 @@
       title="English">🇺🇸</button>
     </div>
 
-    @if (!authService.isLoggedIn()) {
+    @if (!authService.loggedIn()) {
       <a routerLink="/login" class="btn btn-primary btn-sm" (click)="closeMobileMenu()">{{ i18n.t('nav.login')
       }}</a>
     }

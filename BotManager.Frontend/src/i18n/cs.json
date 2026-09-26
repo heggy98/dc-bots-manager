@@ -140,5 +140,11 @@
   "footer.uptime": "BotManager běží",
   "status.Online": "Připojen",
   "status.Offline": "Odpojen",
-  "status.Working": "Pracuje"
+  "status.Working": "Pracuje",
+  "nav.logout_all": "Odhlásit všude",
+  "nav.logout_all_hint": "Ukončit všechna přihlášení na všech zařízeních",
+  "nav.logout_all_confirm": "Odhlásit na všech zařízeních? Všechna aktivní přihlášení budou ukončena.",
+  "bot.autostart": "Spouštět automaticky při startu serveru",
+  "bot.autostart_updated": "Nastavení automatického spuštění uloženo.",
+  "bot.autostart_update_failed": "Nepodařilo se uložit automatické spuštění."
 }

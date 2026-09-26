@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, finalize, firstValueFrom, shareReplay, tap } from 'rxjs';
 
@@ -35,6 +35,10 @@ const REFRESH_MARGIN_MS = 60_000;
 })
 export class AuthService {
   private refreshInFlight$: Observable<SessionInfo> | null = null;
+  private readonly loggedInState = signal(false);
+
+  /** Reactive login state (for OnPush templates). */
+  readonly loggedIn = this.loggedInState.asReadonly();
 
   /**
    * Creates a new authentication API service.
@@ -42,6 +46,13 @@ export class AuthService {
   constructor(private http: HttpClient) {
     // Tokens from older versions were stored in localStorage; they are no longer used.
     localStorage.removeItem('auth_token');
+    this.isLoggedIn();
+    // Keep tabs in sync (login/logout in another tab).
+    window.addEventListener('storage', event => {
+      if (event.key === SESSION_KEY || event.key === null) {
+        this.isLoggedIn();
+      }
+    });
   }
 
   /**
@@ -110,6 +121,7 @@ export class AuthService {
   isLoggedIn(): boolean {
     const session = this.getSession();
     if (!session) {
+      this.loggedInState.set(false);
       return false;
     }
 
@@ -119,6 +131,7 @@ export class AuthService {
       return false;
     }
 
+    this.loggedInState.set(true);
     return true;
   }
 
@@ -149,6 +162,7 @@ export class AuthService {
    */
   clearSession(): void {
     localStorage.removeItem(SESSION_KEY);
+    this.loggedInState.set(false);
   }
 
   private setSession(session: SessionInfo): void {
@@ -157,6 +171,7 @@ export class AuthService {
       accessTokenExpiresAt: session.accessTokenExpiresAt,
       refreshTokenExpiresAt: session.refreshTokenExpiresAt
     }));
+    this.loggedInState.set(true);
   }
 
   private getSession(): SessionInfo | null {

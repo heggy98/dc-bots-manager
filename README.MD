@@ -13,10 +13,12 @@ A full-stack Discord bot management platform with:
 - `BotManager.Backend.API` - ASP.NET Core API host (entry point in `Program.cs`)
 - `BotManager.Backend.Bots` - Discord runtime and bot services
 - `BotManager.Backend.Bots.Tests` - backend bot runtime tests
+- `BotManager.Backend.API.Tests` - API unit tests
+- `BotManager.Backend.API.IntegrationTests` - API integration tests against SQL Server (Testcontainers, needs Docker)
 - `BotManager.Backend.Services` - business services
 - `BotManager.Backend.Entities` - EF Core entities and migrations
 - `BotManager.Backend.Shared` - shared models/services
-- `BotManager.Frontend` - Angular 19 admin UI
+- `BotManager.Frontend` - Angular 21 admin UI
 
 ## Tech Stack
 
@@ -25,7 +27,7 @@ A full-stack Discord bot management platform with:
 - Entity Framework Core (SQL Server)
 - Serilog (+ SQL sink)
 - Discord.Net runtime integration
-- Angular 19
+- Angular 21
 
 ## Prerequisites
 
@@ -82,7 +84,13 @@ dotnet run --project BotManager.Backend.API/BotManager.Backend.API.csproj -- --h
 
 Optional settings:
 
-- `JwtSettings:ExpiryMinutes` – access token lifetime (default 480)
+- `JwtSettings:ExpiryMinutes` – access token lifetime (default 15; sessions are extended with refresh tokens)
+- `Auth:RefreshTokenDays` – refresh token lifetime (default 14)
+- `Auth:CookieSecure` – `Secure` flag of the auth cookies (default `true`; set `false` only for plain `http://` outside localhost)
+- `Recaptcha:SiteKey` / `Recaptcha:SecretKey` / `Recaptcha:RequiredAfterFailedAttempts` – optional reCAPTCHA v2 on login after N failed attempts (default 3)
+- `Bots:AutoStartEnabled` – start bots marked "auto-start" when the API starts (default `true`)
+- `RateLimiting:AuthPermitLimit` / `RateLimiting:PublicPermitLimit` – requests per minute per IP (defaults 10 / 60)
+- `ReverseProxy:KnownNetworks` – trusted proxy networks in CIDR notation
 - `Cors:AllowedOrigins` – allowed frontend origins (default `http://localhost:4200`, `https://localhost:4200`)
 - `ReverseProxy:KnownProxies` – IPs of trusted reverse proxies; only these may set `X-Forwarded-For`
 - `LogRetention:SystemLogsDays` / `CommandUsageDays` / `LoginAuditDays` – log retention (defaults 30 / 90 / 90)
@@ -141,6 +149,16 @@ Frontend runs at `http://localhost:4200` and proxies `/api` + `/hubs` to backend
 
 ## Build and Test
 
+### Docker (whole stack)
+
+```bash
+cp .env.example .env   # fill in the secrets
+docker compose up -d --build
+```
+
+The app runs at `http://localhost:8080` (nginx serves the SPA and proxies `/api` and `/hubs` to the API on the same
+origin). Health: `GET /health` (API incl. database), `GET /health/live`.
+
 ### Build solution
 
 ```bash
@@ -150,8 +168,12 @@ dotnet build BotManager.sln
 ### Run backend tests
 
 ```bash
-dotnet test BotManager.sln
+dotnet test BotManager.sln                                                    # all tests (integration tests need Docker)
+dotnet test BotManager.sln --filter "FullyQualifiedName!~IntegrationTests"    # unit tests only
 ```
+
+CI (GitHub Actions, `.github/workflows/ci.yml`) runs the build, unit and integration tests, frontend build/tests,
+dependency audits and Docker image builds on every push and pull request. Dependabot keeps dependencies up to date.
 
 ### Frontend tests
 
@@ -163,7 +185,11 @@ npm test
 ## Runtime Notes
 
 - Bot command model uses plugin architecture (`discord-board` plugin).
-- Several bots can run at the same time; each has its own Discord gateway session.
+- Several bots can run at the same time; each has its own Discord gateway session. Bots marked "auto-start"
+  are started automatically after the API starts.
+- Authentication uses HttpOnly cookies: a short-lived JWT access cookie and a rotating refresh cookie. Reusing an
+  old refresh token revokes all sessions; "Log out everywhere" in the admin UI ends every session on all devices.
+  Cookie-authenticated write requests must send `X-Requested-With: BotManager` (the SPA does this automatically).
 - Team roles are bound to Discord roles by id (`Teams.RoleId`); the board never grants roles with elevated permissions.
 - Bot tokens are encrypted with ASP.NET Core Data Protection. If the key ring is lost, stored tokens cannot be
   decrypted and must be re-entered in the admin UI.
