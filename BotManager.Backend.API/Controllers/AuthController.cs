@@ -2,8 +2,11 @@ using BotManager.Backend.API.Models;
 using BotManager.Backend.API.Services;
 using BotManager.Backend.Services.Interfaces;
 using BotManager.Backend.Shared.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 
 namespace BotManager.Backend.API.Controllers
 {
@@ -14,7 +17,9 @@ namespace BotManager.Backend.API.Controllers
         private readonly IBruteforceProtectionService _bruteforceProtection;
         private readonly AuthService _authService;
         private readonly AdminCredentialsService _adminCredentials;
-        private readonly JwtTokenService _jwtTokenService;
+        private readonly SessionService _sessionService;
+        private readonly TokenRevocationState _tokenRevocation;
+        private readonly RecaptchaService _recaptcha;
         private readonly ISystemConfigService _systemConfig;
         private readonly ILogger<AuthController> _logger;
 
@@ -22,30 +27,40 @@ namespace BotManager.Backend.API.Controllers
         /// Creates a new authentication controller.
         /// </summary>
         public AuthController(IBruteforceProtectionService bruteforceProtection, AuthService authService,
-            AdminCredentialsService adminCredentials, JwtTokenService jwtTokenService,
+            AdminCredentialsService adminCredentials, SessionService sessionService,
+            TokenRevocationState tokenRevocation, RecaptchaService recaptcha,
             ISystemConfigService systemConfig, ILogger<AuthController> logger)
         {
             _bruteforceProtection = bruteforceProtection;
             _authService = authService;
             _adminCredentials = adminCredentials;
-            _jwtTokenService = jwtTokenService;
+            _sessionService = sessionService;
+            _tokenRevocation = tokenRevocation;
+            _recaptcha = recaptcha;
             _systemConfig = systemConfig;
             _logger = logger;
         }
 
-        /// <summary>Returns the current failed login attempts for the caller's IP (for smart captcha)</summary>
+        /// <summary>Returns the current failed login attempts for the caller's IP and whether a captcha is required.</summary>
         [HttpGet("attempt-status")]
-        [EnableRateLimiting(RateLimitPolicies.Auth)]
+        [EnableRateLimiting(RateLimitPolicies.Public)]
         public IActionResult GetAttemptStatus()
         {
             var ip = GetIp();
             var locked = _bruteforceProtection.IsLocked(ip);
             var attempts = _bruteforceProtection.GetFailedAttempts(ip);
-            return Ok(new { locked, attempts });
+            return Ok(new
+            {
+                locked,
+                attempts,
+                captchaRequired = _recaptcha.IsRequired(attempts),
+                captchaSiteKey = _recaptcha.IsEnabled ? _recaptcha.SiteKey : null
+            });
         }
 
         /// <summary>
         /// Authenticates admin credentials using configured email/password hash.
+        /// On success the session is delivered as HttpOnly cookies.
         /// </summary>
         [HttpPost("login")]
         [EnableRateLimiting(RateLimitPolicies.Auth)]
@@ -67,6 +82,13 @@ namespace BotManager.Backend.API.Controllers
                 return BadRequest("Email and password are required.");
             }
 
+            if (_recaptcha.IsRequired(_bruteforceProtection.GetFailedAttempts(ip))
+                && !await _recaptcha.VerifyAsync(request.RecaptchaToken, ip, HttpContext.RequestAborted))
+            {
+                await _authService.LogLoginAttemptAsync(request.Email, ip, false, "Chybějící nebo neplatná captcha");
+                return BadRequest(new { message = "Captcha verification required.", captchaRequired = true });
+            }
+
             if (_adminCredentials.Verify(request.Email, request.Password))
             {
                 var email = _adminCredentials.AdminEmail;
@@ -74,7 +96,7 @@ namespace BotManager.Backend.API.Controllers
                 _bruteforceProtection.RegisterSuccess(accountKey);
                 await _authService.LogLoginAttemptAsync(email, ip, true);
                 _logger.LogInformation("User {Email} logged in successfully from {Ip}", email, ip);
-                return Ok(new LoginResponse { Token = _jwtTokenService.GenerateToken(email), Email = email });
+                return Ok(await _sessionService.CreateSessionAsync(Response, email, ip));
             }
 
             await RegisterFailureAsync(ip, accountKey);
@@ -124,7 +146,64 @@ namespace BotManager.Backend.API.Controllers
             _bruteforceProtection.RegisterSuccess(ip);
             await _authService.LogLoginAttemptAsync(email, ip, true);
             _logger.LogInformation("User {Email} logged in via Google from {Ip}", email, ip);
-            return Ok(new LoginResponse { Token = _jwtTokenService.GenerateToken(email), Email = email });
+            return Ok(await _sessionService.CreateSessionAsync(Response, email, ip));
+        }
+
+        /// <summary>
+        /// Rotates the refresh token cookie and issues a new access token cookie.
+        /// </summary>
+        [HttpPost("refresh")]
+        [EnableRateLimiting(RateLimitPolicies.Public)]
+        public async Task<IActionResult> Refresh()
+        {
+            var session = await _sessionService.RefreshAsync(Request, Response, GetIp());
+            if (session == null)
+            {
+                _sessionService.ClearCookies(Response);
+                return Unauthorized();
+            }
+
+            return Ok(session);
+        }
+
+        /// <summary>
+        /// Returns the current session (used by the SPA to restore its state after a reload).
+        /// </summary>
+        [Authorize]
+        [HttpGet("me")]
+        public IActionResult Me()
+        {
+            var email = User.FindFirstValue(ClaimTypes.Email)
+                ?? User.FindFirstValue(JwtRegisteredClaimNames.Email) ?? string.Empty;
+            DateTime? expiresAt = long.TryParse(User.FindFirstValue(JwtRegisteredClaimNames.Exp), out var seconds)
+                ? DateTimeOffset.FromUnixTimeSeconds(seconds).UtcDateTime
+                : null;
+            return Ok(new { email, accessTokenExpiresAt = expiresAt });
+        }
+
+        /// <summary>
+        /// Ends the current session (revokes its refresh token and clears the cookies).
+        /// </summary>
+        [HttpPost("logout")]
+        public async Task<IActionResult> Logout()
+        {
+            await _sessionService.LogoutAsync(Request, Response);
+            return NoContent();
+        }
+
+        /// <summary>
+        /// Ends all sessions on every device: revokes all refresh tokens and invalidates
+        /// every access token issued so far.
+        /// </summary>
+        [Authorize]
+        [HttpPost("logout-all")]
+        public async Task<IActionResult> LogoutAll()
+        {
+            var revoked = await _sessionService.RevokeAllAsync(_adminCredentials.AdminEmail);
+            await _tokenRevocation.RevokeAllIssuedUntilNowAsync(_systemConfig);
+            _sessionService.ClearCookies(Response);
+            _logger.LogWarning("All sessions revoked by {Email} ({Count} refresh tokens)", _adminCredentials.AdminEmail, revoked);
+            return NoContent();
         }
 
         /// <summary>

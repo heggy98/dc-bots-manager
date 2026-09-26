@@ -8,6 +8,7 @@ namespace BotManager.Backend.API.Models
         public string BotToken { get; set; } = string.Empty;
         public string OwnerUserId { get; set; } = string.Empty;
         public bool IsPublic { get; set; }
+        public bool AutoStart { get; set; }
         public string? DiscordBotName { get; set; }
         public string? DiscordBotAvatarUrl { get; set; }
         public int? ServerCount { get; set; }

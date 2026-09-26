@@ -33,6 +33,9 @@ namespace BotManager.Backend.Entities.Entities
 
         public bool IsPublic { get; set; } = false;
 
+        /// <summary>Start this bot automatically when the API starts.</summary>
+        public bool AutoStart { get; set; } = false;
+
         public BotStatus Status { get; set; } = BotStatus.Offline;
 
         public DateTime? LastStartedAt { get; set; }

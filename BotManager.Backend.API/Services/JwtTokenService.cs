@@ -13,8 +13,9 @@ namespace BotManager.Backend.API.Services
         /// <summary>Minimum signing secret length in bytes (HMAC-SHA256 key size).</summary>
         public const int MinimumSecretBytes = 32;
 
-        /// <summary>Default access token lifetime when JwtSettings:ExpiryMinutes is not configured.</summary>
-        public const int DefaultExpiryMinutes = 480;
+        /// <summary>Default access token lifetime when JwtSettings:ExpiryMinutes is not configured
+        /// (short, because sessions are extended with refresh tokens).</summary>
+        public const int DefaultExpiryMinutes = 15;
 
         private readonly SigningCredentials _credentials;
         private readonly string? _issuer;
@@ -53,26 +54,37 @@ namespace BotManager.Backend.API.Services
             return new SymmetricSecurityKey(bytes);
         }
 
+        /// <summary>Configured access token lifetime.</summary>
+        public TimeSpan Lifetime => _lifetime;
+
         /// <summary>
         /// Generates a signed admin JWT for a successfully authenticated user.
         /// </summary>
-        public string GenerateToken(string email)
+        public string GenerateToken(string email) => GenerateToken(email, out _);
+
+        /// <summary>
+        /// Generates a signed admin JWT and returns its expiry.
+        /// </summary>
+        public string GenerateToken(string email, out DateTime expiresAt)
         {
+            var now = DateTime.UtcNow;
+            expiresAt = now.Add(_lifetime);
+
             var claims = new[]
             {
                 new Claim(JwtRegisteredClaimNames.Sub, email),
                 new Claim(JwtRegisteredClaimNames.Email, email),
                 new Claim(ClaimTypes.Role, AuthRoles.Admin),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+                new Claim(JwtRegisteredClaimNames.Iat, EpochTime.GetIntDate(now).ToString(), ClaimValueTypes.Integer64)
             };
 
-            var now = DateTime.UtcNow;
             var token = new JwtSecurityToken(
                 issuer: _issuer,
                 audience: _audience,
                 claims: claims,
                 notBefore: now,
-                expires: now.Add(_lifetime),
+                expires: expiresAt,
                 signingCredentials: _credentials);
 
             return new JwtSecurityTokenHandler().WriteToken(token);

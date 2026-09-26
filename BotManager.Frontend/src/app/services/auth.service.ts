@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, finalize, firstValueFrom, shareReplay, tap } from 'rxjs';
 
 export interface LoginRequest {
   email: string;
@@ -9,73 +9,113 @@ export interface LoginRequest {
   googleIdToken?: string;
 }
 
-export interface LoginResponse {
-  token: string;
+/**
+ * Session info returned by the backend. The tokens themselves live in HttpOnly cookies
+ * and are never readable from JavaScript.
+ */
+export interface SessionInfo {
   email: string;
+  accessTokenExpiresAt: string;
+  refreshTokenExpiresAt: string;
 }
 
 export interface AttemptStatus {
   locked: boolean;
   attempts: number;
+  captchaRequired: boolean;
+  captchaSiteKey: string | null;
 }
+
+const SESSION_KEY = 'auth_session';
+/** Refresh the access token this long before it expires. */
+const REFRESH_MARGIN_MS = 60_000;
 
 @Injectable({
   providedIn: 'root'
 })
 export class AuthService {
+  private refreshInFlight$: Observable<SessionInfo> | null = null;
+
   /**
    * Creates a new authentication API service.
    */
-  constructor(private http: HttpClient) { }
+  constructor(private http: HttpClient) {
+    // Tokens from older versions were stored in localStorage; they are no longer used.
+    localStorage.removeItem('auth_token');
+  }
 
   /**
-   * Submits email/password credentials.
+   * Submits email/password credentials; the backend sets the session cookies.
    */
-  login(request: LoginRequest): Observable<LoginResponse> {
-    return this.http.post<LoginResponse>('/api/auth/login', request);
+  login(request: LoginRequest): Observable<SessionInfo> {
+    return this.http.post<SessionInfo>('/api/auth/login', request).pipe(tap(s => this.setSession(s)));
   }
 
   /**
    * Submits a Google login token.
    */
-  googleLogin(request: LoginRequest): Observable<LoginResponse> {
-    return this.http.post<LoginResponse>('/api/auth/google-login', request);
+  googleLogin(request: LoginRequest): Observable<SessionInfo> {
+    return this.http.post<SessionInfo>('/api/auth/google-login', request).pipe(tap(s => this.setSession(s)));
   }
 
   /**
-   * Gets lock and attempt counters for the current caller.
+   * Gets lock/attempt counters and captcha requirements for the current caller.
    */
   getAttemptStatus(): Observable<AttemptStatus> {
     return this.http.get<AttemptStatus>('/api/auth/attempt-status');
   }
 
   /**
-   * Persists the auth token in local storage.
+   * Rotates the refresh cookie and obtains a new access cookie. Concurrent callers share one request.
    */
-  saveToken(token: string): void {
-    localStorage.setItem('auth_token', token);
+  refresh(): Observable<SessionInfo> {
+    if (!this.refreshInFlight$) {
+      this.refreshInFlight$ = this.http.post<SessionInfo>('/api/auth/refresh', {}).pipe(
+        tap({
+          next: s => this.setSession(s),
+          error: () => this.clearSession()
+        }),
+        finalize(() => { this.refreshInFlight$ = null; }),
+        shareReplay(1)
+      );
+    }
+    return this.refreshInFlight$;
   }
 
   /**
-   * Reads the auth token from local storage.
+   * Refreshes the session when the access token is about to expire. Resolves false when the session is gone.
    */
-  getToken(): string | null {
-    return localStorage.getItem('auth_token');
-  }
-
-  /**
-   * Returns true when a stored token exists and has not expired.
-   * Expired or malformed tokens are cleared.
-   */
-  isLoggedIn(): boolean {
-    const token = this.getToken();
-    if (!token) {
+  async ensureFreshSession(): Promise<boolean> {
+    const session = this.getSession();
+    if (!session || !this.isLoggedIn()) {
       return false;
     }
 
-    const exp = this.getTokenExpiry(token);
-    if (exp === null || exp <= Date.now()) {
-      this.logout();
+    if (Date.parse(session.accessTokenExpiresAt) - Date.now() > REFRESH_MARGIN_MS) {
+      return true;
+    }
+
+    try {
+      await firstValueFrom(this.refresh());
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Returns true while a (refreshable) session exists. The server remains the source of truth:
+   * a rejected request triggers refresh or logout in the interceptor.
+   */
+  isLoggedIn(): boolean {
+    const session = this.getSession();
+    if (!session) {
+      return false;
+    }
+
+    const refreshExpiry = Date.parse(session.refreshTokenExpiresAt);
+    if (Number.isNaN(refreshExpiry) || refreshExpiry <= Date.now()) {
+      this.clearSession();
       return false;
     }
 
@@ -83,33 +123,46 @@ export class AuthService {
   }
 
   /**
-   * Returns a valid (non-expired) token or null.
+   * Email of the logged-in admin, if any.
    */
-  getValidToken(): string | null {
-    return this.isLoggedIn() ? this.getToken() : null;
+  getEmail(): string | null {
+    return this.getSession()?.email ?? null;
   }
 
   /**
-   * Clears persisted authentication state.
+   * Ends the session on the server (revokes the refresh token, clears cookies) and locally.
    */
   logout(): void {
-    localStorage.removeItem('auth_token');
+    this.http.post('/api/auth/logout', {}).subscribe({ error: () => undefined });
+    this.clearSession();
   }
 
   /**
-   * Decodes the JWT payload and returns its expiry in epoch milliseconds, or null when malformed.
+   * Ends all sessions on every device.
    */
-  private getTokenExpiry(token: string): number | null {
-    try {
-      const parts = token.split('.');
-      if (parts.length !== 3) {
-        return null;
-      }
+  logoutAll(): Observable<void> {
+    return this.http.post<void>('/api/auth/logout-all', {}).pipe(finalize(() => this.clearSession()));
+  }
 
-      let base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-      base64 += '='.repeat((4 - (base64.length % 4)) % 4);
-      const payload = JSON.parse(atob(base64));
-      return typeof payload?.exp === 'number' ? payload.exp * 1000 : null;
+  /**
+   * Forgets the local session hint (used when the server rejects the session).
+   */
+  clearSession(): void {
+    localStorage.removeItem(SESSION_KEY);
+  }
+
+  private setSession(session: SessionInfo): void {
+    localStorage.setItem(SESSION_KEY, JSON.stringify({
+      email: session.email,
+      accessTokenExpiresAt: session.accessTokenExpiresAt,
+      refreshTokenExpiresAt: session.refreshTokenExpiresAt
+    }));
+  }
+
+  private getSession(): SessionInfo | null {
+    try {
+      const raw = localStorage.getItem(SESSION_KEY);
+      return raw ? JSON.parse(raw) as SessionInfo : null;
     } catch {
       return null;
     }

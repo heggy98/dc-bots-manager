@@ -32,7 +32,23 @@ using System.Threading.RateLimiting;
 if (args.Length == 2 && args[0] == "--hash-password")
 {
     Console.WriteLine(new PasswordHasherService().HashPassword(args[1]));
-    return;
+    return 0;
+}
+
+// Utility mode for container HEALTHCHECK (runtime images have no curl): probes the liveness endpoint.
+if (args.Length >= 1 && args[0] == "--healthcheck")
+{
+    var url = args.Length > 1 ? args[1] : "http://localhost:8080/health/live";
+    try
+    {
+        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+        using var probe = await http.GetAsync(url);
+        return probe.IsSuccessStatusCode ? 0 : 1;
+    }
+    catch
+    {
+        return 1;
+    }
 }
 
 // Surface Serilog sink failures (e.g. SQL insert errors) instead of dropping them silently.
@@ -44,6 +60,7 @@ Log.Logger = new LoggerConfiguration()
     .CreateBootstrapLogger();
 
 WebApplication? app = null;
+var exitCode = 0;
 var cleanupTrigger = 0;
 
 try
@@ -129,7 +146,13 @@ try
     builder.Services.AddSingleton<IPasswordHasherService, PasswordHasherService>();
     builder.Services.AddSingleton<AdminCredentialsService>();
     builder.Services.AddSingleton<JwtTokenService>();
+    builder.Services.AddSingleton<TokenRevocationState>();
+    builder.Services.AddSingleton<RecaptchaService>();
+    builder.Services.AddScoped<SessionService>();
     builder.Services.AddHostedService<LogRetentionService>();
+    builder.Services.AddHostedService<BotAutoStartService>();
+    builder.Services.AddHealthChecks()
+        .AddDbContextCheck<BotManagerDbContext>("database");
     builder.Services.AddSingleton<IDiscordBotService, DiscordBotRuntimeService>();
     builder.Services.AddSingleton<IBoardMessageLocator, BoardMessageLocator>();
     builder.Services.AddSingleton<IPluginRegistry, PluginRegistry>();
@@ -185,17 +208,27 @@ try
                 options.KnownProxies.Add(proxyAddress);
             }
         }
+        // CIDR ranges, e.g. the docker-compose network of the nginx frontend.
+        foreach (var network in builder.Configuration.GetSection("ReverseProxy:KnownNetworks").Get<string[]>() ?? [])
+        {
+            if (System.Net.IPNetwork.TryParse(network, out var ipNetwork))
+            {
+                options.KnownIPNetworks.Add(ipNetwork);
+            }
+        }
     });
 
+    var authPermitLimit = builder.Configuration.GetValue("RateLimiting:AuthPermitLimit", 10);
+    var publicPermitLimit = builder.Configuration.GetValue("RateLimiting:PublicPermitLimit", 60);
     builder.Services.AddRateLimiter(options =>
     {
         options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
         options.AddPolicy(RateLimitPolicies.Auth, context => RateLimitPartition.GetFixedWindowLimiter(
             context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-            _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+            _ => new FixedWindowRateLimiterOptions { PermitLimit = authPermitLimit, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
         options.AddPolicy(RateLimitPolicies.Public, context => RateLimitPartition.GetFixedWindowLimiter(
             context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-            _ => new FixedWindowRateLimiterOptions { PermitLimit = 60, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+            _ => new FixedWindowRateLimiterOptions { PermitLimit = publicPermitLimit, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
     });
 
     builder.Services.AddExceptionHandler(options => { });
@@ -221,13 +254,25 @@ try
             // SignalR WebSocket connections pass the JWT as a query-string parameter.
             options.Events = new JwtBearerEvents
             {
+                // The SPA authenticates with the HttpOnly access cookie (also for SignalR, incl. WebSockets);
+                // an Authorization header still works for non-browser clients.
                 OnMessageReceived = context =>
                 {
-                    var accessToken = context.Request.Query["access_token"];
-                    var path = context.HttpContext.Request.Path;
-                    if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+                    if (string.IsNullOrEmpty(context.Request.Headers.Authorization)
+                        && context.Request.Cookies.TryGetValue(SessionService.AccessCookieName, out var cookieToken)
+                        && !string.IsNullOrEmpty(cookieToken))
                     {
-                        context.Token = accessToken;
+                        context.Token = cookieToken;
+                    }
+                    return Task.CompletedTask;
+                },
+                // "Log out everywhere" invalidates access tokens issued before the revocation watermark.
+                OnTokenValidated = context =>
+                {
+                    var revocation = context.HttpContext.RequestServices.GetRequiredService<TokenRevocationState>();
+                    if (context.Principal == null || !revocation.IsTokenStillValid(context.Principal))
+                    {
+                        context.Fail("Token has been revoked.");
                     }
                     return Task.CompletedTask;
                 }
@@ -275,9 +320,12 @@ try
         db.Database.Migrate();
 
         await ProtectLegacyBotTokensAsync(db, scope.ServiceProvider.GetRequiredService<IBotTokenSecurityService>());
+        await app.Services.GetRequiredService<TokenRevocationState>()
+            .LoadAsync(scope.ServiceProvider.GetRequiredService<ISystemConfigService>());
     }
 
     app.UseForwardedHeaders();
+    app.UseMiddleware<SecurityHeadersMiddleware>((IEnumerable<string>)corsOrigins);
 
     if (app.Environment.IsDevelopment())
     {
@@ -296,6 +344,13 @@ try
     app.UseAuthorization();
     app.MapControllers();
     app.MapHub<BotEventsHub>("/hubs/bot-events");
+
+    // Health endpoints for monitoring / container orchestration (no details are exposed).
+    app.MapHealthChecks("/health").DisableRateLimiting();
+    app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+    {
+        Predicate = _ => false
+    });
 
     // Ensure distributed cache table exists.
     using (var scope = app.Services.CreateScope())
@@ -322,6 +377,7 @@ try
 }
 catch (Exception ex)
 {
+    exitCode = 1;
     Log.Fatal(ex, "Application terminated unexpectedly");
 
     if (app != null && Interlocked.Exchange(ref cleanupTrigger, 1) == 0)
@@ -343,6 +399,8 @@ finally
 {
     Log.CloseAndFlush();
 }
+
+return exitCode;
 
 static async Task ProtectLegacyBotTokensAsync(BotManagerDbContext db, IBotTokenSecurityService tokenSecurity)
 {
@@ -431,3 +489,8 @@ static async Task EmergencyShutdownCleanupAsync(IServiceProvider services, strin
         Log.Error(dbEx, "Failed to persist offline state during emergency cleanup");
     }
 }
+
+/// <summary>
+/// Entry point marker, exposed for integration tests (WebApplicationFactory).
+/// </summary>
+public partial class Program;

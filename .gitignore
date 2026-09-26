@@ -363,3 +363,9 @@ MigrationBackup/
 FodyWeavers.xsd
 # Stray root lockfile
 /package-lock.json
+
+# Local docker-compose secrets
+.env
+
+# Claude Code agent worktrees
+.claude/worktrees/

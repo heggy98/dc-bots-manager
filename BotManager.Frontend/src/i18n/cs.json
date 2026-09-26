@@ -21,6 +21,7 @@
   "login.error_google": "Google autentizace selhala",
   "login.fill_fields": "Vyplňte e-mail a heslo",
   "login.success": "Přihlášení proběhlo úspěšně.",
+  "login.captcha_required": "Potvrďte prosím, že nejste robot.",
   "admin.title": "Administrace",
   "admin.subtitle": "Spravujte boty, sledujte výkon.",
   "admin.add_bot": "+ Přidat nového bota",

@@ -21,6 +21,7 @@
   "login.error_google": "Google authentication failed",
   "login.fill_fields": "Please enter email and password",
   "login.success": "Signed in successfully.",
+  "login.captcha_required": "Please confirm you are not a robot.",
   "admin.title": "Admin Dashboard",
   "admin.subtitle": "Manage your bots, monitor performance.",
   "admin.add_bot": "+ Add New Bot",

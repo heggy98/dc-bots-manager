@@ -69,6 +69,11 @@ namespace BotManager.Backend.API.Services
             var removedAudit = await DeleteInBatchesAsync(
                 () => db.LoginAuditLogs.Where(l => l.Timestamp < auditCutoff).OrderBy(l => l.Id).Take(BatchSize).ExecuteDeleteAsync(cancellationToken));
 
+            // Refresh tokens: drop rows that expired more than a day ago (revoked ones are kept until expiry
+            // so that reuse of a rotated token is still detected).
+            var tokenCutoff = now.AddDays(-1);
+            await db.RefreshTokens.Where(t => t.ExpiresAt < tokenCutoff).ExecuteDeleteAsync(cancellationToken);
+
             if (removedSystem + removedUsage + removedAudit > 0)
             {
                 _logger.LogInformation(

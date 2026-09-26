@@ -20,9 +20,8 @@
                     placeholder="••••••••" />
             </div>
 
-            <div class="form-group recaptcha-placeholder" *ngIf="showCaptcha">
-                <span>🛡️ [reCAPTCHA - {{ i18n.currentLang === 'cs' ? 'Aktivováno po neúspěšných pokusech' : 'Activated
-                    after failed attempts' }}]</span>
+            <div class="form-group recaptcha" *ngIf="showCaptcha">
+                <div #captchaContainer></div>
             </div>
 
             <button type="submit" class="btn btn-primary w-100" [disabled]="isLoading">

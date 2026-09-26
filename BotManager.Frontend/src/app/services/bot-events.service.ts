@@ -78,7 +78,7 @@ export class BotEventsService {
       return;
     }
 
-    if (!this.authService.getValidToken()) {
+    if (!(await this.authService.ensureFreshSession())) {
       await this.stopConnection();
       return;
     }
@@ -98,7 +98,11 @@ export class BotEventsService {
 
     const connection = new HubConnectionBuilder()
       .withUrl('/hubs/bot-events', {
-        accessTokenFactory: () => this.authService.getValidToken() ?? ''
+        // Auth uses the HttpOnly access cookie; the factory only refreshes it before (re)connects.
+        accessTokenFactory: async () => {
+          await this.authService.ensureFreshSession();
+          return '';
+        }
       })
       .withAutomaticReconnect()
       .configureLogging(LogLevel.Warning)

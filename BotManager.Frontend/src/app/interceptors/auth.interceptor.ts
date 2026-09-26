@@ -1,45 +1,62 @@
 import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { catchError, throwError } from 'rxjs';
+import { catchError, switchMap, throwError } from 'rxjs';
 import { AuthService } from '../services/auth.service';
 
+/** Header the backend requires on cookie-authenticated state-changing requests (CSRF guard). */
+const CSRF_HEADER = 'X-Requested-With';
+const CSRF_VALUE = 'BotManager';
+
 /**
- * Returns true for same-origin relative API/hub URLs that may carry the bearer token.
+ * Returns true for same-origin relative API URLs.
  */
 function isOwnApiUrl(url: string): boolean {
-  return url.startsWith('/api/') || url.startsWith('/hubs/');
+  return url.startsWith('/api/');
 }
 
 /**
- * Adds bearer token header to outgoing API requests when available
- * and redirects to login when the backend rejects the session.
+ * Adds the CSRF header to own API requests. Authentication itself uses HttpOnly cookies sent by
+ * the browser. On 401 the session is refreshed once and the request retried; if that fails the
+ * user is sent to the login page.
  */
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
+  if (!isOwnApiUrl(req.url)) {
+    return next(req);
+  }
+
   const authService = inject(AuthService);
   const router = inject(Router);
+  const request = req.clone({ setHeaders: { [CSRF_HEADER]: CSRF_VALUE } });
 
-  const ownApi = isOwnApiUrl(req.url);
-  const token = ownApi ? authService.getValidToken() : null;
-  const request = token
-    ? req.clone({ setHeaders: { Authorization: `Bearer ${token}` } })
-    : req;
+  const redirectToLogin = () => {
+    authService.clearSession();
+    const currentUrl = router.url;
+    if (!currentUrl.startsWith('/login')) {
+      router.navigate(['/login'], { queryParams: { returnUrl: currentUrl } });
+    }
+  };
 
   return next(request).pipe(
     catchError((err: unknown) => {
-      if (
-        ownApi &&
-        err instanceof HttpErrorResponse &&
-        err.status === 401 &&
-        !req.url.startsWith('/api/auth/')
-      ) {
-        authService.logout();
-        const currentUrl = router.url;
-        if (!currentUrl.startsWith('/login')) {
-          router.navigate(['/login'], { queryParams: { returnUrl: currentUrl } });
-        }
+      if (!(err instanceof HttpErrorResponse) || err.status !== 401 || req.url.startsWith('/api/auth/')) {
+        return throwError(() => err);
       }
-      return throwError(() => err);
+
+      if (!authService.isLoggedIn()) {
+        redirectToLogin();
+        return throwError(() => err);
+      }
+
+      return authService.refresh().pipe(
+        switchMap(() => next(request)),
+        catchError((retryErr: unknown) => {
+          if (retryErr instanceof HttpErrorResponse && retryErr.status === 401) {
+            redirectToLogin();
+          }
+          return throwError(() => retryErr);
+        })
+      );
     })
   );
 };

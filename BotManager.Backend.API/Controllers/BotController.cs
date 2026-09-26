@@ -198,6 +198,7 @@ namespace BotManager.Backend.API.Controllers
                 BotToken = _botTokenSecurityService.BuildMaskedToken(bot.BotToken),
                 OwnerUserId = bot.OwnerUserId,
                 IsPublic = bot.IsPublic,
+                AutoStart = bot.AutoStart,
                 IsTokenAuthorized = tokenAuthorized,
                 DiscordBotName = identity?.Name,
                 DiscordBotAvatarUrl = identity?.AvatarUrl,
@@ -296,6 +297,7 @@ namespace BotManager.Backend.API.Controllers
                 BotToken = _botTokenSecurityService.BuildMaskedToken(bot.BotToken),
                 OwnerUserId = bot.OwnerUserId,
                 IsPublic = bot.IsPublic,
+                AutoStart = bot.AutoStart,
                 DiscordBotName = identity?.Name,
                 DiscordBotAvatarUrl = identity?.AvatarUrl,
                 ServerCount = guilds.Count > 0 ? guilds.Count : null,
@@ -348,6 +350,26 @@ namespace BotManager.Backend.API.Controllers
             await _db.SaveChangesAsync();
 
             _logger.LogInformation("Bot {BotId} visibility updated to {IsPublic}", id, request.IsPublic);
+            return Ok();
+        }
+
+        /// <summary>
+        /// Enables or disables automatic start of the bot when the API starts.
+        /// </summary>
+        [Authorize]
+        [HttpPut("admin/{id}/autostart")]
+        public async Task<IActionResult> UpdateBotAutoStart(int id, [FromBody] UpdateBotAutoStartRequest request)
+        {
+            var (bot, errorResult) = await GetBotOrNotFoundAsync(id);
+            if (errorResult != null)
+            {
+                return errorResult;
+            }
+
+            bot!.AutoStart = request.AutoStart;
+            await _db.SaveChangesAsync();
+
+            _logger.LogInformation("Bot {BotId} auto-start updated to {AutoStart}", id, request.AutoStart);
             return Ok();
         }
 
@@ -969,6 +991,11 @@ namespace BotManager.Backend.API.Controllers
         public sealed class UpdateBotVisibilityRequest
         {
             public bool IsPublic { get; set; }
+        }
+
+        public sealed class UpdateBotAutoStartRequest
+        {
+            public bool AutoStart { get; set; }
         }
 
         public sealed class UpdateBotTokenRequest
