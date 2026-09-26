@@ -1,0 +1,15 @@
+:host { display: block; min-width: 0; }
+.bar-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+li { display: grid; grid-template-columns: minmax(90px, 38%) 1fr; gap: 12px; align-items: center; }
+.row-label { display: flex; flex-direction: column; min-width: 0; }
+.name { font-size: 0.84rem; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--font-mono); }
+.note { font-size: 0.72rem; color: var(--text-muted); }
+.row-bar { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.track { flex: 1; height: 10px; min-width: 0; }
+.track.meter { background: var(--viz-track); border-radius: 4px; }
+.fill { height: 100%; min-width: 2px; background: var(--viz-series-1); border-radius: 0 4px 4px 0; transition: width var(--duration-base, 260ms) ease; }
+.track.meter .fill { border-radius: 4px; }
+.value { font-size: 0.8rem; font-weight: 700; color: var(--text-primary); min-width: 52px; text-align: right; font-variant-numeric: tabular-nums; }
+.empty { color: var(--text-muted); font-size: 0.85rem; }
+@media (max-width: 520px) { li { grid-template-columns: 1fr; gap: 4px; } }
+@media (prefers-reduced-motion: reduce) { .fill { transition: none; } }

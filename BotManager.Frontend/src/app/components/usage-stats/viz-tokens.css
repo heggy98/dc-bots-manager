@@ -1,0 +1,32 @@
+/*
+ * Chart tokens shared by the statistics components. Series colors are the validated
+ * categorical slots 1-2 (blue, orange), stepped separately for the light and dark themes
+ * (validated against the app's card surfaces). Text never wears a series color.
+ */
+:host {
+  --viz-series-1: #2a78d6;
+  --viz-series-2: #eb6834;
+  --viz-track: #cde2fb;
+  --viz-grid: rgba(68, 98, 155, 0.14);
+  --viz-axis: rgba(68, 98, 155, 0.32);
+  --viz-surface: #ffffff;
+  --viz-tooltip-bg: #ffffff;
+}
+
+:host-context(body.theme-dark) {
+  --viz-series-1: #3987e5;
+  --viz-series-2: #d95926;
+  --viz-track: rgba(57, 135, 229, 0.2);
+  --viz-grid: rgba(134, 157, 202, 0.14);
+  --viz-axis: rgba(134, 157, 202, 0.34);
+  --viz-surface: #131d31;
+  --viz-tooltip-bg: #16223a;
+}
+
+@media (forced-colors: active) {
+  :host {
+    --viz-series-1: CanvasText;
+    --viz-series-2: Highlight;
+    --viz-track: GrayText;
+  }
+}

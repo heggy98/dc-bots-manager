@@ -13,10 +13,11 @@ import { ToastrService } from 'ngx-toastr';
 import { BotEventsService } from '../../services/bot-events.service';
 import { forkJoin, Subscription } from 'rxjs';
 import { LiveDurationComponent } from '../live-duration/live-duration.component';
+import { UsageStatsComponent } from '../usage-stats/usage-stats.component';
 
 @Component({
   selector: 'app-bot-detail',
-  imports: [CommonModule, FormsModule, RouterLink, TeamsEditModalComponent, JsonEditorModalComponent, ConfigEditModalComponent, BoardConfigEditModalComponent, LiveDurationComponent],
+  imports: [CommonModule, FormsModule, RouterLink, TeamsEditModalComponent, JsonEditorModalComponent, ConfigEditModalComponent, BoardConfigEditModalComponent, LiveDurationComponent, UsageStatsComponent],
   templateUrl: './bot-detail.component.html',
   styleUrl: './bot-detail.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush

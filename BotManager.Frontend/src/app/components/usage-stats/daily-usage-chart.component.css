@@ -1,0 +1,45 @@
+:host { display: block; position: relative; min-width: 0; }
+
+.chart-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+.legend { list-style: none; display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.82rem; color: var(--text-secondary); }
+.legend li { display: inline-flex; align-items: center; gap: 6px; }
+.legend strong { color: var(--text-primary); font-weight: 700; }
+.swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.swatch.s1, .key.s1 { background: var(--viz-series-1); }
+.swatch.s2, .key.s2 { background: var(--viz-series-2); }
+.view-toggle { min-height: 32px; padding: 4px 12px; font-size: 0.78rem; }
+
+.plot { position: relative; }
+svg { display: block; overflow: visible; outline: none; }
+svg:focus-visible { outline: 2px solid var(--primary); outline-offset: 4px; border-radius: 6px; }
+.grid { stroke: var(--viz-grid); stroke-width: 1; shape-rendering: crispEdges; }
+.grid.baseline { stroke: var(--viz-axis); }
+.tick { fill: var(--text-muted); font-size: 11px; font-variant-numeric: tabular-nums; font-family: var(--font-family); }
+.peak { fill: var(--text-secondary); font-size: 11px; font-weight: 700; font-family: var(--font-family); }
+.bar.s1 { fill: var(--viz-series-1); }
+.bar.s2 { fill: var(--viz-series-2); }
+g { transition: opacity var(--duration-fast, 160ms) ease; }
+g.dim { opacity: 0.45; }
+.hit { fill: transparent; cursor: crosshair; }
+
+.tooltip {
+  position: absolute; top: 0; width: 170px; pointer-events: none; z-index: 2;
+  background: var(--viz-tooltip-bg); color: var(--text-secondary);
+  border: 1px solid var(--border-color); border-radius: 10px; box-shadow: var(--shadow-sm);
+  padding: 8px 10px; font-size: 0.78rem;
+}
+.tt-date { color: var(--text-muted); margin-bottom: 4px; }
+.tt-row { display: flex; align-items: center; gap: 6px; line-height: 1.5; }
+.tt-row strong { color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.tt-row.total { border-top: 1px solid var(--border-color); margin-top: 4px; padding-top: 4px; }
+.key { width: 10px; height: 2px; border-radius: 1px; display: inline-block; }
+
+.table-wrap { max-height: 320px; overflow: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+th, td { padding: 6px 10px; border-bottom: 1px solid var(--border-color); text-align: left; }
+th { color: var(--text-muted); font-weight: 600; position: sticky; top: 0; background: var(--bg-secondary); }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+@media (prefers-reduced-motion: reduce) { g { transition: none; } }
