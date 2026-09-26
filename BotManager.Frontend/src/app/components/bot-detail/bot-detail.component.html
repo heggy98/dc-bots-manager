@@ -1,363 +1,409 @@
-<div *ngIf="loading" class="loading-spinner">Loading...</div>
-<div *ngIf="error" class="error-alert">
-  {{ error }} <a routerLink="/admin">← Back</a>
-</div>
+@if (loading) {
+  <div class="loading-spinner">Loading...</div>
+}
+@if (error) {
+  <div class="error-alert">
+    {{ error }} <a routerLink="/admin">← Back</a>
+  </div>
+}
 
-<div *ngIf="!loading && bot">
-  <div class="page-header">
-    <a routerLink="/admin" class="breadcrumb">{{ i18n.t("bot.back") }}</a>
-    <div class="page-header-main">
-      <div class="bot-title-row">
-        <div class="detail-avatar">
-          <img
-            *ngIf="bot.discordBotAvatarUrl; else detailFallbackAvatar"
-            [src]="bot.discordBotAvatarUrl"
-            [alt]="bot.name"
-          />
-          <ng-template #detailFallbackAvatar>🤖</ng-template>
-        </div>
-        <div class="bot-info">
-          <h2>{{ bot.name }}</h2>
-          <div class="bot-meta">
-            <span class="status-badge" [ngClass]="bot.status.toLowerCase()">{{
-              i18n.t("status." + bot.status)
-            }}</span>
-            <span
-              class="text-muted"
-              *ngIf="getStatusTimestamp()"
-              style="font-size: 0.82rem"
-            >
-              {{ i18n.t(getStatusLabelKey()) }}:
-              {{ getStatusTimestamp() | date: "dd.MM.yyyy HH:mm" }}
-              <span *ngIf="getStatusDurationText() !== '—'"
-                >({{ getStatusDurationText() }})</span
-              >
-            </span>
+@if (!loading && bot) {
+  <div>
+    <div class="page-header">
+      <a routerLink="/admin" class="breadcrumb">{{ i18n.t("bot.back") }}</a>
+      <div class="page-header-main">
+        <div class="bot-title-row">
+          <div class="detail-avatar">
+            @if (bot.discordBotAvatarUrl) {
+              <img
+                [src]="bot.discordBotAvatarUrl"
+                [alt]="bot.name"
+                />
+            } @else {
+              🤖
+            }
+          </div>
+          <div class="bot-info">
+            <h2>{{ bot.name }}</h2>
+            <div class="bot-meta">
+              <span class="status-badge" [ngClass]="bot.status.toLowerCase()">{{
+                i18n.t("status." + bot.status)
+              }}</span>
+              @if (getStatusTimestamp()) {
+                <span
+                  class="text-muted"
+                  style="font-size: 0.82rem"
+                  >
+                  {{ i18n.t(getStatusLabelKey()) }}:
+                  {{ getStatusTimestamp() | date: "dd.MM.yyyy HH:mm" }}
+                  @if (getStatusDurationText() !== '—') {
+                    <span
+                      >({{ getStatusDurationText() }})</span
+                      >
+                    }
+                  </span>
+                }
+              </div>
+            </div>
+          </div>
+          <div class="header-actions">
+            @if (!isRunningState(bot.status)) {
+              <button
+                class="btn btn-primary btn-sm"
+                (click)="startBot()"
+                >
+                {{ i18n.t("bot.start") }}
+              </button>
+            }
+            @if (isRunningState(bot.status)) {
+              <button
+                class="btn btn-outline-red btn-sm"
+                (click)="stopBot()"
+                >
+                {{ i18n.t("bot.stop") }}
+              </button>
+            }
+            <button class="btn btn-outline btn-sm" (click)="restartBot()">
+              {{ i18n.t("bot.restart") }}
+            </button>
           </div>
         </div>
       </div>
-      <div class="header-actions">
-        <button
-          class="btn btn-primary btn-sm"
-          *ngIf="!isRunningState(bot.status)"
-          (click)="startBot()"
-        >
-          {{ i18n.t("bot.start") }}
-        </button>
-        <button
-          class="btn btn-outline-red btn-sm"
-          *ngIf="isRunningState(bot.status)"
-          (click)="stopBot()"
-        >
-          {{ i18n.t("bot.stop") }}
-        </button>
-        <button class="btn btn-outline btn-sm" (click)="restartBot()">
-          {{ i18n.t("bot.restart") }}
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <div class="detail-grid mt-4">
-    <div class="panel">
-      <div
-        class="panel-header"
+      <div class="detail-grid mt-4">
+        <div class="panel">
+          <div
+            class="panel-header"
         style="
           display: flex;
           justify-content: space-between;
           align-items: center;
           gap: 8px;
         "
-      >
-        <h3 style="margin: 0">{{ i18n.t("bot.properties") }}</h3>
-      </div>
-      <p
-        class="text-muted"
-        style="font-size: 0.8rem; margin-bottom: 8px"
-        *ngIf="bot.discordBotName"
-      >
-        {{ i18n.t("bot.discord_name") }}: {{ bot.discordBotName }}
-      </p>
-      <p
-        class="text-muted"
-        style="font-size: 0.8rem; margin-bottom: 8px"
-        *ngIf="bot.serverCount"
-      >
-        {{ i18n.t("bot.servers") }}: {{ bot.serverCount }}
-      </p>
-      <div
-        *ngIf="bot.guilds && bot.guilds.length > 0"
-        style="margin-bottom: 14px"
-      >
-        <p class="text-muted" style="font-size: 0.8rem; margin-bottom: 4px">
-          {{ i18n.t("bot.guilds") }}:
-        </p>
-        <ul
+            >
+            <h3 style="margin: 0">{{ i18n.t("bot.properties") }}</h3>
+          </div>
+          @if (bot.discordBotName) {
+            <p
+              class="text-muted"
+              style="font-size: 0.8rem; margin-bottom: 8px"
+              >
+              {{ i18n.t("bot.discord_name") }}: {{ bot.discordBotName }}
+            </p>
+          }
+          @if (bot.serverCount) {
+            <p
+              class="text-muted"
+              style="font-size: 0.8rem; margin-bottom: 8px"
+              >
+              {{ i18n.t("bot.servers") }}: {{ bot.serverCount }}
+            </p>
+          }
+          @if (bot.guilds && bot.guilds.length > 0) {
+            <div
+              style="margin-bottom: 14px"
+              >
+              <p class="text-muted" style="font-size: 0.8rem; margin-bottom: 4px">
+                {{ i18n.t("bot.guilds") }}:
+              </p>
+              <ul
           style="
             margin: 0;
             padding-left: 18px;
             font-size: 0.8rem;
             color: var(--text-muted);
           "
-        >
-          <li *ngFor="let g of bot.guilds; trackBy: trackByGuild">{{ g }}</li>
-        </ul>
-      </div>
-      <p class="server-count">
-        {{ i18n.t("admin.owner") }}: {{ bot.ownerUserId }}
-      </p>
-      <p class="server-count">
-        {{ i18n.t("admin.bot_token") }}: {{ bot.botToken }}
-      </p>
-      <p class="server-count">
-        {{ i18n.t("admin.visibility") }}:
-        <span [class.text-green]="bot.isPublic" [class.text-muted]="!bot.isPublic">{{ bot.isPublic ? i18n.t("admin.public") : i18n.t("admin.private") }}</span>
-      </p>
-      <button
-        class="btn btn-sm visibility-toggle-btn"
-        [class.btn-outline-red]="bot.isPublic"
-        [class.btn-primary]="!bot.isPublic"
-        [disabled]="visibilityLoading"
-        (click)="setPublicVisibility(!bot.isPublic)"
-        style="margin-top: 4px"
-      >
-        {{ bot.isPublic ? i18n.t("bot.make_private") : i18n.t("bot.make_public") }}
-      </button>
-    </div>
-
-    <!-- Right: Stats + Logs + History -->
-    <div class="right-col">
-      <div class="panel">
-        <h3>{{ i18n.t("bot.activity") }}</h3>
-        <div class="stats-row">
-          <div class="stat-box">
-            <span class="stat-label">{{ i18n.t("bot.total_req") }}</span
-            ><span class="stat-value text-blue">{{
-              bot.requests24h | number
-            }}</span>
-          </div>
-          <div class="stat-box">
-            <span class="stat-label">{{ i18n.t("bot.total_err") }}</span
-            ><span class="stat-value text-red">{{
-              bot.errors24h | number
-            }}</span>
-          </div>
+                >
+                @for (g of bot.guilds; track trackByGuild($index, g)) {
+                  <li>{{ g }}</li>
+                }
+              </ul>
+            </div>
+          }
+          <p class="server-count">
+            {{ i18n.t("admin.owner") }}: {{ bot.ownerUserId }}
+          </p>
+          <p class="server-count">
+            {{ i18n.t("admin.bot_token") }}: {{ bot.botToken }}
+          </p>
+          <p class="server-count">
+            {{ i18n.t("admin.visibility") }}:
+            <span [class.text-green]="bot.isPublic" [class.text-muted]="!bot.isPublic">{{ bot.isPublic ? i18n.t("admin.public") : i18n.t("admin.private") }}</span>
+          </p>
+          <button
+            class="btn btn-sm visibility-toggle-btn"
+            [class.btn-outline-red]="bot.isPublic"
+            [class.btn-primary]="!bot.isPublic"
+            [disabled]="visibilityLoading"
+            (click)="setPublicVisibility(!bot.isPublic)"
+            style="margin-top: 4px"
+            >
+            {{ bot.isPublic ? i18n.t("bot.make_private") : i18n.t("bot.make_public") }}
+          </button>
         </div>
-      </div>
-
-      <div class="panel">
-        <div
-          class="panel-header"
+        <!-- Right: Stats + Logs + History -->
+        <div class="right-col">
+          <div class="panel">
+            <h3>{{ i18n.t("bot.activity") }}</h3>
+            <div class="stats-row">
+              <div class="stat-box">
+                <span class="stat-label">{{ i18n.t("bot.total_req") }}</span
+                  ><span class="stat-value text-blue">{{
+                  bot.requests24h | number
+                }}</span>
+              </div>
+              <div class="stat-box">
+                <span class="stat-label">{{ i18n.t("bot.total_err") }}</span
+                  ><span class="stat-value text-red">{{
+                  bot.errors24h | number
+                }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="panel">
+            <div
+              class="panel-header"
           style="
             display: flex;
             justify-content: space-between;
             align-items: center;
             gap: 8px;
           "
-        >
-          <h3 style="margin: 0">{{ i18n.t("bot.history") }}</h3>
-          <button
-            class="btn btn-outline-red btn-sm"
-            (click)="clearBotHistory()"
-          >
-            {{ i18n.t("bot.clear_history") }}
-          </button>
-        </div>
-        <div
-          class="history-table"
-          *ngIf="bot.histories && bot.histories.length > 0"
-        >
-          <table>
-            <thead>
-              <tr>
-                <th>{{ i18n.t("bot.history_start") }}</th>
-                <th>{{ i18n.t("bot.history_stop") }}</th>
-                <th>{{ i18n.t("bot.history_duration") }}</th>
-                <th>{{ i18n.t("bot.history_reason") }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let h of bot.histories; trackBy: trackByHistory" [class.history-row-reconnect]="isReconnectHistory(h.stopReason, h.errorDetails)">
-                <td>{{ h.startedAt | date: "dd.MM HH:mm" }}</td>
-                <td>
-                  {{ h.stoppedAt ? (h.stoppedAt | date: "dd.MM HH:mm") : "—" }}
-                </td>
-                <td>{{ formatDuration(h.durationSeconds) }}</td>
-                <td>
-                  <span *ngIf="isReconnectHistory(h.stopReason, h.errorDetails)" class="history-reconnect-badge">Reconnect</span>
-                  <span
+              >
+              <h3 style="margin: 0">{{ i18n.t("bot.history") }}</h3>
+              <button
+                class="btn btn-outline-red btn-sm"
+                (click)="clearBotHistory()"
+                >
+                {{ i18n.t("bot.clear_history") }}
+              </button>
+            </div>
+            @if (bot.histories && bot.histories.length > 0) {
+              <div
+                class="history-table"
+                >
+                <table>
+                  <thead>
+                    <tr>
+                      <th>{{ i18n.t("bot.history_start") }}</th>
+                      <th>{{ i18n.t("bot.history_stop") }}</th>
+                      <th>{{ i18n.t("bot.history_duration") }}</th>
+                      <th>{{ i18n.t("bot.history_reason") }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (h of bot.histories; track trackByHistory($index, h)) {
+                      <tr [class.history-row-reconnect]="isReconnectHistory(h.stopReason, h.errorDetails)">
+                        <td>{{ h.startedAt | date: "dd.MM HH:mm" }}</td>
+                        <td>
+                          {{ h.stoppedAt ? (h.stoppedAt | date: "dd.MM HH:mm") : "—" }}
+                        </td>
+                        <td>{{ formatDuration(h.durationSeconds) }}</td>
+                        <td>
+                          @if (isReconnectHistory(h.stopReason, h.errorDetails)) {
+                            <span class="history-reconnect-badge">Reconnect</span>
+                          }
+                          <span
                     [class.text-red]="
                       h.stopReason?.includes('chyba') || h.errorDetails
                     "
-                    >{{ getHistoryReasonText(h.stopReason, h.errorDetails) }}</span
+                            >{{ getHistoryReasonText(h.stopReason, h.errorDetails) }}</span
+                            >
+                            @if (h.errorDetails) {
+                              <div class="error-detail">
+                                {{ h.errorDetails }}
+                              </div>
+                            }
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              }
+              @if (!bot.histories || bot.histories.length === 0) {
+                <p
+                  class="text-muted"
                   >
-                  <div *ngIf="h.errorDetails" class="error-detail">
-                    {{ h.errorDetails }}
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <p
-          *ngIf="!bot.histories || bot.histories.length === 0"
-          class="text-muted"
-        >
-          —
-        </p>
-      </div>
-
-      <div class="panel">
-        <div
-          class="panel-header"
+                  —
+                </p>
+              }
+            </div>
+            <div class="panel">
+              <div
+                class="panel-header"
           style="
             display: flex;
             justify-content: space-between;
             align-items: center;
             gap: 8px;
           "
-        >
-          <h3 style="margin: 0">{{ i18n.t("bot.logs") }}</h3>
-          <button class="btn btn-outline-red btn-sm" (click)="clearBotLogs()">
-            {{ i18n.t("bot.clear_logs") }}
-          </button>
-        </div>
-        <div class="logger-box">
-          <div *ngIf="!bot.logs || bot.logs.length === 0" class="log-entry">
-            {{ i18n.t("bot.no_logs") }}
+                >
+                <h3 style="margin: 0">{{ i18n.t("bot.logs") }}</h3>
+                <button class="btn btn-outline-red btn-sm" (click)="clearBotLogs()">
+                  {{ i18n.t("bot.clear_logs") }}
+                </button>
+              </div>
+              <div class="logger-box">
+                @if (!bot.logs || bot.logs.length === 0) {
+                  <div class="log-entry">
+                    {{ i18n.t("bot.no_logs") }}
+                  </div>
+                }
+                @for (log of bot.logs; track trackByLog($index, log)) {
+                  <div class="log-entry">
+                    <span class="log-time"
+                      >[{{ log.timestamp | date: "HH:mm:ss" }}]</span
+                      >
+                      <span class="log-level" [ngClass]="log.level.toLowerCase()"
+                        >[{{ log.level }}]</span
+                        >
+                        <span class="log-message">{{ log.message }}</span>
+                      </div>
+                    }
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- Boards Section -->
+            @if (isBoardEnabledBot()) {
+              <div class="boards-section mt-4">
+                <div class="panel">
+                  <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                    <h3 style="margin:0">{{ i18n.t("bot.boards") }}</h3>
+                    <button class="btn btn-primary btn-sm" (click)="addBoard()">{{ i18n.t("bot.board_add") }}</button>
+                  </div>
+                  @if (boardsLoading) {
+                    <div class="loading-spinner-small">Loading...</div>
+                  }
+                  @if (!boardsLoading && boards.length === 0) {
+                    <div class="text-muted" style="padding:8px 0;">
+                      {{ i18n.t("bot.boards_empty") }}
+                    </div>
+                  }
+                  @if (!boardsLoading && boards.length > 0) {
+                    <div class="boards-list">
+                      @for (board of boards; track trackByBoard($index, board)) {
+                        <div class="board-card" [class.board-card-active]="board.isActive">
+                          <div class="board-card-header">
+                            <div class="board-card-badges">
+                              @if (board.isActive) {
+                                <span class="status-badge online">{{ i18n.t("bot.board_active") }}</span>
+                              }
+                              <span class="board-type-badge">{{ board.boardType }}</span>
+                            </div>
+                            <div class="board-card-actions">
+                              @if (!board.isActive) {
+                                <button class="btn btn-outline btn-sm" (click)="setActiveBoardForBot(board.boardConfigurationId)">
+                                  {{ i18n.t("bot.board_set_active") }}
+                                </button>
+                              }
+                              <button class="btn btn-primary btn-sm" (click)="openBoardConfigModal(board)">
+                                {{ i18n.t("bot.board_edit_config") }}
+                              </button>
+                              <button class="btn btn-outline btn-sm" (click)="openTeamsForBoard(board)">
+                                {{ i18n.t("bot.board_edit_teams") }}
+                              </button>
+                              @if (boards.length > 1) {
+                                <button class="btn btn-outline-red btn-sm" (click)="deleteBoard(board.boardConfigurationId)">
+                                  {{ i18n.t("bot.board_delete") }}
+                                </button>
+                              }
+                            </div>
+                          </div>
+                          <div class="board-card-details">
+                            @if (board.boardTitle) {
+                              <div class="board-detail-item">
+                                <span class="board-detail-label">{{ i18n.t("bot.board_title") }}:</span>
+                                <span>{{ board.boardTitle }}</span>
+                              </div>
+                            }
+                            <div class="board-detail-item">
+                              <span class="board-detail-label">{{ i18n.t("bot.board_channel") }}:</span>
+                              <span>{{ board.boardChannelId || "—" }}</span>
+                            </div>
+                            @if (board.boardDescriptionTemplate) {
+                              <div class="board-detail-item">
+                                <span class="board-detail-label">{{ i18n.t("bot.board_description") }}:</span>
+                                <span class="board-detail-value-truncated">{{ board.boardDescriptionTemplate }}</span>
+                              </div>
+                            }
+                          </div>
+                        </div>
+                      }
+                    </div>
+                  }
+                </div>
+              </div>
+            }
           </div>
-          <div class="log-entry" *ngFor="let log of bot.logs; trackBy: trackByLog">
-            <span class="log-time"
-              >[{{ log.timestamp | date: "HH:mm:ss" }}]</span
-            >
-            <span class="log-level" [ngClass]="log.level.toLowerCase()"
-              >[{{ log.level }}]</span
-            >
-            <span class="log-message">{{ log.message }}</span>
+        }
+
+        <!-- Modals -->
+        <app-config-edit-modal
+          [isOpen]="showConfigModal"
+          [config]="bot?.configuration"
+          (close)="closeConfigModal()"
+          (save)="saveConfig($event)"
+          >
+        </app-config-edit-modal>
+
+        <app-board-config-edit-modal
+          [isOpen]="showBoardConfigModal"
+          [board]="selectedBoardForConfig"
+          (close)="closeBoardConfigModal()"
+          (save)="saveBoardConfig($event)"
+          >
+        </app-board-config-edit-modal>
+
+        <app-teams-edit-modal
+          [isOpen]="showTeamsModal"
+          [teamsData]="teamsData"
+          [isSaving]="teamsSaveInProgress"
+          [savePhase]="teamsSavePhase"
+          (close)="closeTeamsModal()"
+          (save)="saveTeamsAndEmojis($event)"
+          (openJsonEditor)="openJsonEditor($event)"
+          >
+        </app-teams-edit-modal>
+
+        <app-json-editor-modal
+          [isOpen]="showJsonEditor"
+          [type]="jsonEditorType"
+          [data]="jsonEditorData"
+          (close)="closeJsonEditor()"
+          (save)="saveJsonData($event)"
+          >
+        </app-json-editor-modal>
+
+        @if (requireTokenRefresh) {
+          <div class="token-refresh-overlay">
+            <div class="token-refresh-modal">
+              <h3>{{ i18n.t('bot.token_refresh_title') }}</h3>
+              <p class="text-muted">
+                {{ i18n.t('bot.token_refresh_desc') }}
+              </p>
+              <div class="form-group" style="margin-top: 12px;">
+                <label>{{ i18n.t('admin.bot_token') }}</label>
+                <input
+                  type="password"
+                  [(ngModel)]="newBotToken"
+                  placeholder="Discord developer token"
+                  [disabled]="tokenRefreshLoading"
+                  />
+              </div>
+              @if (tokenRefreshError) {
+                <div class="error-alert" style="margin-top: 8px;">
+                  {{ tokenRefreshError }}
+                </div>
+              }
+              <button
+                class="btn btn-primary w-100"
+                style="margin-top: 12px;"
+                [disabled]="!newBotToken || tokenRefreshLoading"
+                (click)="submitTokenRefresh()"
+                >
+                {{ tokenRefreshLoading ? i18n.t('admin.creating') : i18n.t('bot.token_refresh_save') }}
+              </button>
+            </div>
           </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Boards Section -->
-  <div *ngIf="isBoardEnabledBot()" class="boards-section mt-4">
-    <div class="panel">
-      <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
-        <h3 style="margin:0">{{ i18n.t("bot.boards") }}</h3>
-        <button class="btn btn-primary btn-sm" (click)="addBoard()">{{ i18n.t("bot.board_add") }}</button>
-      </div>
-
-      <div *ngIf="boardsLoading" class="loading-spinner-small">Loading...</div>
-
-      <div *ngIf="!boardsLoading && boards.length === 0" class="text-muted" style="padding:8px 0;">
-        {{ i18n.t("bot.boards_empty") }}
-      </div>
-
-      <div *ngIf="!boardsLoading && boards.length > 0" class="boards-list">
-        <div class="board-card" *ngFor="let board of boards; trackBy: trackByBoard" [class.board-card-active]="board.isActive">
-          <div class="board-card-header">
-            <div class="board-card-badges">
-              <span class="status-badge online" *ngIf="board.isActive">{{ i18n.t("bot.board_active") }}</span>
-              <span class="board-type-badge">{{ board.boardType }}</span>
-            </div>
-            <div class="board-card-actions">
-              <button class="btn btn-outline btn-sm" (click)="setActiveBoardForBot(board.boardConfigurationId)" *ngIf="!board.isActive">
-                {{ i18n.t("bot.board_set_active") }}
-              </button>
-              <button class="btn btn-primary btn-sm" (click)="openBoardConfigModal(board)">
-                {{ i18n.t("bot.board_edit_config") }}
-              </button>
-              <button class="btn btn-outline btn-sm" (click)="openTeamsForBoard(board)">
-                {{ i18n.t("bot.board_edit_teams") }}
-              </button>
-              <button class="btn btn-outline-red btn-sm" (click)="deleteBoard(board.boardConfigurationId)" *ngIf="boards.length > 1">
-                {{ i18n.t("bot.board_delete") }}
-              </button>
-            </div>
-          </div>
-          <div class="board-card-details">
-            <div class="board-detail-item" *ngIf="board.boardTitle">
-              <span class="board-detail-label">{{ i18n.t("bot.board_title") }}:</span>
-              <span>{{ board.boardTitle }}</span>
-            </div>
-            <div class="board-detail-item">
-              <span class="board-detail-label">{{ i18n.t("bot.board_channel") }}:</span>
-              <span>{{ board.boardChannelId || "—" }}</span>
-            </div>
-            <div class="board-detail-item" *ngIf="board.boardDescriptionTemplate">
-              <span class="board-detail-label">{{ i18n.t("bot.board_description") }}:</span>
-              <span class="board-detail-value-truncated">{{ board.boardDescriptionTemplate }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Modals -->
-<app-config-edit-modal
-  [isOpen]="showConfigModal"
-  [config]="bot?.configuration"
-  (close)="closeConfigModal()"
-  (save)="saveConfig($event)"
->
-</app-config-edit-modal>
-
-<app-board-config-edit-modal
-  [isOpen]="showBoardConfigModal"
-  [board]="selectedBoardForConfig"
-  (close)="closeBoardConfigModal()"
-  (save)="saveBoardConfig($event)"
->
-</app-board-config-edit-modal>
-
-<app-teams-edit-modal
-  [isOpen]="showTeamsModal"
-  [teamsData]="teamsData"
-  [isSaving]="teamsSaveInProgress"
-  [savePhase]="teamsSavePhase"
-  (close)="closeTeamsModal()"
-  (save)="saveTeamsAndEmojis($event)"
-  (openJsonEditor)="openJsonEditor($event)"
->
-</app-teams-edit-modal>
-
-<app-json-editor-modal
-  [isOpen]="showJsonEditor"
-  [type]="jsonEditorType"
-  [data]="jsonEditorData"
-  (close)="closeJsonEditor()"
-  (save)="saveJsonData($event)"
->
-</app-json-editor-modal>
-
-<div *ngIf="requireTokenRefresh" class="token-refresh-overlay">
-  <div class="token-refresh-modal">
-    <h3>{{ i18n.t('bot.token_refresh_title') }}</h3>
-    <p class="text-muted">
-      {{ i18n.t('bot.token_refresh_desc') }}
-    </p>
-    <div class="form-group" style="margin-top: 12px;">
-      <label>{{ i18n.t('admin.bot_token') }}</label>
-      <input
-        type="password"
-        [(ngModel)]="newBotToken"
-        placeholder="Discord developer token"
-        [disabled]="tokenRefreshLoading"
-      />
-    </div>
-    <div *ngIf="tokenRefreshError" class="error-alert" style="margin-top: 8px;">
-      {{ tokenRefreshError }}
-    </div>
-    <button
-      class="btn btn-primary w-100"
-      style="margin-top: 12px;"
-      [disabled]="!newBotToken || tokenRefreshLoading"
-      (click)="submitTokenRefresh()"
-    >
-      {{ tokenRefreshLoading ? i18n.t('admin.creating') : i18n.t('bot.token_refresh_save') }}
-    </button>
-  </div>
-</div>
+        }

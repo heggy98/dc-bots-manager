@@ -1,37 +1,56 @@
 <div class="home-header">
-    <h1>{{ i18n.t('home.title') }}</h1>
-    <p>{{ i18n.t('home.subtitle') }}</p>
+  <h1>{{ i18n.t('home.title') }}</h1>
+  <p>{{ i18n.t('home.subtitle') }}</p>
 </div>
 
-<div *ngIf="loading" class="loading-spinner">
+@if (loading) {
+  <div class="loading-spinner">
     {{ i18n.t('admin.loading') }}
-</div>
+  </div>
+}
 
-<div *ngIf="!loading && bots.length === 0" class="loading-spinner">
+@if (!loading && bots.length === 0) {
+  <div class="loading-spinner">
     {{ i18n.t('home.no_bots') }}
-</div>
+  </div>
+}
 
-<div class="bot-grid" *ngIf="!loading && bots.length > 0">
-    <div class="card bot-card" *ngFor="let bot of bots; trackBy: trackByBot">
+@if (!loading && bots.length > 0) {
+  <div class="bot-grid">
+    @for (bot of bots; track trackByBot($index, bot)) {
+      <div class="card bot-card">
         <div class="bot-card-header">
-            <div class="bot-avatar">
-                <img *ngIf="bot.discordBotAvatarUrl; else publicFallbackAvatar" [src]="bot.discordBotAvatarUrl" [alt]="bot.name" />
-                <ng-template #publicFallbackAvatar>🤖</ng-template>
-            </div>
-            <div>
-                <h3>{{ bot.name }}</h3>
-                <p class="discord-subtitle" *ngIf="bot.discordBotName">{{ bot.discordBotName }}</p>
-                <p class="server-count" *ngIf="bot.serverCount">{{ i18n.t('bot.servers') }}: {{ bot.serverCount }}</p>
-                <p class="server-count">{{ i18n.t('admin.visibility') }}: {{ bot.isPublic ? i18n.t('admin.public') : i18n.t('admin.private') }}</p>
-                <span class="status-badge" [ngClass]="bot.status.toLowerCase()">
-                    {{ i18n.t('status.' + bot.status) }}
-                </span>
-                <p class="status-time" *ngIf="getStatusTimestamp(bot)">
-                    {{ i18n.t(isOnline(bot) ? 'bot.running' : 'bot.last_online') }}:
-                    {{ getStatusTimestamp(bot) | date:'dd.MM.yyyy HH:mm' }}
-                    <span *ngIf="getStatusDurationText(bot) !== '—'">({{ getStatusDurationText(bot) }})</span>
-                </p>
-            </div>
+          <div class="bot-avatar">
+            @if (bot.discordBotAvatarUrl) {
+              <img [src]="bot.discordBotAvatarUrl" [alt]="bot.name" />
+            } @else {
+              🤖
+            }
+          </div>
+          <div>
+            <h3>{{ bot.name }}</h3>
+            @if (bot.discordBotName) {
+              <p class="discord-subtitle">{{ bot.discordBotName }}</p>
+            }
+            @if (bot.serverCount) {
+              <p class="server-count">{{ i18n.t('bot.servers') }}: {{ bot.serverCount }}</p>
+            }
+            <p class="server-count">{{ i18n.t('admin.visibility') }}: {{ bot.isPublic ? i18n.t('admin.public') : i18n.t('admin.private') }}</p>
+            <span class="status-badge" [ngClass]="bot.status.toLowerCase()">
+              {{ i18n.t('status.' + bot.status) }}
+            </span>
+            @if (getStatusTimestamp(bot)) {
+              <p class="status-time">
+                {{ i18n.t(isOnline(bot) ? 'bot.running' : 'bot.last_online') }}:
+                {{ getStatusTimestamp(bot) | date:'dd.MM.yyyy HH:mm' }}
+                @if (getStatusDurationText(bot) !== '—') {
+                  <span>({{ getStatusDurationText(bot) }})</span>
+                }
+              </p>
+            }
+          </div>
         </div>
-    </div>
-</div>
+      </div>
+    }
+  </div>
+}

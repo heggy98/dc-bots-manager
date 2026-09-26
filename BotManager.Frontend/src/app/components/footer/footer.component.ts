@@ -1,12 +1,12 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { SystemService } from '../../services/system.service';
 import { I18nService } from '../../services/i18n.service';
 
 @Component({
     selector: 'app-footer',
     standalone: true,
-    imports: [CommonModule],
+    imports: [],
     template: `
     <footer class="app-footer">
       <span class="uptime-dot"></span>

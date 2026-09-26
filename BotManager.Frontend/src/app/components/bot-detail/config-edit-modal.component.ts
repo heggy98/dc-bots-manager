@@ -1,12 +1,12 @@
 import { Component, Input, Output, EventEmitter } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { BotConfigurationDto } from '../../services/bot.service';
 
 @Component({
   selector: 'app-config-edit-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   templateUrl: './config-edit-modal.component.html',
   styleUrl: './config-edit-modal.component.css'
 })

@@ -1,5 +1,5 @@
 import { Component, Input, Output, EventEmitter, OnInit, OnChanges, SimpleChanges } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { TeamDto, BotTeamsDto, BotService } from '../../services/bot.service';
 
@@ -11,7 +11,7 @@ type EditableTeamDto = TeamDto & {
 @Component({
   selector: 'app-teams-edit-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   templateUrl: './teams-edit-modal.component.html',
   styleUrl: './teams-edit-modal.component.css'
 })

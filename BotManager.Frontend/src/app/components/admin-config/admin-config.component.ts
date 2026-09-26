@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { SystemService, SystemConfigDto } from '../../services/system.service';
 import { I18nService } from '../../services/i18n.service';
@@ -8,7 +8,7 @@ import { ToastrService } from 'ngx-toastr';
 @Component({
     selector: 'app-admin-config',
     standalone: true,
-    imports: [CommonModule, FormsModule],
+    imports: [FormsModule],
     templateUrl: './admin-config.component.html',
     styleUrl: './admin-config.component.css'
 })
