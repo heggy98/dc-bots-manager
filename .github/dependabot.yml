@@ -21,6 +21,9 @@ updates:
       # Major Angular upgrades need `ng update` migrations; do them manually.
       - dependency-name: "@angular/*"
         update-types: ["version-update:semver-major"]
+      # TypeScript majors must match the supported range of the Angular compiler.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
@@ -33,3 +36,7 @@ updates:
       - /BotManager.Frontend
     schedule:
       interval: monthly
+    ignore:
+      # Stay on the Node LTS line used by CI (22); bump deliberately.
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major"]
