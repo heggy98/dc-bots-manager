@@ -2,7 +2,6 @@ using Microsoft.EntityFrameworkCore;
 using BotManager.Backend.Entities;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
-using System.Text;
 using BotManager.Backend.Bots.Services.Contracts;
 using BotManager.Backend.Bots.Services.Implementations;
 using BotManager.Backend.Shared.Services;
@@ -15,12 +14,29 @@ using BotManager.Backend.API.BotPlugins;
 using BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers;
 using BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Services;
 using BotManager.Backend.Entities.Entities;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.RateLimiting;
 using Serilog;
+using Serilog.Events;
 using Serilog.Sinks.MSSqlServer;
 using System.Collections.ObjectModel;
 using System.Data;
-using System.Diagnostics;
+using System.Net;
+using System.Security.Cryptography.X509Certificates;
 using System.Threading;
+using System.Threading.RateLimiting;
+
+// Utility mode: `dotnet run -- --hash-password <password>` prints a BCrypt hash for AdminCredentials:PasswordHash.
+if (args.Length == 2 && args[0] == "--hash-password")
+{
+    Console.WriteLine(new PasswordHasherService().HashPassword(args[1]));
+    return;
+}
+
+// Surface Serilog sink failures (e.g. SQL insert errors) instead of dropping them silently.
+Serilog.Debugging.SelfLog.Enable(msg => Console.Error.WriteLine(msg));
 
 // Configure Serilog early
 Log.Logger = new LoggerConfiguration()
@@ -37,32 +53,58 @@ try
     // Serilog: read from config and add MSSqlServer sink for SystemLogs table
     var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
+    // The SystemLogs table schema is owned by EF migrations; lengths match the entity so the
+    // sink truncates long messages/stack traces instead of failing the whole batch.
     var columnOptions = new ColumnOptions();
     columnOptions.Store.Remove(StandardColumn.Properties);
     columnOptions.Store.Remove(StandardColumn.MessageTemplate);
+    // SqlBulkCopy column mapping is case-sensitive: the EF column is "Timestamp" (sink default "TimeStamp").
+    columnOptions.TimeStamp.ColumnName = "Timestamp";
+    columnOptions.TimeStamp.ConvertToUtc = true;
+    columnOptions.Message.DataLength = 4000;
+    columnOptions.Exception.DataLength = 4000;
+    columnOptions.Level.DataLength = 50;
     columnOptions.AdditionalColumns = new Collection<SqlColumn>
     {
-        new SqlColumn { ColumnName = "Category", DataType = SqlDbType.NVarChar, DataLength = 500 }
+        new SqlColumn { ColumnName = "Category", PropertyName = "SourceContext", DataType = SqlDbType.NVarChar, DataLength = 500, AllowNull = true },
+        new SqlColumn { ColumnName = "BotId", DataType = SqlDbType.Int, AllowNull = true }
     };
 
     builder.Host.UseSerilog((ctx, lc) => lc
         .ReadFrom.Configuration(ctx.Configuration)
+        .Enrich.FromLogContext()
         .WriteTo.Console()
-        .WriteTo.MSSqlServer(
-            connectionString: connectionString,
-            sinkOptions: new MSSqlServerSinkOptions
-            {
-                TableName = "SystemLogs",
-                AutoCreateSqlTable = true
-            },
-            columnOptions: columnOptions
-        ));
+        // Persist warnings/errors plus bot-scoped events (shown in the bot detail); skip general chatter.
+        .WriteTo.Logger(sql => sql
+            .Filter.ByIncludingOnly(e => e.Level >= LogEventLevel.Warning || e.Properties.ContainsKey("BotId"))
+            .WriteTo.MSSqlServer(
+                connectionString: connectionString,
+                sinkOptions: new MSSqlServerSinkOptions
+                {
+                    TableName = "SystemLogs",
+                    AutoCreateSqlTable = false
+                },
+                columnOptions: columnOptions
+            )));
 
     builder.Services.AddControllers();
     builder.Services.AddOpenApi();
     builder.Services.AddHttpClient();
     builder.Services.AddMemoryCache();
-    builder.Services.AddDataProtection();
+    // Persist the Data Protection key ring (it encrypts bot tokens) so tokens survive restarts and redeploys.
+    var dataProtection = builder.Services.AddDataProtection()
+        .SetApplicationName("BotManager")
+        .PersistKeysToDbContext<BotManagerDbContext>();
+    var dataProtectionCertPath = builder.Configuration["DataProtection:CertificatePath"];
+    if (!string.IsNullOrWhiteSpace(dataProtectionCertPath))
+    {
+        dataProtection.ProtectKeysWithCertificate(X509CertificateLoader.LoadPkcs12FromFile(
+            dataProtectionCertPath, builder.Configuration["DataProtection:CertificatePassword"]));
+    }
+    else if (OperatingSystem.IsWindows())
+    {
+        dataProtection.ProtectKeysWithDpapi();
+    }
 
     // SignalR for real-time bot event delivery
     builder.Services.AddSignalR(options =>
@@ -84,6 +126,10 @@ try
 
     // Register services
     builder.Services.AddSingleton<IBruteforceProtectionService, BruteforceProtectionService>();
+    builder.Services.AddSingleton<IPasswordHasherService, PasswordHasherService>();
+    builder.Services.AddSingleton<AdminCredentialsService>();
+    builder.Services.AddSingleton<JwtTokenService>();
+    builder.Services.AddHostedService<LogRetentionService>();
     builder.Services.AddSingleton<IDiscordBotService, DiscordBotRuntimeService>();
     builder.Services.AddSingleton<IBoardMessageLocator, BoardMessageLocator>();
     builder.Services.AddSingleton<IPluginRegistry, PluginRegistry>();
@@ -108,19 +154,55 @@ try
     builder.Services.AddSingleton<IEmojiCatalogService, EmojiCatalogService>();
     builder.Services.AddSingleton<IBotNotificationService, BotNotificationService>();
 
+    var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
+    if (corsOrigins == null || corsOrigins.Length == 0)
+    {
+        corsOrigins = ["http://localhost:4200", "https://localhost:4200"];
+    }
+
     builder.Services.AddCors(options =>
     {
         options.AddPolicy("AllowAngular", policy =>
         {
-            policy.WithOrigins("http://localhost:4200", "https://localhost:4200")
+            policy.WithOrigins(corsOrigins)
                   .AllowAnyHeader()
                   .AllowAnyMethod()
                   .AllowCredentials();
         });
     });
 
-    var jwtSecret = builder.Configuration["JwtSettings:Secret"];
-    if (string.IsNullOrEmpty(jwtSecret)) throw new InvalidOperationException("JwtSettings:Secret is missing");
+    // Behind a reverse proxy, trust X-Forwarded-For only from explicitly configured proxies,
+    // otherwise all clients would share the proxy IP (and lockouts/rate limits would hit everyone).
+    builder.Services.Configure<ForwardedHeadersOptions>(options =>
+    {
+        options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+        options.KnownProxies.Clear();
+        options.KnownIPNetworks.Clear();
+        foreach (var proxy in builder.Configuration.GetSection("ReverseProxy:KnownProxies").Get<string[]>() ?? [])
+        {
+            if (IPAddress.TryParse(proxy, out var proxyAddress))
+            {
+                options.KnownProxies.Add(proxyAddress);
+            }
+        }
+    });
+
+    builder.Services.AddRateLimiter(options =>
+    {
+        options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+        options.AddPolicy(RateLimitPolicies.Auth, context => RateLimitPartition.GetFixedWindowLimiter(
+            context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+        options.AddPolicy(RateLimitPolicies.Public, context => RateLimitPartition.GetFixedWindowLimiter(
+            context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions { PermitLimit = 60, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+    });
+
+    builder.Services.AddExceptionHandler(options => { });
+    builder.Services.AddProblemDetails();
+
+    // Validates JWT secret length at startup.
+    var signingKey = JwtTokenService.CreateSigningKey(builder.Configuration);
 
     builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         .AddJwtBearer(options =>
@@ -133,7 +215,8 @@ try
                 ValidateIssuerSigningKey = true,
                 ValidIssuer = builder.Configuration["JwtSettings:Issuer"],
                 ValidAudience = builder.Configuration["JwtSettings:Audience"],
-                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret))
+                IssuerSigningKey = signingKey,
+                ClockSkew = TimeSpan.FromSeconds(30)
             };
             // SignalR WebSocket connections pass the JWT as a query-string parameter.
             options.Events = new JwtBearerEvents
@@ -151,9 +234,19 @@ try
             };
         });
 
-    builder.Services.AddAuthorization();
+    // Every [Authorize] endpoint (and the SignalR hub) requires the Admin role, not just any valid token.
+    builder.Services.AddAuthorization(options =>
+    {
+        options.DefaultPolicy = new AuthorizationPolicyBuilder(JwtBearerDefaults.AuthenticationScheme)
+            .RequireAuthenticatedUser()
+            .RequireRole(AuthRoles.Admin)
+            .Build();
+    });
 
     app = builder.Build();
+
+    // Fail fast on missing/invalid admin credentials instead of at the first login.
+    app.Services.GetRequiredService<AdminCredentialsService>();
 
     app.Lifetime.ApplicationStopping.Register(() =>
     {
@@ -180,15 +273,25 @@ try
     {
         var db = scope.ServiceProvider.GetRequiredService<BotManagerDbContext>();
         db.Database.Migrate();
+
+        await ProtectLegacyBotTokensAsync(db, scope.ServiceProvider.GetRequiredService<IBotTokenSecurityService>());
     }
+
+    app.UseForwardedHeaders();
 
     if (app.Environment.IsDevelopment())
     {
         app.MapOpenApi();
     }
+    else
+    {
+        app.UseExceptionHandler();
+        app.UseHsts();
+    }
 
     app.UseHttpsRedirection();
     app.UseCors("AllowAngular");
+    app.UseRateLimiter();
     app.UseAuthentication();
     app.UseAuthorization();
     app.MapControllers();
@@ -241,6 +344,27 @@ finally
     Log.CloseAndFlush();
 }
 
+static async Task ProtectLegacyBotTokensAsync(BotManagerDbContext db, IBotTokenSecurityService tokenSecurity)
+{
+    // One-off upgrade: bot tokens stored before encryption was introduced are re-protected.
+    var bots = await db.Bots.Where(b => !b.BotToken.StartsWith("v1:")).ToListAsync();
+    var converted = 0;
+    foreach (var bot in bots)
+    {
+        if (tokenSecurity.TryProtectLegacyToken(bot.BotToken, out var protectedToken))
+        {
+            bot.BotToken = protectedToken;
+            converted++;
+        }
+    }
+
+    if (converted > 0)
+    {
+        await db.SaveChangesAsync();
+        Log.Warning("Re-protected {Count} legacy plain-text bot tokens", converted);
+    }
+}
+
 static async Task EmergencyShutdownCleanupAsync(IServiceProvider services, string reason, string? details)
 {
     Log.Warning("Starting emergency cleanup. Reason={Reason}", reason);
@@ -253,52 +377,12 @@ static async Task EmergencyShutdownCleanupAsync(IServiceProvider services, strin
     {
         try
         {
-            await runtimeService.StopAsync();
+            await runtimeService.StopAllAsync();
         }
         catch (Exception runtimeStopEx)
         {
             Log.Warning(runtimeStopEx, "Failed to stop Discord runtime during emergency cleanup");
         }
-    }
-
-    try
-    {
-        var configuration = scopedServices.GetRequiredService<IConfiguration>();
-        var botExecutablePath = configuration["DiscordBot:ExecutablePath"];
-
-        if (!string.IsNullOrWhiteSpace(botExecutablePath))
-        {
-            var processName = Path.GetFileNameWithoutExtension(botExecutablePath);
-            if (!string.IsNullOrWhiteSpace(processName))
-            {
-                var currentProcessId = Environment.ProcessId;
-                var processes = Process.GetProcessesByName(processName)
-                    .Where(p => p.Id != currentProcessId)
-                    .ToList();
-
-                foreach (var process in processes)
-                {
-                    try
-                    {
-                        process.Kill(entireProcessTree: true);
-                        process.WaitForExit(5000);
-                        Log.Warning("Killed bot process {ProcessName} (PID {Pid}) during emergency cleanup", process.ProcessName, process.Id);
-                    }
-                    catch (Exception killEx)
-                    {
-                        Log.Warning(killEx, "Failed to kill process {ProcessName} (PID {Pid}) during emergency cleanup", process.ProcessName, process.Id);
-                    }
-                    finally
-                    {
-                        process.Dispose();
-                    }
-                }
-            }
-        }
-    }
-    catch (Exception processSweepEx)
-    {
-        Log.Warning(processSweepEx, "Failed while sweeping external bot processes during emergency cleanup");
     }
 
     try

@@ -1,11 +1,9 @@
 using BotManager.Backend.API.Models;
 using BotManager.Backend.API.Services;
 using BotManager.Backend.Services.Interfaces;
+using BotManager.Backend.Shared.Services;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.IdentityModel.Tokens;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace BotManager.Backend.API.Controllers
 {
@@ -13,25 +11,31 @@ namespace BotManager.Backend.API.Controllers
     [Route("api/[controller]")]
     public class AuthController : ControllerBase
     {
-        private readonly IConfiguration _configuration;
         private readonly IBruteforceProtectionService _bruteforceProtection;
         private readonly AuthService _authService;
+        private readonly AdminCredentialsService _adminCredentials;
+        private readonly JwtTokenService _jwtTokenService;
+        private readonly ISystemConfigService _systemConfig;
         private readonly ILogger<AuthController> _logger;
 
         /// <summary>
         /// Creates a new authentication controller.
         /// </summary>
-        public AuthController(IConfiguration configuration, IBruteforceProtectionService bruteforceProtection,
-            AuthService authService, ILogger<AuthController> logger)
+        public AuthController(IBruteforceProtectionService bruteforceProtection, AuthService authService,
+            AdminCredentialsService adminCredentials, JwtTokenService jwtTokenService,
+            ISystemConfigService systemConfig, ILogger<AuthController> logger)
         {
-            _configuration = configuration;
             _bruteforceProtection = bruteforceProtection;
             _authService = authService;
+            _adminCredentials = adminCredentials;
+            _jwtTokenService = jwtTokenService;
+            _systemConfig = systemConfig;
             _logger = logger;
         }
 
         /// <summary>Returns the current failed login attempts for the caller's IP (for smart captcha)</summary>
         [HttpGet("attempt-status")]
+        [EnableRateLimiting(RateLimitPolicies.Auth)]
         public IActionResult GetAttemptStatus()
         {
             var ip = GetIp();
@@ -41,14 +45,16 @@ namespace BotManager.Backend.API.Controllers
         }
 
         /// <summary>
-        /// Authenticates admin credentials using configured email/password.
+        /// Authenticates admin credentials using configured email/password hash.
         /// </summary>
         [HttpPost("login")]
+        [EnableRateLimiting(RateLimitPolicies.Auth)]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
             var ip = GetIp();
+            var accountKey = GetAccountKey(request.Email);
 
-            if (_bruteforceProtection.IsLocked(ip))
+            if (_bruteforceProtection.IsLocked(ip) || _bruteforceProtection.IsLocked(accountKey))
             {
                 await _authService.LogLoginAttemptAsync(request.Email ?? "", ip, false,
                     "Bruteforce lockout", isBruteforce: true);
@@ -56,20 +62,23 @@ namespace BotManager.Backend.API.Controllers
                 return StatusCode(429, "Too many login attempts. Please try again later.");
             }
 
-            var adminEmail = _configuration["AdminCredentials:Email"];
-            var adminPassword = _configuration["AdminCredentials:Password"];
-
-            if (request.Email == adminEmail && request.Password == adminPassword)
+            if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrEmpty(request.Password))
             {
-                var email = request.Email ?? string.Empty;
-                _bruteforceProtection.RegisterSuccess(ip);
-                await _authService.LogLoginAttemptAsync(email, ip, true);
-                _logger.LogInformation("User {Email} logged in successfully from {Ip}", email, ip);
-                return Ok(new LoginResponse { Token = GenerateJwtToken(email), Email = email });
+                return BadRequest("Email and password are required.");
             }
 
-            _bruteforceProtection.RegisterFailure(ip);
-            await _authService.LogLoginAttemptAsync(request.Email ?? "", ip, false, "Nesprávné přihlašovací údaje");
+            if (_adminCredentials.Verify(request.Email, request.Password))
+            {
+                var email = _adminCredentials.AdminEmail;
+                _bruteforceProtection.RegisterSuccess(ip);
+                _bruteforceProtection.RegisterSuccess(accountKey);
+                await _authService.LogLoginAttemptAsync(email, ip, true);
+                _logger.LogInformation("User {Email} logged in successfully from {Ip}", email, ip);
+                return Ok(new LoginResponse { Token = _jwtTokenService.GenerateToken(email), Email = email });
+            }
+
+            await RegisterFailureAsync(ip, accountKey);
+            await _authService.LogLoginAttemptAsync(request.Email, ip, false, "Nesprávné přihlašovací údaje");
             _logger.LogWarning("Failed login attempt for {Email} from {Ip}", request.Email, ip);
             return Unauthorized("Invalid credentials.");
         }
@@ -78,9 +87,17 @@ namespace BotManager.Backend.API.Controllers
         /// Authenticates the configured admin account using Google ID token validation.
         /// </summary>
         [HttpPost("google-login")]
+        [EnableRateLimiting(RateLimitPolicies.Auth)]
         public async Task<IActionResult> GoogleLogin([FromBody] LoginRequest request)
         {
             var ip = GetIp();
+
+            if (_bruteforceProtection.IsLocked(ip))
+            {
+                await _authService.LogLoginAttemptAsync(request.Email ?? "", ip, false,
+                    "Bruteforce lockout", isBruteforce: true);
+                return StatusCode(429, "Too many login attempts. Please try again later.");
+            }
 
             if (string.IsNullOrEmpty(request.GoogleIdToken))
             {
@@ -90,51 +107,47 @@ namespace BotManager.Backend.API.Controllers
             var payload = await _authService.VerifyGoogleTokenAsync(request.GoogleIdToken);
             if (payload == null)
             {
+                await RegisterFailureAsync(ip, null);
                 await _authService.LogLoginAttemptAsync(request.Email ?? "", ip, false, "Neplatný Google token");
                 return Unauthorized("Invalid Google token.");
             }
 
-            var adminEmail = _configuration["AdminCredentials:Email"];
-            if (payload.Email != adminEmail)
+            if (!payload.EmailVerified || !_adminCredentials.IsAdminEmail(payload.Email))
             {
-                await _authService.LogLoginAttemptAsync(payload.Email, ip, false, "Neautorizovaný Google účet");
+                await RegisterFailureAsync(ip, null);
+                await _authService.LogLoginAttemptAsync(payload.Email ?? "", ip, false, "Neautorizovaný Google účet");
                 _logger.LogWarning("Unauthorized Google account login attempt: {Email}", payload.Email);
                 return Unauthorized("Unauthorized Google account.");
             }
 
-            await _authService.LogLoginAttemptAsync(payload.Email, ip, true);
-            _logger.LogInformation("User {Email} logged in via Google from {Ip}", payload.Email, ip);
-            return Ok(new LoginResponse { Token = GenerateJwtToken(payload.Email), Email = payload.Email });
+            var email = _adminCredentials.AdminEmail;
+            _bruteforceProtection.RegisterSuccess(ip);
+            await _authService.LogLoginAttemptAsync(email, ip, true);
+            _logger.LogInformation("User {Email} logged in via Google from {Ip}", email, ip);
+            return Ok(new LoginResponse { Token = _jwtTokenService.GenerateToken(email), Email = email });
         }
 
         /// <summary>
-        /// Generates a signed JWT token for a successfully authenticated user.
+        /// Registers a failed attempt for the IP (and account, when known) using configured limits.
+        /// Account lockout uses a higher threshold so a single attacker cannot trivially lock the admin out.
         /// </summary>
-        private string GenerateJwtToken(string email)
+        private async Task RegisterFailureAsync(string ip, string? accountKey)
         {
-            var secret = _configuration["JwtSettings:Secret"];
-            if (string.IsNullOrEmpty(secret)) throw new InvalidOperationException("JWT Secret not configured.");
+            var maxAttempts = await _systemConfig.GetIntAsync("Bruteforce.MaxAttempts", 5);
+            var lockoutMinutes = await _systemConfig.GetIntAsync("Bruteforce.LockoutMinutes", 5);
 
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
-            var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-            var claims = new[]
+            _bruteforceProtection.RegisterFailure(ip, maxAttempts, lockoutMinutes);
+            if (accountKey != null)
             {
-                new Claim(JwtRegisteredClaimNames.Sub, email),
-                new Claim(JwtRegisteredClaimNames.Email, email),
-                new Claim(ClaimTypes.Role, "Admin"),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
-            };
-
-            var token = new JwtSecurityToken(
-                issuer: _configuration["JwtSettings:Issuer"],
-                audience: _configuration["JwtSettings:Audience"],
-                claims: claims,
-                expires: DateTime.Now.AddDays(1),
-                signingCredentials: credentials);
-
-            return new JwtSecurityTokenHandler().WriteToken(token);
+                _bruteforceProtection.RegisterFailure(accountKey, maxAttempts * 4, lockoutMinutes);
+            }
         }
+
+        /// <summary>
+        /// Builds the bruteforce tracking key for an account.
+        /// </summary>
+        private static string GetAccountKey(string? email)
+            => "account:" + (email ?? string.Empty).Trim().ToLowerInvariant();
 
         /// <summary>
         /// Resolves caller IP address for bruteforce tracking and audit logs.

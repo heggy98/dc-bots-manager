@@ -81,17 +81,17 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
 
                 var randomEmoji = availableEmojis[Random.Shared.Next(availableEmojis.Count)];
 
-                // Create role in Discord with random color
-                var randomColor = new Color((uint)Random.Shared.Next(0x1000000));
-                var role = await guild.CreateRoleAsync(teamName, color: randomColor);
+                // Create a dedicated, permission-less role in Discord with random color
+                var role = await TeamRoleResolver.CreateTeamRoleAsync(guild, teamName);
 
-                // Create new team entity
+                // Create new team entity bound to the role by id
                 var newTeam = new TeamDto
                 {
                     Name = teamName,
                     LeaderName = leaderName,
                     Contact = contact,
-                    Emoji = randomEmoji
+                    Emoji = randomEmoji,
+                    RoleId = role.Id
                 };
 
                 // Add team to storage
@@ -108,7 +108,7 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
             catch (Exception ex)
             {
                 context.Logger.LogError(ex, "BotId={BotId}: Error adding team", context.Bot.BotId);
-                await SendCommandResponseAsync(command, string.Format(errorMsg, ex.Message), context);
+                await SendCommandResponseAsync(command, string.Format(errorMsg, TeamRoleResolver.GenericErrorText), context);
                 await LogCommandUsageAsync(teamCommand, command.User, false, ex.Message, context);
             }
         }
@@ -147,8 +147,8 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
                     return;
                 }
 
-                // Find and delete role from Discord
-                var role = guild.Roles.FirstOrDefault(r => r.Name == teamName);
+                // Find and delete the role bound to the team (never privileged/integration roles)
+                var role = TeamRoleResolver.FindTeamRole(guild, teamToRemove);
                 if (role != null)
                 {
                     await role.DeleteAsync();
@@ -168,7 +168,7 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
             catch (Exception ex)
             {
                 context.Logger.LogError(ex, "BotId={BotId}: Error removing team", context.Bot.BotId);
-                await SendCommandResponseAsync(command, string.Format(errorMsg, ex.Message), context);
+                await SendCommandResponseAsync(command, string.Format(errorMsg, TeamRoleResolver.GenericErrorText), context);
                 await LogCommandUsageAsync(teamCommand, command.User, false, ex.Message, context);
             }
         }
@@ -222,8 +222,8 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
                         return;
                     }
 
-                    // Rename role if it exists
-                    var role = guild.Roles.FirstOrDefault(r => r.Name == teamName);
+                    // Rename the role bound to the team if it exists
+                    var role = TeamRoleResolver.FindTeamRole(guild, teamToEdit);
                     if (role != null)
                     {
                         await role.ModifyAsync(props => props.Name = newName);
@@ -254,7 +254,7 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
             catch (Exception ex)
             {
                 context.Logger.LogError(ex, "BotId={BotId}: Error editing team", context.Bot.BotId);
-                await SendCommandResponseAsync(command, string.Format(errorMsg, ex.Message), context);
+                await SendCommandResponseAsync(command, string.Format(errorMsg, TeamRoleResolver.GenericErrorText), context);
                 await LogCommandUsageAsync(teamCommand, command.User, false, ex.Message, context);
             }
         }
@@ -270,8 +270,7 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
             var errorMsg = teamCommand?.ErrorMessage ?? "Chyba: {0}";
 
             // Check if user is admin (admin role or guild owner)
-            var guildUser = command.User as SocketGuildUser;
-            if (!guildUser?.GuildPermissions.Administrator ?? true && command.User.Id != guild.OwnerId)
+            if (!TeamRoleResolver.IsBoardAdmin(command.User, guild))
             {
                 await SendCommandResponseAsync(command, adminOnlyMsg, context);
                 await LogCommandUsageAsync(teamCommand, command.User, false, "Permission denied", context);
@@ -302,7 +301,7 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
             catch (Exception ex)
             {
                 context.Logger.LogError(ex, "BotId={BotId}: Error showing teams list", context.Bot.BotId);
-                await SendCommandResponseAsync(command, string.Format(errorMsg, ex.Message), context);
+                await SendCommandResponseAsync(command, string.Format(errorMsg, TeamRoleResolver.GenericErrorText), context);
                 await LogCommandUsageAsync(teamCommand, command.User, false, ex.Message, context);
             }
         }
@@ -337,7 +336,7 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
             catch (Exception ex)
             {
                 context.Logger.LogError(ex, "BotId={BotId}: Error inserting board", context.Bot.BotId);
-                await SendCommandResponseAsync(command, $"Error inserting board: {ex.Message}", context);
+                await SendCommandResponseAsync(command, $"Error inserting board: {TeamRoleResolver.GenericErrorText}", context);
                 await LogCommandUsageAsync(boardCommand, command.User, false, ex.Message, context);
             }
         }
@@ -426,7 +425,7 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
             catch (Exception ex)
             {
                 context.Logger.LogError(ex, "BotId={BotId}: Error refreshing board via button", context.Bot.BotId);
-                await component.FollowupAsync($"An error occurred: {ex.Message}", ephemeral: true);
+                await component.FollowupAsync("An error occurred while processing your request.", ephemeral: true);
             }
         }
 
@@ -483,15 +482,15 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
                     ? availableEmojis[Random.Shared.Next(availableEmojis.Count)]
                     : "🎯";
 
-                var randomColor = new Color((uint)Random.Shared.Next(0x1000000));
-                await guild.CreateRoleAsync(teamName, color: randomColor);
+                var role = await TeamRoleResolver.CreateTeamRoleAsync(guild, teamName);
 
                 var newTeam = new TeamDto
                 {
                     Name = teamName,
                     LeaderName = leaderName,
                     Contact = contact,
-                    Emoji = emoji
+                    Emoji = emoji,
+                    RoleId = role.Id
                 };
 
                 teamsData.Teams.Add(newTeam);
@@ -508,7 +507,7 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
             catch (Exception ex)
             {
                 context.Logger.LogError(ex, "BotId={BotId}: Error adding team via modal", context.Bot.BotId);
-                await modal.FollowupAsync($"An error occurred: {ex.Message}", ephemeral: true);
+                await modal.FollowupAsync("An error occurred while processing your request.", ephemeral: true);
             }
         }
     }

@@ -35,8 +35,7 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
             var successMsg = syncCommand?.SuccessMessage ?? "✓ Reakce na board zprávě byly aktualizovány.";
             var errorMsg = syncCommand?.ErrorMessage ?? "Chyba: {0}";
 
-            var guildUser = command.User as SocketGuildUser;
-            if (!guildUser?.GuildPermissions.Administrator ?? true && command.User.Id != guild.OwnerId)
+            if (!TeamRoleResolver.IsBoardAdmin(command.User, guild))
             {
                 await SendCommandResponseAsync(command, adminOnlyMsg, context);
                 await LogCommandUsageAsync(syncCommand, command.User, false, "Permission denied", context);
@@ -87,15 +86,10 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
                     return;
                 }
 
-                var currentTeamNames = teamsData.Teams
-                    .Select(team => team.Name)
-                    .Where(name => !string.IsNullOrWhiteSpace(name))
-                    .ToHashSet(StringComparer.Ordinal);
-
                 var previousBoardRoleNames = ExtractBoardRoleNames(boardMessage);
                 var (rolesCreated, rolesRemoved) = await SyncBoardRolesAsync(
                     guild,
-                    currentTeamNames,
+                    teamsData.Teams.Where(team => !string.IsNullOrWhiteSpace(team.Name)).ToList(),
                     previousBoardRoleNames,
                     context);
 
@@ -146,7 +140,7 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
             catch (Exception ex)
             {
                 context.Logger.LogError(ex, "BotId={BotId}: Error syncing board reactions", context.Bot.BotId);
-                await SendCommandResponseAsync(command, string.Format(errorMsg, ex.Message), context);
+                await SendCommandResponseAsync(command, string.Format(errorMsg, TeamRoleResolver.GenericErrorText), context);
                 await LogCommandUsageAsync(syncCommand, command.User, false, ex.Message, context);
             }
         }
@@ -167,8 +161,7 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
             var errorMsg = reactionCommand?.ErrorMessage ?? "Chyba: {0}";
 
             // Check if user is admin
-            var guildUser = command.User as SocketGuildUser;
-            if (!guildUser?.GuildPermissions.Administrator ?? true && command.User.Id != guild.OwnerId)
+            if (!TeamRoleResolver.IsBoardAdmin(command.User, guild))
             {
                 await SendCommandResponseAsync(command, adminOnlyMsg, context);
                 await LogCommandUsageAsync(reactionCommand, command.User, false, "Permission denied", context);
@@ -236,7 +229,7 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
             catch (Exception ex)
             {
                 context.Logger.LogError(ex, "BotId={BotId}: Error moving reaction message", context.Bot.BotId);
-                await SendCommandResponseAsync(command, string.Format(errorMsg, ex.Message), context);
+                await SendCommandResponseAsync(command, string.Format(errorMsg, TeamRoleResolver.GenericErrorText), context);
                 await LogCommandUsageAsync(reactionCommand, command.User, false, ex.Message, context);
             }
         }
@@ -267,16 +260,8 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
 
                 if (team == null) return;
 
-                // Find or create role for the team
-                var role = guild.Roles.FirstOrDefault(r => r.Name == team.Name);
-                if (role == null)
-                {
-                    var randomColor = new Color((uint)Random.Shared.Next(0x1000000));
-                    var createdRole = await guild.CreateRoleAsync(team.Name, color: randomColor);
-                    context.Logger.LogInformation("BotId={BotId}: Created role '{RoleName}' for team", context.Bot.BotId, team.Name);
-                    // Try to get the role from the guild cache
-                    role = guild.Roles.FirstOrDefault(r => r.Name == team.Name);
-                }
+                // Find or create the role bound to the team
+                var role = await TeamRoleResolver.FindOrCreateTeamRoleAsync(guild, team, context);
 
                 if (role != null)
                 {
@@ -330,7 +315,7 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
                 if (team == null) return;
 
                 // Find role for the team
-                var role = guild.Roles.FirstOrDefault(r => r.Name == team.Name);
+                var role = TeamRoleResolver.FindTeamRole(guild, team);
                 if (role == null) return;
 
                 // Remove role from user
@@ -388,38 +373,35 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
         /// </summary>
         private static async Task<(int Created, int Removed)> SyncBoardRolesAsync(
             SocketGuild guild,
-            HashSet<string> currentTeamNames,
+            List<TeamDto> currentTeams,
             HashSet<string> previousBoardRoleNames,
             IPluginContext context)
         {
             var created = 0;
             var removed = 0;
-            var guildRolesByName = guild.Roles
-                .GroupBy(role => role.Name, StringComparer.Ordinal)
-                .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+            var currentTeamNames = currentTeams.Select(team => team.Name).ToHashSet(StringComparer.Ordinal);
+            var currentRoleIds = new HashSet<ulong>();
 
-            foreach (var teamName in currentTeamNames)
+            foreach (var team in currentTeams)
             {
-                if (guildRolesByName.ContainsKey(teamName))
-                {
-                    continue;
-                }
-
                 try
                 {
-                    var randomColor = new Color((uint)Random.Shared.Next(0x1000000));
-                    await guild.CreateRoleAsync(teamName, color: randomColor);
-                    created++;
-                    var createdRole = guild.Roles.FirstOrDefault(r => r.Name.Equals(teamName, StringComparison.Ordinal));
-                    if (createdRole != null)
+                    var existingRole = TeamRoleResolver.FindTeamRole(guild, team);
+                    var role = await TeamRoleResolver.FindOrCreateTeamRoleAsync(guild, team, context);
+                    if (role != null)
                     {
-                        guildRolesByName[teamName] = createdRole;
+                        currentRoleIds.Add(role.Id);
                     }
-                    context.Logger.LogInformation("BotId={BotId}: Created missing board role '{RoleName}' during sync-reactions", context.Bot.BotId, teamName);
+
+                    if (existingRole == null && role != null)
+                    {
+                        created++;
+                        context.Logger.LogInformation("BotId={BotId}: Created missing board role '{RoleName}' during sync-reactions", context.Bot.BotId, team.Name);
+                    }
                 }
                 catch (Exception ex)
                 {
-                    context.Logger.LogWarning(ex, "BotId={BotId}: Failed to create missing board role '{RoleName}' during sync-reactions", context.Bot.BotId, teamName);
+                    context.Logger.LogWarning(ex, "BotId={BotId}: Failed to create missing board role '{RoleName}' during sync-reactions", context.Bot.BotId, team.Name);
                 }
             }
 
@@ -429,7 +411,12 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
 
             foreach (var staleRoleName in staleBoardRoles)
             {
-                if (!guildRolesByName.TryGetValue(staleRoleName, out var role))
+                // Only delete safe, non-current roles; never touch privileged or integration roles.
+                var role = guild.Roles.FirstOrDefault(r =>
+                    r.Name.Equals(staleRoleName, StringComparison.Ordinal)
+                    && !currentRoleIds.Contains(r.Id)
+                    && TeamRoleResolver.IsSafeTeamRole(guild, r));
+                if (role == null)
                 {
                     continue;
                 }
@@ -438,7 +425,6 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
                 {
                     await role.DeleteAsync();
                     removed++;
-                    guildRolesByName.Remove(staleRoleName);
                     context.Logger.LogInformation("BotId={BotId}: Removed stale board role '{RoleName}' during sync-reactions", context.Bot.BotId, staleRoleName);
                 }
                 catch (Exception ex)
@@ -525,21 +511,22 @@ namespace BotManager.Backend.API.BotPlugins.DiscordBoardPlugin.Handlers
 
             try
             {
-                // Find an existing guild role whose name matches the stored team name.
-                var role = guild.Roles.FirstOrDefault(r => r.Name.Equals(teamName, StringComparison.Ordinal));
+                // The custom id / selected value comes from the client: only accept names of stored teams.
+                var teamsData = await context.TeamsDataService.GetAsync(context.Bot.BotId);
+                var team = teamsData.Teams.FirstOrDefault(t => t.Name.Equals(teamName, StringComparison.Ordinal))
+                    ?? teamsData.Teams.FirstOrDefault(t => t.Name.Length > 100 && t.Name[..100].Equals(teamName, StringComparison.Ordinal));
+                if (team == null)
+                {
+                    await component.FollowupAsync("This team no longer exists.", ephemeral: true);
+                    return;
+                }
 
-                // If the role does not exist yet, create it (same behaviour as the reaction handler).
+                teamName = team.Name;
+                var role = await TeamRoleResolver.FindOrCreateTeamRoleAsync(guild, team, context);
                 if (role == null)
                 {
-                    var randomColor = new Color((uint)Random.Shared.Next(0x1000000));
-                    await guild.CreateRoleAsync(teamName, color: randomColor);
-                    role = guild.Roles.FirstOrDefault(r => r.Name.Equals(teamName, StringComparison.Ordinal));
-                    if (role == null)
-                    {
-                        await component.FollowupAsync("Failed to create team role.", ephemeral: true);
-                        return;
-                    }
-                    context.Logger.LogInformation("BotId={BotId}: Created role '{RoleName}' via button interaction", context.Bot.BotId, teamName);
+                    await component.FollowupAsync("Failed to create team role.", ephemeral: true);
+                    return;
                 }
 
                 var userTag = BuildUserTag(user);

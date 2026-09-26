@@ -1,5 +1,6 @@
 using BotManager.Backend.Shared.Models;
 using Microsoft.Extensions.Logging;
+using System.Collections.Concurrent;
 
 namespace BotManager.Backend.API.BotPlugins
 {
@@ -12,8 +13,8 @@ namespace BotManager.Backend.API.BotPlugins
         private const string LegacyDiscordAlliancePluginId = "discord-alliance";
         private const string LegacyDiscordAliancePluginId = "discord-aliance";
 
-        private readonly Dictionary<string, Type> _registeredPlugins = new();
-        private readonly Dictionary<int, IDiscordBotPlugin> _activePlugins = new();
+        private readonly ConcurrentDictionary<string, Type> _registeredPlugins = new();
+        private readonly ConcurrentDictionary<int, Lazy<IDiscordBotPlugin>> _activePlugins = new();
         private readonly ILogger<PluginRegistry> _logger;
 
         /// <summary>
@@ -56,11 +57,28 @@ namespace BotManager.Backend.API.BotPlugins
         {
             var normalizedPluginId = NormalizePluginId(pluginId);
 
-            if (_activePlugins.TryGetValue(botId, out var plugin))
-            {
-                return plugin;
-            }
+            // Lazy ensures a single instance per bot even when handlers race on the first event.
+            var lazy = _activePlugins.GetOrAdd(botId, _ => new Lazy<IDiscordBotPlugin>(
+                () => CreatePluginInstance(botId, pluginId, normalizedPluginId),
+                LazyThreadSafetyMode.ExecutionAndPublication));
 
+            try
+            {
+                return lazy.Value;
+            }
+            catch
+            {
+                // Do not cache failed creations.
+                _activePlugins.TryRemove(new KeyValuePair<int, Lazy<IDiscordBotPlugin>>(botId, lazy));
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Instantiates a registered plugin type.
+        /// </summary>
+        private IDiscordBotPlugin CreatePluginInstance(int botId, string pluginId, string normalizedPluginId)
+        {
             if (!_registeredPlugins.TryGetValue(normalizedPluginId, out var pluginType))
             {
                 throw new KeyNotFoundException($"Plugin '{pluginId}' not found in registry");
@@ -72,7 +90,6 @@ namespace BotManager.Backend.API.BotPlugins
                 throw new InvalidOperationException($"Failed to instantiate plugin {pluginId}");
             }
 
-            _activePlugins[botId] = instance;
             _logger.LogInformation("Created plugin instance for bot {BotId}: {PluginId}", botId, normalizedPluginId);
             return instance;
         }
@@ -82,8 +99,10 @@ namespace BotManager.Backend.API.BotPlugins
         /// </summary>
         public void RemovePlugin(int botId)
         {
-            _activePlugins.Remove(botId);
-            _logger.LogInformation("Removed plugin instance for bot {BotId}", botId);
+            if (_activePlugins.TryRemove(botId, out _))
+            {
+                _logger.LogInformation("Removed plugin instance for bot {BotId}", botId);
+            }
         }
 
         /// <summary>
@@ -91,8 +110,7 @@ namespace BotManager.Backend.API.BotPlugins
         /// </summary>
         public IDiscordBotPlugin? GetPlugin(int botId)
         {
-            _activePlugins.TryGetValue(botId, out var plugin);
-            return plugin;
+            return _activePlugins.TryGetValue(botId, out var lazy) && lazy.IsValueCreated ? lazy.Value : null;
         }
 
         /// <summary>

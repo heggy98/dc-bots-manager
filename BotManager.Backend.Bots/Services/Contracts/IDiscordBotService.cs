@@ -2,6 +2,9 @@ using BotManager.Backend.Bots.Models;
 
 namespace BotManager.Backend.Bots.Services.Contracts
 {
+    /// <summary>
+    /// Hosts Discord gateway runtimes; several bots can run side by side.
+    /// </summary>
     public interface IDiscordBotService
     {
         /// <summary>
@@ -10,19 +13,24 @@ namespace BotManager.Backend.Bots.Services.Contracts
         Task StartAsync(int botId, string botToken);
 
         /// <summary>
-        /// Stops the running bot
+        /// Stops the given bot
         /// </summary>
-        Task StopAsync();
+        Task StopAsync(int botId);
+
+        /// <summary>
+        /// Stops all running bots
+        /// </summary>
+        Task StopAllAsync();
 
         /// <summary>
         /// Checks if the bot is currently running
         /// </summary>
-        Task<bool> IsRunningAsync();
+        Task<bool> IsRunningAsync(int botId);
 
         /// <summary>
         /// Gets the bot's current status
         /// </summary>
-        string GetStatus();
+        string GetStatus(int botId);
 
         /// <summary>
         /// Refreshes the board message for the configured board channel.

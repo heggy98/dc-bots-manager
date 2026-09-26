@@ -2,6 +2,8 @@ using System.Security.Cryptography;
 using System.Text;
 using BotManager.Backend.Bots.Services.Contracts;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace BotManager.Backend.Bots.Services.Implementations
 {
@@ -12,10 +14,13 @@ namespace BotManager.Backend.Bots.Services.Implementations
     {
         private const string EnvelopePrefix = "v1";
         private readonly IDataProtector _protector;
+        private readonly ILogger<BotTokenSecurityService> _logger;
 
-        public BotTokenSecurityService(IDataProtectionProvider dataProtectionProvider)
+        public BotTokenSecurityService(IDataProtectionProvider dataProtectionProvider,
+            ILogger<BotTokenSecurityService>? logger = null)
         {
             _protector = dataProtectionProvider.CreateProtector("BotManager.Backend.Bots.BotToken");
+            _logger = logger ?? NullLogger<BotTokenSecurityService>.Instance;
         }
 
         public string NormalizeRawToken(string rawToken)
@@ -57,15 +62,10 @@ namespace BotManager.Backend.Bots.Services.Implementations
 
             if (!TryParseEnvelope(storedToken, out _, out var protectedPayload))
             {
-                // Legacy plain-text support.
-                var normalizedLegacy = NormalizeRawToken(storedToken);
-                if (string.IsNullOrWhiteSpace(normalizedLegacy))
-                {
-                    return false;
-                }
-
-                rawToken = normalizedLegacy;
-                return true;
+                // Plain-text tokens are no longer accepted; they are re-protected at startup
+                // (see TryProtectLegacyToken).
+                _logger.LogWarning("Stored bot token is not in the protected envelope format and was rejected.");
+                return false;
             }
 
             try
@@ -80,10 +80,27 @@ namespace BotManager.Backend.Bots.Services.Implementations
                 rawToken = normalized;
                 return true;
             }
-            catch
+            catch (CryptographicException ex)
+            {
+                _logger.LogError(ex,
+                    "Failed to unprotect stored bot token. The Data Protection key ring was probably lost or changed; re-enter the bot token.");
+                return false;
+            }
+        }
+
+        public bool IsProtected(string storedToken)
+            => !string.IsNullOrWhiteSpace(storedToken) && TryParseEnvelope(storedToken, out _, out _);
+
+        public bool TryProtectLegacyToken(string storedToken, out string protectedToken)
+        {
+            protectedToken = string.Empty;
+            if (string.IsNullOrWhiteSpace(storedToken) || IsProtected(storedToken))
             {
                 return false;
             }
+
+            protectedToken = ProtectForStorage(storedToken);
+            return !string.IsNullOrEmpty(protectedToken);
         }
 
         public string BuildMaskedToken(string storedToken)

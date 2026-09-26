@@ -38,7 +38,8 @@ namespace BotManager.Backend.API.Services
                     Name = t.Name,
                     LeaderName = t.LeaderName,
                     Contact = t.CommanderContact,
-                    Emoji = t.Emoji
+                    Emoji = t.Emoji,
+                    RoleId = t.RoleId
                 })
                 .ToListAsync();
 
@@ -59,7 +60,8 @@ namespace BotManager.Backend.API.Services
                     Name = team.Name,
                     LeaderName = team.LeaderName,
                     Contact = team.Contact,
-                    Emoji = string.IsNullOrWhiteSpace(team.Emoji) ? "🎯" : team.Emoji.Trim()
+                    Emoji = string.IsNullOrWhiteSpace(team.Emoji) ? "🎯" : team.Emoji.Trim(),
+                    RoleId = team.RoleId
                 })
                 .ToList();
 
@@ -80,6 +82,15 @@ namespace BotManager.Backend.API.Services
                 .ToListAsync();
             _db.Teams.RemoveRange(existingTeams);
 
+            // Teams are re-created on save; keep their role binding (clients never send RoleId).
+            var roleIdsByTeamId = existingTeams
+                .Where(t => t.RoleId.HasValue)
+                .ToDictionary(t => t.TeamId, t => t.RoleId);
+            var roleIdsByName = existingTeams
+                .Where(t => t.RoleId.HasValue)
+                .GroupBy(t => t.Name, StringComparer.Ordinal)
+                .ToDictionary(g => g.Key, g => g.First().RoleId, StringComparer.Ordinal);
+
             // Add new teams
             foreach (var teamDto in normalizedTeams)
             {
@@ -89,12 +100,25 @@ namespace BotManager.Backend.API.Services
                     Name = teamDto.Name,
                     LeaderName = teamDto.LeaderName,
                     CommanderContact = teamDto.Contact,
-                    Emoji = teamDto.Emoji
+                    Emoji = teamDto.Emoji,
+                    RoleId = teamDto.RoleId
+                        ?? (teamDto.TeamId is int teamId && roleIdsByTeamId.TryGetValue(teamId, out var byId) ? byId : null)
+                        ?? (roleIdsByName.TryGetValue(teamDto.Name, out var byName) ? byName : null)
                 };
                 _db.Teams.Add(team);
             }
 
             await _db.SaveChangesAsync();
+        }
+
+        /// <summary>
+        /// Binds a team to a Discord role id.
+        /// </summary>
+        public async Task SetRoleIdAsync(int teamId, ulong? roleId)
+        {
+            await _db.Teams
+                .Where(t => t.TeamId == teamId)
+                .ExecuteUpdateAsync(setters => setters.SetProperty(t => t.RoleId, roleId));
         }
 
         /// <summary>

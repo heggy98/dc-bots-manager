@@ -64,20 +64,38 @@ Use one of these approaches:
 Minimum required settings for backend:
 
 - `ConnectionStrings:DefaultConnection`
-- `JwtSettings:Secret`
+- `JwtSettings:Secret` (random, at least 32 bytes; the app refuses to start otherwise)
 - `JwtSettings:Issuer`
 - `JwtSettings:Audience`
 - `AdminCredentials:Email`
-- `AdminCredentials:Password`
+- `AdminCredentials:PasswordHash` (BCrypt hash, see below). A plaintext `AdminCredentials:Password` is accepted **only** in the `Development` environment.
 - `GoogleAuth:ClientId`
 - `GoogleAuth:ClientSecret`
+
+The app fails at startup when the admin credentials are missing (no login is possible without them).
+
+Generate the admin password hash:
+
+```bash
+dotnet run --project BotManager.Backend.API/BotManager.Backend.API.csproj -- --hash-password "<admin-password>"
+```
+
+Optional settings:
+
+- `JwtSettings:ExpiryMinutes` – access token lifetime (default 480)
+- `Cors:AllowedOrigins` – allowed frontend origins (default `http://localhost:4200`, `https://localhost:4200`)
+- `ReverseProxy:KnownProxies` – IPs of trusted reverse proxies; only these may set `X-Forwarded-For`
+- `LogRetention:SystemLogsDays` / `CommandUsageDays` / `LoginAuditDays` – log retention (defaults 30 / 90 / 90)
+- `DataProtection:CertificatePath` / `DataProtection:CertificatePassword` – certificate used to encrypt the
+  Data Protection key ring. Keys are stored in the database (`DataProtectionKeys`); on Windows they are protected
+  with DPAPI automatically, on Linux/containers configure a certificate.
 
 Example (recommended): use .NET User Secrets for local readable storage.
 
 ```bash
 dotnet user-secrets --project BotManager.Backend.API/BotManager.Backend.API.csproj set "JwtSettings:Secret" "<your-strong-jwt-secret>"
 dotnet user-secrets --project BotManager.Backend.API/BotManager.Backend.API.csproj set "AdminCredentials:Email" "admin@example.com"
-dotnet user-secrets --project BotManager.Backend.API/BotManager.Backend.API.csproj set "AdminCredentials:Password" "<admin-password>"
+dotnet user-secrets --project BotManager.Backend.API/BotManager.Backend.API.csproj set "AdminCredentials:PasswordHash" "<bcrypt-hash-from---hash-password>"
 dotnet user-secrets --project BotManager.Backend.API/BotManager.Backend.API.csproj set "GoogleAuth:ClientId" "<google-client-id>"
 dotnet user-secrets --project BotManager.Backend.API/BotManager.Backend.API.csproj set "GoogleAuth:ClientSecret" "<google-client-secret>"
 ```
@@ -132,7 +150,7 @@ dotnet build BotManager.sln
 ### Run backend tests
 
 ```bash
-dotnet test BotManager.Backend.Bots.Tests/BotManager.Backend.Bots.Tests.csproj
+dotnet test BotManager.sln
 ```
 
 ### Frontend tests
@@ -145,6 +163,10 @@ npm test
 ## Runtime Notes
 
 - Bot command model uses plugin architecture (`discord-board` plugin).
+- Several bots can run at the same time; each has its own Discord gateway session.
+- Team roles are bound to Discord roles by id (`Teams.RoleId`); the board never grants roles with elevated permissions.
+- Bot tokens are encrypted with ASP.NET Core Data Protection. If the key ring is lost, stored tokens cannot be
+  decrypted and must be re-entered in the admin UI.
 - API startup applies EF migrations automatically.
 - SignalR hub endpoint: `/hubs/bot-events`.
 - Repository runtime is based on direct project commands (`dotnet run` and `npm start`), not a Procfile.

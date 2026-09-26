@@ -1,28 +1,34 @@
-﻿namespace BotManager.Backend.Services.Interfaces
+namespace BotManager.Backend.Services.Interfaces
 {
     /// <summary>
     /// Defines failed-login tracking and lockout operations.
+    /// Keys are opaque strings (e.g. an IP address or an account identifier).
     /// </summary>
     public interface IBruteforceProtectionService
     {
         /// <summary>
-        /// Returns whether an IP address is currently locked out.
+        /// Returns whether a key is currently locked out.
         /// </summary>
-        bool IsLocked(string ipAddress);
+        bool IsLocked(string key);
 
         /// <summary>
-        /// Registers a failed login attempt for an IP address.
+        /// Registers a failed login attempt for a key using default limits.
         /// </summary>
-        void RegisterFailure(string ipAddress);
+        void RegisterFailure(string key);
 
         /// <summary>
-        /// Clears failed-login tracking for an IP address.
+        /// Registers a failed login attempt for a key using explicit limits.
         /// </summary>
-        void RegisterSuccess(string ipAddress);
+        void RegisterFailure(string key, int maxAttempts, int lockoutMinutes);
 
         /// <summary>
-        /// Gets count of failed attempts for an IP address.
+        /// Clears failed-login tracking for a key.
         /// </summary>
-        int GetFailedAttempts(string ipAddress);
+        void RegisterSuccess(string key);
+
+        /// <summary>
+        /// Gets count of failed attempts for a key.
+        /// </summary>
+        int GetFailedAttempts(string key);
     }
 }

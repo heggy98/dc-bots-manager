@@ -12,6 +12,7 @@ namespace BotManager.Backend.API.Controllers
     /// </summary>
     public class SystemLogsController : ControllerBase
     {
+        private const int MaxTake = 500;
         private readonly BotManagerDbContext _db;
 
         /// <summary>
@@ -29,7 +30,9 @@ namespace BotManager.Backend.API.Controllers
         [HttpGet]
         public async Task<IActionResult> GetSystemLogs([FromQuery] int take = 100)
         {
+            take = Math.Clamp(take, 1, MaxTake);
             var logs = await _db.SystemLogs
+                .AsNoTracking()
                 .OrderByDescending(l => l.Timestamp)
                 .Take(take)
                 .Select(l => new { l.Id, l.Timestamp, l.Level, l.Category, l.Message, l.Exception })
@@ -44,7 +47,9 @@ namespace BotManager.Backend.API.Controllers
         [HttpGet("login-audit")]
         public async Task<IActionResult> GetLoginAuditLogs([FromQuery] int take = 100)
         {
+            take = Math.Clamp(take, 1, MaxTake);
             var logs = await _db.LoginAuditLogs
+                .AsNoTracking()
                 .OrderByDescending(l => l.Timestamp)
                 .Take(take)
                 .Select(l => new { l.Id, l.Timestamp, l.Email, l.IpAddress, l.Success, l.FailReason, l.IsBruteforceBlock })

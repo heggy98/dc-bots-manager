@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace BotManager.Backend.Entities.Entities
@@ -23,6 +23,9 @@ namespace BotManager.Backend.Entities.Entities
 
         [MaxLength(50)]
         public string Emoji { get; set; } = string.Empty;
+
+        /// <summary>Discord role bound to this team (null for legacy teams not yet bound).</summary>
+        public ulong? RoleId { get; set; }
 
         public virtual BoardConfiguration BoardConfiguration { get; set; } = null!;
     }

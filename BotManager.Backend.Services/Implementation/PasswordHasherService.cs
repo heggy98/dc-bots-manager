@@ -14,9 +14,7 @@ namespace BotManager.Backend.Services.Implementation
         {
             RequirePassword(password);
 
-            var res = BCrypt.Net.BCrypt.HashPassword(password, workFactor: 12);
-            Console.WriteLine($"Vygenerovaný Hash: {res}");
-            return res;
+            return BCrypt.Net.BCrypt.HashPassword(password, workFactor: 12);
         }
 
         /// <summary>
@@ -27,7 +25,14 @@ namespace BotManager.Backend.Services.Implementation
             RequirePassword(password);
             RequireHashedPassword(hashedPassword);
 
-            return BCrypt.Net.BCrypt.Verify(password, hashedPassword);
+            try
+            {
+                return BCrypt.Net.BCrypt.Verify(password, hashedPassword);
+            }
+            catch (BCrypt.Net.SaltParseException)
+            {
+                return false;
+            }
         }
 
         /// <summary>
@@ -51,9 +56,9 @@ namespace BotManager.Backend.Services.Implementation
         /// </summary>
         private static void RequireHashedPassword(string hashedPassword)
         {
-            if (hashedPassword == null)
+            if (string.IsNullOrWhiteSpace(hashedPassword))
             {
-                throw new ArgumentException(nameof(hashedPassword));
+                throw new ArgumentException("Password hash cannot be empty", nameof(hashedPassword));
             }
         }
     }

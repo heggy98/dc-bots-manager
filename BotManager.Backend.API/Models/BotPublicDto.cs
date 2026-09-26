@@ -4,7 +4,6 @@ namespace BotManager.Backend.API.Models
     {
         public int BotId { get; set; }
         public string Name { get; set; } = string.Empty;
-        public string OwnerUserId { get; set; } = string.Empty;
         public bool IsPublic { get; set; }
         public string? DiscordBotName { get; set; }
         public string? DiscordBotAvatarUrl { get; set; }

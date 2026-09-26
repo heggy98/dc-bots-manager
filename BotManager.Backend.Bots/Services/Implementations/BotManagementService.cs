@@ -59,6 +59,13 @@ namespace BotManager.Backend.Bots.Services.Implementations
             var bot = await GetBotOrNullAsync(botId);
             if (bot == null) return false;
 
+            if (await _discordBotService.IsRunningAsync(botId))
+            {
+                _logger.LogInformation("Bot {BotId} ({Name}) is already running", bot.BotId, bot.Name);
+                return true;
+            }
+
+            BotRunHistory? newHistory = null;
             try
             {
                 var openHistory = await _db.BotRunHistories
@@ -71,7 +78,8 @@ namespace BotManager.Backend.Bots.Services.Implementations
                     openHistory.StopReason = "Přepsáno novým spuštěním";
                 }
 
-                _db.BotRunHistories.Add(new BotRunHistory { BotId = botId, StartedAt = DateTime.UtcNow });
+                newHistory = new BotRunHistory { BotId = botId, StartedAt = DateTime.UtcNow };
+                _db.BotRunHistories.Add(newHistory);
 
                 bot.Status = BotStatus.Connecting;
                 bot.LastStartedAt = DateTime.UtcNow;
@@ -101,8 +109,17 @@ namespace BotManager.Backend.Bots.Services.Implementations
             catch (Exception ex)
             {
                 bot.Status = BotStatus.Offline;
+                if (newHistory != null && newHistory.StoppedAt == null)
+                {
+                    newHistory.StoppedAt = DateTime.UtcNow;
+                    newHistory.DurationSeconds = (long)(newHistory.StoppedAt.Value - newHistory.StartedAt).TotalSeconds;
+                    newHistory.StopReason = "Spuštění selhalo";
+                    newHistory.ErrorDetails = ex.Message.Length > 2000 ? ex.Message[..2000] : ex.Message;
+                }
+
                 await _db.SaveChangesAsync();
                 await _notificationService.NotifyBotStatusChangedAsync(botId, BotStatus.Offline);
+                await _notificationService.NotifyHistoryUpdatedAsync(botId);
                 _logger.LogError(ex, "Failed to start bot {BotId} ({Name})", bot.BotId, bot.Name);
                 return false;
             }
@@ -138,7 +155,7 @@ namespace BotManager.Backend.Bots.Services.Implementations
                 bot.LastStoppedAt = DateTime.UtcNow;
 
                 await _db.SaveChangesAsync();
-                await _discordBotService.StopAsync();
+                await _discordBotService.StopAsync(botId);
 
                 await _notificationService.NotifyBotStatusChangedAsync(botId, BotStatus.Offline);
                 await _notificationService.NotifyHistoryUpdatedAsync(botId);

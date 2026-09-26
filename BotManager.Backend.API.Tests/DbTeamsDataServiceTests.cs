@@ -112,6 +112,44 @@ public class DbTeamsDataServiceTests
             sut.SaveAsync(204, new BotTeamsDto { Teams = [] }, boardConfigurationId: 999));
     }
 
+    [Fact]
+    public async Task SaveAsync_PreservesRoleBinding_WhenClientDoesNotSendRoleId()
+    {
+        await using var db = CreateContext();
+        db.Bots.Add(CreateBot(203));
+        db.BoardConfigurations.Add(new BoardConfiguration
+        {
+            BoardConfigurationId = 1,
+            BotId = 203,
+            BoardType = "teams"
+        });
+        db.Teams.Add(new Team
+        {
+            TeamId = 10,
+            BoardConfigurationId = 1,
+            Name = "Alpha",
+            Emoji = "✅",
+            RoleId = 123456789012345678UL
+        });
+        await db.SaveChangesAsync();
+
+        var sut = new DbTeamsDataService(db);
+
+        // Simulates the admin UI: RoleId is never part of the client payload.
+        await sut.SaveAsync(203, new BotTeamsDto
+        {
+            Teams =
+            [
+                new TeamDto { TeamId = 10, Name = "Alpha renamed", Emoji = "✅" },
+                new TeamDto { Name = "Beta", Emoji = "🎯" }
+            ]
+        });
+
+        var teams = (await sut.GetAsync(203)).Teams;
+        Assert.Equal(123456789012345678UL, teams.Single(t => t.Name == "Alpha renamed").RoleId);
+        Assert.Null(teams.Single(t => t.Name == "Beta").RoleId);
+    }
+
     private static BotManagerDbContext CreateContext()
     {
         var options = new DbContextOptionsBuilder<BotManagerDbContext>()

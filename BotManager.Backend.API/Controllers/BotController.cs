@@ -6,6 +6,7 @@ using BotManager.Backend.Entities;
 using BotManager.Backend.Entities.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using BotManager.Backend.API.Services;
 
@@ -58,6 +59,8 @@ namespace BotManager.Backend.API.Controllers
         /// <summary>
         /// Returns all publicly visible bots.
         /// </summary>
+        [AllowAnonymous]
+        [EnableRateLimiting(RateLimitPolicies.Public)]
         [HttpGet("public")]
         public async Task<IActionResult> GetPublicBots()
         {
@@ -178,16 +181,15 @@ namespace BotManager.Backend.API.Controllers
                 .ToListAsync();
 
             var logs = await LoadBotLogsAsync(bot, 80);
-            var usageStats = await LoadUsageStats24hAsync();
+            var usageStats = await LoadUsageStats24hAsync(bot.BotId);
 
             var botConfig = await _botService.GetBotDataAsync(id);
 
-            var tokenAuthorized = TryResolveRawToken(bot.BotToken, out var rawToken)
-                && await IsDiscordTokenAuthorizedAsync(rawToken!);
-
-            var (identity, guilds) = tokenAuthorized
+            // Identity doubles as the token authorization check (one cached Discord call instead of two).
+            var (identity, guilds) = TryResolveRawToken(bot.BotToken, out var rawToken)
                 ? await LoadDiscordMetadataAsync(rawToken!)
                 : (null, []);
+            var tokenAuthorized = identity != null;
 
             var dto = new AdminBotDetailDto
             {
@@ -264,7 +266,6 @@ namespace BotManager.Backend.API.Controllers
             {
                 BotId = bot.BotId,
                 Name = bot.Name,
-                OwnerUserId = bot.OwnerUserId,
                 IsPublic = bot.IsPublic,
                 DiscordBotName = identity?.Name,
                 DiscordBotAvatarUrl = identity?.AvatarUrl,
@@ -307,7 +308,7 @@ namespace BotManager.Backend.API.Controllers
         }
 
         /// <summary>
-        /// Loads Discord identity and guild metadata in parallel for a bot token.
+        /// Loads Discord identity and guild metadata in parallel for a bot token (cached per token).
         /// </summary>
         private async Task<(DiscordBotIdentity? Identity, List<string> Guilds)> LoadDiscordMetadataAsync(string botToken)
         {
@@ -674,10 +675,8 @@ namespace BotManager.Backend.API.Controllers
                 return errorResult;
             }
 
-            var botMarker = $"BotId={bot!.BotId}";
-
             var systemLogsQuery = _db.SystemLogs
-                .Where(l => l.Message.Contains(botMarker));
+                .Where(l => l.BotId == bot!.BotId);
 
             var commandLogsQuery = _db.CommandUsageLogs
                 .Where(l => _db.BotCommands
@@ -738,14 +737,9 @@ namespace BotManager.Backend.API.Controllers
         /// </summary>
         private async Task<List<BotLogDto>> LoadBotLogsAsync(Bot bot, int take)
         {
-            var botMarker = $"BotId={bot.BotId}";
-
             var systemLogs = await _db.SystemLogs
                 .AsNoTracking()
-                .Where(l =>
-                    l.Category.Contains("Bot") ||
-                    l.Message.Contains(bot.Name) ||
-                    l.Message.Contains(botMarker))
+                .Where(l => l.BotId == bot.BotId)
                 .OrderByDescending(l => l.Timestamp)
                 .Take(take)
                 .Select(l => new BotLogDto { Timestamp = l.Timestamp, Level = l.Level, Message = l.Message })
@@ -788,20 +782,28 @@ namespace BotManager.Backend.API.Controllers
         }
 
         /// <summary>
-        /// Loads per-bot request and error counters from the last 24 hours of command usage.
+        /// Loads per-bot request and error counters from the last 24 hours of command usage,
+        /// optionally for a single bot only.
         /// </summary>
-        private async Task<Dictionary<int, (int Requests24h, int Errors24h)>> LoadUsageStats24hAsync()
+        private async Task<Dictionary<int, (int Requests24h, int Errors24h)>> LoadUsageStats24hAsync(int? botId = null)
         {
             var from = DateTime.UtcNow.AddHours(-24);
 
-            return await _db.CommandUsageLogs
+            var rows = _db.CommandUsageLogs
                 .AsNoTracking()
                 .Where(log => log.ExecutedAt >= from)
                 .Join(
                     _db.BotCommands.AsNoTracking(),
                     log => log.CommandId,
                     command => command.CommandId,
-                    (log, command) => new { log.IsSuccess, command.BotId })
+                    (log, command) => new { log.IsSuccess, command.BotId });
+
+            if (botId.HasValue)
+            {
+                rows = rows.Where(x => x.BotId == botId.Value);
+            }
+
+            return await rows
                 .GroupBy(x => x.BotId)
                 .Select(group => new
                 {
@@ -874,8 +876,7 @@ namespace BotManager.Backend.API.Controllers
 
         private async Task<bool> IsDiscordTokenAuthorizedAsync(string rawToken)
         {
-            var identity = await _discordBotIdentityService.GetIdentityAsync(rawToken);
-            return identity != null;
+            return await _discordBotIdentityService.IsTokenAuthorizedAsync(rawToken);
         }
 
         private static string FormatCommandLabel(BotCommand cmd)
@@ -901,7 +902,10 @@ namespace BotManager.Backend.API.Controllers
             var success = await action();
             if (!success)
             {
-                return NotFound();
+                var exists = await _db.Bots.AsNoTracking().AnyAsync(b => b.BotId == id);
+                return exists
+                    ? StatusCode(500, new { message = $"Bot {id} could not be {state}. See bot logs for details." })
+                    : NotFound();
             }
 
             return Ok(new { message = $"Bot {id} {state}." });

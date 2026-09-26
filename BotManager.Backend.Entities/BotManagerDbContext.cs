@@ -1,4 +1,5 @@
 using BotManager.Backend.Entities.Entities;
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace BotManager.Backend.Entities
@@ -6,7 +7,7 @@ namespace BotManager.Backend.Entities
     /// <summary>
     /// Entity Framework database context for bot manager domain entities.
     /// </summary>
-    public class BotManagerDbContext : DbContext
+    public class BotManagerDbContext : DbContext, IDataProtectionKeyContext
     {
         /// <summary>
         /// Creates a new database context with configured options.
@@ -26,6 +27,9 @@ namespace BotManager.Backend.Entities
         public DbSet<LoginAuditLog> LoginAuditLogs { get; set; }
         public DbSet<SystemLog> SystemLogs { get; set; }
         public DbSet<SystemConfig> SystemConfigs { get; set; }
+
+        /// <summary>ASP.NET Core Data Protection key ring (used to encrypt bot tokens at rest).</summary>
+        public DbSet<DataProtectionKey> DataProtectionKeys { get; set; }
 
         /// <summary>
         /// Configures entity relationships and seed data.
@@ -81,6 +85,23 @@ namespace BotManager.Backend.Entities
                 .WithMany(c => c.UsageLogs)
                 .HasForeignKey(u => u.CommandId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // Indexes for log/audit queries (filtered and ordered by time, scoped per bot).
+            modelBuilder.Entity<SystemLog>()
+                .HasIndex(l => l.Timestamp);
+            modelBuilder.Entity<SystemLog>()
+                .HasIndex(l => new { l.BotId, l.Timestamp });
+
+            modelBuilder.Entity<CommandUsageLog>()
+                .HasIndex(u => u.ExecutedAt);
+            modelBuilder.Entity<CommandUsageLog>()
+                .HasIndex(u => new { u.CommandId, u.ExecutedAt });
+
+            modelBuilder.Entity<LoginAuditLog>()
+                .HasIndex(l => l.Timestamp);
+
+            modelBuilder.Entity<BotCommand>()
+                .HasIndex(c => new { c.BotId, c.CommandName, c.SubCommandName });
 
             // Seed default system config
             modelBuilder.Entity<SystemConfig>().HasData(

@@ -14,8 +14,12 @@ namespace BotManager.Backend.Entities.Entities
         [MaxLength(50)]
         public string Level { get; set; } = string.Empty;
 
+        /// <summary>Logger source context; null for events without one.</summary>
         [MaxLength(500)]
-        public string Category { get; set; } = string.Empty;
+        public string? Category { get; set; }
+
+        /// <summary>Bot the log event belongs to (filled from the structured "BotId" log property).</summary>
+        public int? BotId { get; set; }
 
         [MaxLength(4000)]
         public string Message { get; set; } = string.Empty;

@@ -1,4 +1,4 @@
-using BotManager.Backend.Shared.Models;
+﻿using BotManager.Backend.Shared.Models;
 
 namespace BotManager.Backend.Shared.Services
 {
@@ -16,5 +16,10 @@ namespace BotManager.Backend.Shared.Services
         /// Saves teams data for a specific bot.
         /// </summary>
         Task SaveAsync(int botId, BotTeamsDto data, int? boardConfigurationId = null);
+
+        /// <summary>
+        /// Binds a team to a Discord role id.
+        /// </summary>
+        Task SetRoleIdAsync(int teamId, ulong? roleId);
     }
 }

@@ -1,17 +1,27 @@
 using System.Net.Http.Headers;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 
 namespace BotManager.Backend.Bots.Services.Implementations
 {
     /// <summary>
     /// Retrieves Discord bot identity and guild metadata via Discord REST APIs.
+    /// Results are cached per token (keyed by its hash) so dashboard/public requests do not
+    /// hit Discord rate limits.
     /// </summary>
     public class DiscordBotIdentityService
     {
+        private static readonly TimeSpan IdentityCacheDuration = TimeSpan.FromMinutes(10);
+        private static readonly TimeSpan GuildsCacheDuration = TimeSpan.FromMinutes(5);
+        private static readonly TimeSpan FailureCacheDuration = TimeSpan.FromMinutes(1);
+
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly ILogger<DiscordBotIdentityService> _logger;
+        private readonly IMemoryCache? _cache;
 
         private static readonly JsonSerializerOptions JsonOptions = new()
         {
@@ -21,16 +31,85 @@ namespace BotManager.Backend.Bots.Services.Implementations
         /// <summary>
         /// Creates a new Discord bot identity service.
         /// </summary>
-        public DiscordBotIdentityService(IHttpClientFactory httpClientFactory, ILogger<DiscordBotIdentityService> logger)
+        public DiscordBotIdentityService(IHttpClientFactory httpClientFactory, ILogger<DiscordBotIdentityService> logger,
+            IMemoryCache? cache = null)
         {
             _httpClientFactory = httpClientFactory;
             _logger = logger;
+            _cache = cache;
         }
 
         /// <summary>
-        /// Gets guild names visible to a bot token.
+        /// Gets guild names visible to a bot token (cached).
         /// </summary>
         public async Task<List<string>> GetGuildNamesAsync(string botToken, CancellationToken cancellationToken = default)
+        {
+            if (_cache == null || string.IsNullOrWhiteSpace(botToken))
+            {
+                return await FetchGuildNamesAsync(botToken, cancellationToken);
+            }
+
+            var key = CacheKey("guilds", botToken);
+            if (_cache.TryGetValue(key, out List<string>? cached) && cached != null)
+            {
+                return [.. cached];
+            }
+
+            var guilds = await FetchGuildNamesAsync(botToken, cancellationToken);
+            _cache.Set(key, guilds, guilds.Count > 0 ? GuildsCacheDuration : FailureCacheDuration);
+            return [.. guilds];
+        }
+
+        /// <summary>
+        /// Gets display identity information for a bot token (cached, including failures for a short time).
+        /// </summary>
+        public async Task<DiscordBotIdentity?> GetIdentityAsync(string botToken, CancellationToken cancellationToken = default)
+        {
+            if (_cache == null || string.IsNullOrWhiteSpace(botToken))
+            {
+                return await FetchIdentityAsync(botToken, cancellationToken);
+            }
+
+            var key = CacheKey("identity", botToken);
+            if (_cache.TryGetValue(key, out CachedIdentity? cached) && cached != null)
+            {
+                return cached.Identity;
+            }
+
+            var identity = await FetchIdentityAsync(botToken, cancellationToken);
+            _cache.Set(key, new CachedIdentity(identity), identity != null ? IdentityCacheDuration : FailureCacheDuration);
+            return identity;
+        }
+
+        /// <summary>
+        /// Validates a token directly against Discord, bypassing the cache.
+        /// </summary>
+        public async Task<bool> IsTokenAuthorizedAsync(string botToken, CancellationToken cancellationToken = default)
+        {
+            var identity = await FetchIdentityAsync(botToken, cancellationToken);
+            if (identity != null && _cache != null)
+            {
+                _cache.Set(CacheKey("identity", botToken), new CachedIdentity(identity), IdentityCacheDuration);
+            }
+
+            return identity != null;
+        }
+
+        /// <summary>
+        /// Builds a cache key from a hash of the normalized token (never the token itself).
+        /// </summary>
+        private static string CacheKey(string kind, string botToken)
+        {
+            var hash = SHA256.HashData(Encoding.UTF8.GetBytes(NormalizeBotToken(botToken)));
+            return $"discord-{kind}:{Convert.ToHexString(hash)}";
+        }
+
+        private sealed record CachedIdentity(DiscordBotIdentity? Identity);
+
+        /// <summary>
+        /// Fetches guild names visible to a bot token from Discord.
+        /// </summary>
+        private async Task<List<string>> FetchGuildNamesAsync(string botToken, CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(botToken))
                 return [];
@@ -66,9 +145,9 @@ namespace BotManager.Backend.Bots.Services.Implementations
         }
 
         /// <summary>
-        /// Gets display identity information for a bot token.
+        /// Fetches display identity information for a bot token from Discord.
         /// </summary>
-        public async Task<DiscordBotIdentity?> GetIdentityAsync(string botToken, CancellationToken cancellationToken = default)
+        private async Task<DiscordBotIdentity?> FetchIdentityAsync(string botToken, CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(botToken))
             {

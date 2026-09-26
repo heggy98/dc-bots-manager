@@ -51,14 +51,39 @@ public class BotTokenSecurityServiceTests
     }
 
     [Fact]
-    public void TryGetRawToken_LegacyPlainTextToken_Succeeds()
+    public void TryGetRawToken_LegacyPlainTextToken_IsRejected()
     {
         var sut = CreateSut();
 
         var ok = sut.TryGetRawToken("  Bot old-legacy-token  ", out var restored);
 
+        Assert.False(ok);
+        Assert.Equal(string.Empty, restored);
+    }
+
+    [Fact]
+    public void TryProtectLegacyToken_PlainText_ProducesRestorableEnvelope()
+    {
+        var sut = CreateSut();
+
+        var converted = sut.TryProtectLegacyToken("  Bot old-legacy-token  ", out var protectedToken);
+        var ok = sut.TryGetRawToken(protectedToken, out var restored);
+
+        Assert.True(converted);
+        Assert.True(sut.IsProtected(protectedToken));
         Assert.True(ok);
         Assert.Equal("old-legacy-token", restored);
+    }
+
+    [Fact]
+    public void TryProtectLegacyToken_AlreadyProtected_ReturnsFalse()
+    {
+        var sut = CreateSut();
+        var stored = sut.ProtectForStorage("abc.def.ghi");
+
+        var converted = sut.TryProtectLegacyToken(stored, out _);
+
+        Assert.False(converted);
     }
 
     [Fact]

@@ -31,16 +31,20 @@ namespace BotManager.Backend.API.Services
         {
             _db.LoginAuditLogs.Add(new LoginAuditLog
             {
-                Email = email,
-                IpAddress = ip,
+                // Inputs are attacker-controlled: truncate to the column sizes instead of failing the insert.
+                Email = Truncate(email, 200),
+                IpAddress = Truncate(ip, 50),
                 Success = success,
-                FailReason = failReason,
+                FailReason = failReason == null ? null : Truncate(failReason, 200),
                 IsBruteforceBlock = isBruteforce,
                 Timestamp = DateTime.UtcNow
             });
 
             await _db.SaveChangesAsync();
         }
+
+        private static string Truncate(string value, int maxLength)
+            => value.Length <= maxLength ? value : value[..maxLength];
 
         /// <summary>
         /// Validates a Google ID token against the configured Google OAuth client id.
