@@ -36,6 +36,8 @@ services:
       ReverseProxy__KnownNetworks__0: "172.28.0.0/16"
       # Plain http on localhost; set to true (default) when served over https.
       Auth__CookieSecure: ${AUTH_COOKIE_SECURE:-false}
+      # Login requests per IP and minute (the E2E suite raises it).
+      RateLimiting__AuthPermitLimit: ${AUTH_RATE_LIMIT:-10}
       DataProtection__CertificatePath: ${DATA_PROTECTION_CERT_PATH:-}
       DataProtection__CertificatePassword: ${DATA_PROTECTION_CERT_PASSWORD:-}
     networks: [backend]

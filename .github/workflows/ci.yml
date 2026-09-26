@@ -66,3 +66,91 @@ jobs:
         run: docker build -f BotManager.Backend.API/Dockerfile -t botmanager-api:ci .
       - name: Build web image
         run: docker build -t botmanager-web:ci BotManager.Frontend
+
+  e2e:
+    name: E2E (docker compose + Playwright)
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    timeout-minutes: 30
+    env:
+      E2E_BASE_URL: http://localhost:8080
+      E2E_EXPECT_CSP: "1"
+      E2E_ADMIN_EMAIL: e2e-admin@example.com
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+
+      - name: Generate .env with throwaway secrets
+        run: |
+          admin_password="E2e-$(openssl rand -hex 12)!"
+          sa_password="Sa-$(openssl rand -hex 12)!Aa1"
+          echo "::add-mask::$admin_password"
+          echo "::add-mask::$sa_password"
+          hash=$(dotnet run --project BotManager.Backend.API --no-launch-profile -- --hash-password "$admin_password" | tail -n1)
+          case "$hash" in \$2*) ;; *) echo "Unexpected hash output"; exit 1 ;; esac
+          {
+            echo "MSSQL_SA_PASSWORD=$sa_password"
+            echo "JWT_SECRET=$(openssl rand -base64 48 | tr -d '\n')"
+            echo "ADMIN_EMAIL=$E2E_ADMIN_EMAIL"
+            # Single quotes: the BCrypt hash contains '$'.
+            echo "ADMIN_PASSWORD_HASH='$hash'"
+            echo "AUTH_COOKIE_SECURE=false"
+            # Headroom for the suite's handful of logins (all from one IP).
+            echo "AUTH_RATE_LIMIT=100"
+          } > .env
+          echo "E2E_ADMIN_PASSWORD=$admin_password" >> "$GITHUB_ENV"
+          echo "E2E_DB_PASSWORD=$sa_password" >> "$GITHUB_ENV"
+
+      - name: Start stack
+        run: docker compose up -d --build --wait --wait-timeout 600
+
+      - name: Check health (web on :8080, api through the proxy)
+        run: |
+          docker compose ps
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:8080/healthz >/dev/null \
+              && curl -fsS http://localhost:8080/api/auth/attempt-status >/dev/null; then
+              echo "web and api are up"; exit 0
+            fi
+            sleep 2
+          done
+          echo "Stack did not become healthy"; exit 1
+
+      - name: Install Playwright
+        working-directory: e2e
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Seed data
+        working-directory: e2e
+        run: E2E_DB_CONTAINER="$(docker compose -f ../docker-compose.yml ps -q db)" npm run seed
+
+      - name: Run Playwright
+        working-directory: e2e
+        run: npm run e2e
+
+      - name: Upload Playwright report and traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            e2e/playwright-report/
+            e2e/test-results/
+          retention-days: 7
+
+      - name: Compose logs
+        if: failure()
+        run: docker compose logs --no-color --tail=300
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
