@@ -159,6 +159,27 @@ docker compose up -d --build
 The app runs at `http://localhost:8080` (nginx serves the SPA and proxies `/api` and `/hubs` to the API on the same
 origin). Health: `GET /health` (API incl. database), `GET /health/live`.
 
+### HTTPS with Caddy (Let's Encrypt)
+
+For a public deployment, `docker-compose.https.yml` adds a [Caddy](https://caddyserver.com) reverse proxy that
+terminates TLS with an automatically obtained and renewed Let's Encrypt certificate:
+
+```bash
+# .env: DOMAIN=bots.example.com, ACME_EMAIL=you@example.com (DNS of DOMAIN -> this host, ports 80/443 open)
+docker compose -f docker-compose.yml -f docker-compose.https.yml up -d --build
+```
+
+- The app is served at `https://${DOMAIN}`; http (port 80) redirects to https. Caddy sends HSTS
+  (`Strict-Transport-Security: max-age=31536000`).
+- The override forces `Auth__CookieSecure=true` and no longer publishes the plain `8080` port, so nginx is reachable only
+  through Caddy. Without the override the stack keeps working on `http://localhost:8080` as before.
+- Proxy chain: client → Caddy (`172.29.0.10` on the `edge` network) → nginx → API. nginx trusts `X-Forwarded-For` /
+  `X-Forwarded-Proto` only from Caddy's fixed address (`set_real_ip_from`), resolves the real client IP and forwards it to
+  the API as a single `X-Forwarded-For` entry; the API trusts only nginx (`ReverseProxy__KnownNetworks__0=172.28.0.0/16`),
+  so login lockouts and rate limits apply to the real client IP.
+- Certificates and ACME account are stored in the `caddy-data` volume (keep it to avoid Let's Encrypt rate limits).
+- Set `COMPOSE_FILE=docker-compose.yml:docker-compose.https.yml` in `.env` to use plain `docker compose` commands.
+
 ### Build solution
 
 ```bash

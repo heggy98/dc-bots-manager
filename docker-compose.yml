@@ -32,9 +32,10 @@ services:
       GoogleAuth__ClientId: ${GOOGLE_CLIENT_ID:-}
       Recaptcha__SiteKey: ${RECAPTCHA_SITE_KEY:-}
       Recaptcha__SecretKey: ${RECAPTCHA_SECRET_KEY:-}
-      # nginx (frontend container) is the only trusted proxy.
+      # nginx (frontend container) is the only trusted proxy. It always sends the real client IP as a single
+      # X-Forwarded-For entry (also behind the optional Caddy TLS proxy, see docker-compose.https.yml).
       ReverseProxy__KnownNetworks__0: "172.28.0.0/16"
-      # Plain http on localhost; set to true (default) when served over https.
+      # Plain http on localhost; docker-compose.https.yml forces true.
       Auth__CookieSecure: ${AUTH_COOKIE_SECURE:-false}
       DataProtection__CertificatePath: ${DATA_PROTECTION_CERT_PATH:-}
       DataProtection__CertificatePassword: ${DATA_PROTECTION_CERT_PASSWORD:-}

@@ -1,0 +1,48 @@
+# HTTPS override: Caddy terminates TLS (automatic Let's Encrypt certificate for DOMAIN) and proxies to nginx.
+#   docker compose -f docker-compose.yml -f docker-compose.https.yml up -d --build
+# (or set COMPOSE_FILE=docker-compose.yml:docker-compose.https.yml in .env and use plain `docker compose up -d`).
+# Needs a DNS record for DOMAIN pointing to this host and ports 80/443 reachable from the internet.
+services:
+  api:
+    environment:
+      # Served over https only: auth cookies must carry the Secure flag.
+      Auth__CookieSecure: "true"
+
+  web:
+    # Only reachable through Caddy; the plain http port is not published in this mode.
+    ports: !reset []
+    networks:
+      backend: {}
+      edge: {}
+
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    depends_on: [web]
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env for https}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env for https}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      edge:
+        # Fixed address: nginx trusts X-Forwarded-For / X-Forwarded-Proto only from here (set_real_ip_from).
+        ipv4_address: 172.29.0.10
+
+networks:
+  edge:
+    ipam:
+      config:
+        - subnet: 172.29.0.0/24
+          # Dynamic addresses stay clear of Caddy's fixed one.
+          ip_range: 172.29.0.128/25
+
+volumes:
+  caddy-data:
+  caddy-config:

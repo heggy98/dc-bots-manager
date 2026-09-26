@@ -1,0 +1,24 @@
+# TLS termination for the BotManager stack (used by docker-compose.https.yml).
+# Certificates are obtained and renewed automatically from Let's Encrypt for {$DOMAIN};
+# plain http on :80 is redirected to https.
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	header {
+		# HSTS: browsers use only https for this host for one year.
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+
+	# Prometheus metrics are internal only (nginx does not proxy them either).
+	@metrics path /metrics /metrics/*
+	respond @metrics 404
+
+	# Caddy replaces any client-supplied X-Forwarded-For with the real client IP and sets
+	# X-Forwarded-Proto=https; nginx trusts these headers only from this container (172.29.0.10).
+	reverse_proxy web:8080
+}
