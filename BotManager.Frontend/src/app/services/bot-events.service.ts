@@ -31,6 +31,10 @@ export interface BotHistoryUpdatedEvent {
 export class BotEventsService {
   private hubConnection: HubConnection | null = null;
   private subscribedBotId: number | null = null;
+  /** Bot the most recent caller wants to be subscribed to (null after disconnect). */
+  private desiredBotId: number | null = null;
+  /** Serializes connect/disconnect/group operations so they never interleave. */
+  private operationQueue: Promise<void> = Promise.resolve();
 
   readonly statusChanged$ = new Subject<BotStatusChangedEvent>();
   readonly newLog$ = new Subject<NewBotLogEvent>();
@@ -39,51 +43,156 @@ export class BotEventsService {
 
   constructor(private authService: AuthService) {}
 
-  async connectAndJoin(botId: number): Promise<void> {
-    if (this.hubConnection && this.hubConnection.state === HubConnectionState.Connected) {
-      if (this.subscribedBotId !== botId) {
-        if (this.subscribedBotId !== null) {
-          await this.hubConnection.invoke('LeaveBotGroup', this.subscribedBotId);
-        }
-        await this.hubConnection.invoke('JoinBotGroup', botId);
-        this.subscribedBotId = botId;
-      }
+  /**
+   * Returns true when the hub connection is currently established.
+   */
+  isConnected(): boolean {
+    return this.hubConnection?.state === HubConnectionState.Connected;
+  }
+
+  /**
+   * Connects to the hub (if needed) and subscribes to events for the given bot.
+   */
+  connectAndJoin(botId: number): Promise<void> {
+    this.desiredBotId = botId;
+    return this.enqueue(() => this.doConnectAndJoin(botId));
+  }
+
+  /**
+   * Leaves the current bot group and stops the connection unless a newer subscription is pending.
+   */
+  disconnect(): Promise<void> {
+    this.desiredBotId = null;
+    return this.enqueue(() => this.doDisconnect());
+  }
+
+  private enqueue(operation: () => Promise<void>): Promise<void> {
+    const run = this.operationQueue.then(operation, operation);
+    this.operationQueue = run.catch(() => undefined);
+    return run;
+  }
+
+  private async doConnectAndJoin(botId: number): Promise<void> {
+    if (this.desiredBotId !== botId) {
+      // Superseded by a newer connect/disconnect request.
       return;
     }
 
-    const tokenFactory = () => this.authService.getToken() ?? '';
+    if (!this.authService.getValidToken()) {
+      await this.stopConnection();
+      return;
+    }
 
-    this.hubConnection = new HubConnectionBuilder()
+    const existing = this.hubConnection;
+    if (existing && existing.state === HubConnectionState.Connected) {
+      await this.switchGroup(existing, botId);
+      return;
+    }
+
+    if (existing && existing.state === HubConnectionState.Reconnecting) {
+      // onreconnected will join the desired group once the connection is back.
+      return;
+    }
+
+    await this.stopConnection();
+
+    const connection = new HubConnectionBuilder()
       .withUrl('/hubs/bot-events', {
-        accessTokenFactory: tokenFactory
+        accessTokenFactory: () => this.authService.getValidToken() ?? ''
       })
       .withAutomaticReconnect()
       .configureLogging(LogLevel.Warning)
       .build();
 
-    this.registerHandlers(this.hubConnection);
+    this.registerHandlers(connection);
 
-    await this.hubConnection.start();
-    await this.hubConnection.invoke('JoinBotGroup', botId);
+    connection.onreconnected(() => {
+      void this.enqueue(async () => {
+        if (this.hubConnection !== connection) {
+          return;
+        }
+        // Group membership is per connection id and is lost on reconnect.
+        this.subscribedBotId = null;
+        if (this.desiredBotId !== null) {
+          await this.switchGroup(connection, this.desiredBotId);
+        }
+      });
+    });
+
+    connection.onclose(() => {
+      if (this.hubConnection === connection) {
+        this.hubConnection = null;
+        this.subscribedBotId = null;
+      }
+    });
+
+    this.hubConnection = connection;
+    try {
+      await connection.start();
+    } catch (err) {
+      if (this.hubConnection === connection) {
+        this.hubConnection = null;
+      }
+      throw err;
+    }
+
+    await connection.invoke('JoinBotGroup', botId);
     this.subscribedBotId = botId;
   }
 
-  async disconnect(): Promise<void> {
+  private async doDisconnect(): Promise<void> {
     if (!this.hubConnection) {
       return;
     }
 
+    if (this.desiredBotId !== null) {
+      // A newer connectAndJoin is queued; keep the connection and let it switch groups.
+      return;
+    }
+
+    await this.stopConnection();
+  }
+
+  private async switchGroup(connection: HubConnection, botId: number): Promise<void> {
+    if (this.subscribedBotId === botId) {
+      return;
+    }
+
+    if (this.subscribedBotId !== null) {
+      try {
+        await connection.invoke('LeaveBotGroup', this.subscribedBotId);
+      } catch {
+        // best effort
+      }
+      this.subscribedBotId = null;
+    }
+
+    await connection.invoke('JoinBotGroup', botId);
+    this.subscribedBotId = botId;
+  }
+
+  private async stopConnection(): Promise<void> {
+    const connection = this.hubConnection;
+    if (!connection) {
+      return;
+    }
+
     try {
-      if (this.subscribedBotId !== null && this.hubConnection.state === HubConnectionState.Connected) {
-        await this.hubConnection.invoke('LeaveBotGroup', this.subscribedBotId);
+      if (this.subscribedBotId !== null && connection.state === HubConnectionState.Connected) {
+        await connection.invoke('LeaveBotGroup', this.subscribedBotId);
       }
     } catch {
       // best effort on shutdown
     }
 
-    await this.hubConnection.stop();
     this.hubConnection = null;
     this.subscribedBotId = null;
+
+    try {
+      await connection.stop();
+    } catch {
+      // best effort on shutdown
+    }
   }
 
   private registerHandlers(connection: HubConnection): void {

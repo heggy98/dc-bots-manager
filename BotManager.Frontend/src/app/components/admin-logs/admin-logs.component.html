@@ -16,7 +16,7 @@
 <div *ngIf="activeTab === 'system'">
     <div *ngIf="loading" class="loading-spinner">Loading...</div>
     <div class="logger-box" *ngIf="!loading && systemLogs.length > 0">
-        <div class="log-entry" *ngFor="let log of systemLogs">
+        <div class="log-entry" *ngFor="let log of systemLogs; trackBy: trackByLogId">
             <span class="log-time">[{{ log.timestamp | date:'dd.MM HH:mm:ss' }}]</span>
             <span class="log-level" [ngClass]="log.level.toLowerCase()">[{{ log.level }}]</span>
             <span class="log-message">{{ log.message }}</span>
@@ -39,7 +39,7 @@
                 </tr>
             </thead>
             <tbody>
-                <tr *ngFor="let l of loginLogs" [class.row-fail]="!l.success"
+                <tr *ngFor="let l of loginLogs; trackBy: trackByLogId" [class.row-fail]="!l.success"
                     [class.row-bruteforce]="l.isBruteforceBlock">
                     <td>{{ l.timestamp | date:'dd.MM.yyyy HH:mm:ss' }}</td>
                     <td>{{ l.email }}</td>

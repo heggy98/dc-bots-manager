@@ -64,10 +64,29 @@ export class AuthService {
   }
 
   /**
-   * Returns true when a token is currently stored.
+   * Returns true when a stored token exists and has not expired.
+   * Expired or malformed tokens are cleared.
    */
   isLoggedIn(): boolean {
-    return !!this.getToken();
+    const token = this.getToken();
+    if (!token) {
+      return false;
+    }
+
+    const exp = this.getTokenExpiry(token);
+    if (exp === null || exp <= Date.now()) {
+      this.logout();
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Returns a valid (non-expired) token or null.
+   */
+  getValidToken(): string | null {
+    return this.isLoggedIn() ? this.getToken() : null;
   }
 
   /**
@@ -75,5 +94,24 @@ export class AuthService {
    */
   logout(): void {
     localStorage.removeItem('auth_token');
+  }
+
+  /**
+   * Decodes the JWT payload and returns its expiry in epoch milliseconds, or null when malformed.
+   */
+  private getTokenExpiry(token: string): number | null {
+    try {
+      const parts = token.split('.');
+      if (parts.length !== 3) {
+        return null;
+      }
+
+      let base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+      base64 += '='.repeat((4 - (base64.length % 4)) % 4);
+      const payload = JSON.parse(atob(base64));
+      return typeof payload?.exp === 'number' ? payload.exp * 1000 : null;
+    } catch {
+      return null;
+    }
   }
 }

@@ -88,6 +88,7 @@
   "bot.token_refresh_title": "Discord token expiroval nebo není autorizovaný",
   "bot.token_refresh_desc": "Token tohoto bota už není autorizovaný přes Discord API. Pro pokračování zadejte nový token.",
   "bot.token_refresh_save": "Uložit nový token",
+  "bot.token_refresh_error": "Token je neplatný nebo není autorizovaný přes Discord API.",
   "bot.running": "Běží",
   "bot.last_online": "Naposledy online",
   "bot.boards": "Board konfigurace",

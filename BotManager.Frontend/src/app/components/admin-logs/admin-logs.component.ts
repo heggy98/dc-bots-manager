@@ -61,4 +61,11 @@ export class AdminLogsComponent implements OnInit {
    * Switches the active logs tab.
    */
   setTab(tab: 'system' | 'login'): void { this.activeTab = tab; }
+
+  /**
+   * Stable identity for log rows.
+   */
+  trackByLogId(_index: number, log: { id: number }): number {
+    return log.id;
+  }
 }

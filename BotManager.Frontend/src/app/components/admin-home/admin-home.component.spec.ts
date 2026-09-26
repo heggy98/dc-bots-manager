@@ -1,4 +1,8 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideRouter } from '@angular/router';
+import { provideToastr } from 'ngx-toastr';
 
 import { AdminHomeComponent } from './admin-home.component';
 
@@ -8,7 +12,8 @@ describe('AdminHomeComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [AdminHomeComponent]
+      imports: [AdminHomeComponent],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([]), provideToastr()]
     })
     .compileComponents();
 

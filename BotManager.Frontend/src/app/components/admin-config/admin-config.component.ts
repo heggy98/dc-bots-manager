@@ -61,4 +61,11 @@ export class AdminConfigComponent implements OnInit {
     isMultiline(key: string): boolean {
         return key === 'BoardGlobal.DefaultBoardDescription';
     }
+
+    /**
+     * Stable identity for config rows.
+     */
+    trackByConfig(_index: number, cfg: SystemConfigDto): number {
+        return cfg.id;
+    }
 }

@@ -39,7 +39,7 @@
 <div *ngIf="!loading && bots.length === 0" class="loading-spinner">{{ i18n.t('admin.no_bots') }}</div>
 
 <div class="bot-grid" *ngIf="!loading && bots.length > 0">
-    <div class="card bot-admin-card" *ngFor="let bot of bots">
+    <div class="card bot-admin-card" *ngFor="let bot of bots; trackBy: trackByBot">
         <div class="bot-card-top">
             <div class="bot-avatar">
                 <img *ngIf="bot.discordBotAvatarUrl; else fallbackAvatar" [src]="bot.discordBotAvatarUrl" [alt]="bot.name" />

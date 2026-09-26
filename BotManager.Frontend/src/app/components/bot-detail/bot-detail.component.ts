@@ -1,6 +1,7 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, DestroyRef, OnDestroy, OnInit, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { BotService, AdminBotDetailDto, BotTeamsDto, TeamDto, BotConfigurationDto, BoardConfigListItemDto, UpdateBoardConfigRequest } from '../../services/bot.service';
+import { BotService, AdminBotDetailDto, BotTeamsDto, TeamDto, BotConfigurationDto, BoardConfigListItemDto, UpdateBoardConfigRequest, BotHistoryDto, BotLogDto } from '../../services/bot.service';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { I18nService } from '../../services/i18n.service';
@@ -32,6 +33,8 @@ export class BotDetailComponent implements OnInit, OnDestroy {
   tokenRefreshError = '';
   private botEventsSubscription = new Subscription();
   private fallbackSyncIntervalId: ReturnType<typeof setInterval> | null = null;
+  private configMessageTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly destroyRef = inject(DestroyRef);
 
   // Config Modal
   showConfigModal = false;
@@ -86,6 +89,10 @@ export class BotDetailComponent implements OnInit, OnDestroy {
     this.botEventsService.disconnect();
     this.stopFallbackRuntimeSync();
     this.clearTeamsSavePhaseTimer();
+    if (this.configMessageTimer) {
+      clearTimeout(this.configMessageTimer);
+      this.configMessageTimer = null;
+    }
   }
 
   /**
@@ -93,7 +100,7 @@ export class BotDetailComponent implements OnInit, OnDestroy {
    */
   loadBotDetails(): void {
     this.loading = true;
-    this.botService.getBotDetail(this.botId).subscribe({
+    this.botService.getBotDetail(this.botId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (data) => {
         this.bot = data;
         this.requireTokenRefresh = !data.isTokenAuthorized;
@@ -117,7 +124,7 @@ export class BotDetailComponent implements OnInit, OnDestroy {
           forkJoin({
             teams: this.botService.getTeams(this.botId),
             boards: this.botService.getBoards(this.botId)
-          }).subscribe({
+          }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
             next: (res) => {
               this.teamsData = res.teams;
               this.boards = res.boards;
@@ -155,9 +162,9 @@ export class BotDetailComponent implements OnInit, OnDestroy {
         this.toastr.success('Bot token updated and authorized.', 'Updated');
         this.loadBotDetails();
       },
-      error: (err) => {
+      error: () => {
         this.tokenRefreshLoading = false;
-        this.tokenRefreshError = err?.error ?? 'Token is invalid or not authorized by Discord API.';
+        this.tokenRefreshError = this.i18n.t('bot.token_refresh_error');
         this.toastr.error(this.tokenRefreshError, 'Update Failed');
       }
     });
@@ -438,7 +445,11 @@ export class BotDetailComponent implements OnInit, OnDestroy {
         this.configMessage = '✓';
         this.configLoading = false;
         this.toastr.success('Bot configuration saved.', 'Saved');
-        setTimeout(() => this.configMessage = '', 3000);
+        if (this.configMessageTimer) clearTimeout(this.configMessageTimer);
+        this.configMessageTimer = setTimeout(() => {
+          this.configMessage = '';
+          this.configMessageTimer = null;
+        }, 3000);
       },
       error: () => {
         this.configMessage = '✗';
@@ -508,7 +519,16 @@ export class BotDetailComponent implements OnInit, OnDestroy {
   /**
    * Starts the current bot after confirmation.
    */
-  startBot(): void { if (confirm(this.i18n.t('bot.confirm_start'))) this.botService.startBot(this.botId).subscribe(() => this.loadBotDetails()); }
+  startBot(): void {
+    if (!confirm(this.i18n.t('bot.confirm_start'))) return;
+    this.botService.startBot(this.botId).subscribe({
+      next: () => this.loadBotDetails(),
+      error: () => {
+        this.toastr.error(this.i18n.t('bot.start_error'), 'Error');
+        this.loadBotDetails();
+      }
+    });
+  }
 
   /**
    * Stops the current bot after confirmation.
@@ -518,7 +538,16 @@ export class BotDetailComponent implements OnInit, OnDestroy {
   /**
    * Restarts the current bot after confirmation.
    */
-  restartBot(): void { if (confirm(this.i18n.t('bot.confirm_restart'))) this.botService.restartBot(this.botId).subscribe(() => this.loadBotDetails()); }
+  restartBot(): void {
+    if (!confirm(this.i18n.t('bot.confirm_restart'))) return;
+    this.botService.restartBot(this.botId).subscribe({
+      next: () => this.loadBotDetails(),
+      error: () => {
+        this.toastr.error(this.i18n.t('bot.start_error'), 'Error');
+        this.loadBotDetails();
+      }
+    });
+  }
 
   /**
    * Gets translation key for the status timestamp label.
@@ -678,6 +707,10 @@ export class BotDetailComponent implements OnInit, OnDestroy {
   private startFallbackRuntimeSync(): void {
     this.stopFallbackRuntimeSync();
     this.fallbackSyncIntervalId = setInterval(() => {
+      // Realtime hub already pushes updates; only poll when it is down and the tab is visible.
+      if (this.botEventsService.isConnected() || document.visibilityState === 'hidden') {
+        return;
+      }
       this.refreshRuntimeSnapshot();
     }, 45000);
   }
@@ -696,7 +729,7 @@ export class BotDetailComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.botService.getBotDetail(this.botId).subscribe({
+    this.botService.getBotDetail(this.botId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (data) => {
         if (!this.bot) {
           return;
@@ -710,9 +743,27 @@ export class BotDetailComponent implements OnInit, OnDestroy {
         this.bot.histories = data.histories;
         this.bot.lastStartedAt = data.lastStartedAt;
         this.bot.lastStoppedAt = data.lastStoppedAt;
-        this.bot.botToken = data.botToken;
         this.bot.isTokenAuthorized = data.isTokenAuthorized;
       }
     });
+  }
+
+  /**
+   * Stable identity helpers for list rendering.
+   */
+  trackByGuild(_index: number, guild: string): string {
+    return guild;
+  }
+
+  trackByHistory(_index: number, history: BotHistoryDto): number {
+    return history.id;
+  }
+
+  trackByLog(_index: number, log: BotLogDto): string {
+    return `${log.timestamp}|${log.level}|${log.message}`;
+  }
+
+  trackByBoard(_index: number, board: BoardConfigListItemDto): number {
+    return board.boardConfigurationId;
   }
 }

@@ -10,7 +10,7 @@
       <div class="section">
         <h4>Teams</h4>
         <div class="teams-list">
-          <div *ngFor="let team of localTeams; let i = index" class="team-item" [class.team-item-deleted]="team._deleted">
+          <div *ngFor="let team of localTeams; let i = index; trackBy: trackTeam" class="team-item" [class.team-item-deleted]="team._deleted">
             <div *ngIf="editingTeamIndex === i" class="team-edit-form">
               <div class="form-row">
                 <input type="text" [(ngModel)]="editingTeam.name" placeholder="Team Name" />
@@ -76,7 +76,7 @@
           </div>
           <div class="emoji-grid">
             <button
-              *ngFor="let emoji of emojiSuggestions"
+              *ngFor="let emoji of emojiSuggestions; trackBy: trackEmoji"
               class="emoji-option"
               (click)="selectEmoji(emoji)"
               [disabled]="isSaving || isEmojiTakenInPicker(emoji)"

@@ -100,7 +100,7 @@
             color: var(--text-muted);
           "
         >
-          <li *ngFor="let g of bot.guilds">{{ g }}</li>
+          <li *ngFor="let g of bot.guilds; trackBy: trackByGuild">{{ g }}</li>
         </ul>
       </div>
       <p class="server-count">
@@ -177,7 +177,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let h of bot.histories" [class.history-row-reconnect]="isReconnectHistory(h.stopReason, h.errorDetails)">
+              <tr *ngFor="let h of bot.histories; trackBy: trackByHistory" [class.history-row-reconnect]="isReconnectHistory(h.stopReason, h.errorDetails)">
                 <td>{{ h.startedAt | date: "dd.MM HH:mm" }}</td>
                 <td>
                   {{ h.stoppedAt ? (h.stoppedAt | date: "dd.MM HH:mm") : "—" }}
@@ -226,7 +226,7 @@
           <div *ngIf="!bot.logs || bot.logs.length === 0" class="log-entry">
             {{ i18n.t("bot.no_logs") }}
           </div>
-          <div class="log-entry" *ngFor="let log of bot.logs">
+          <div class="log-entry" *ngFor="let log of bot.logs; trackBy: trackByLog">
             <span class="log-time"
               >[{{ log.timestamp | date: "HH:mm:ss" }}]</span
             >
@@ -255,7 +255,7 @@
       </div>
 
       <div *ngIf="!boardsLoading && boards.length > 0" class="boards-list">
-        <div class="board-card" *ngFor="let board of boards" [class.board-card-active]="board.isActive">
+        <div class="board-card" *ngFor="let board of boards; trackBy: trackByBoard" [class.board-card-active]="board.isActive">
           <div class="board-card-header">
             <div class="board-card-badges">
               <span class="status-badge online" *ngIf="board.isActive">{{ i18n.t("bot.board_active") }}</span>

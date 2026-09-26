@@ -36,6 +36,9 @@ export class TeamsEditModalComponent implements OnInit, OnChanges {
   footerNotice = '';
   shakeSaveButton = false;
   emojiCatalogLoaded = false;
+  private emojiCatalogLoading = false;
+  /** Normalized emoji -> owning team name, excluding the team targeted by the open picker. */
+  private emojiOwners = new Map<string, string>();
 
   // Common emoji suggestions
   emojiSuggestions = [
@@ -51,7 +54,7 @@ export class TeamsEditModalComponent implements OnInit, OnChanges {
    */
   ngOnInit(): void {
     this.hydrateFromInput();
-    this.loadEmojiCatalog();
+    this.ensureEmojiCatalog();
   }
 
   /**
@@ -62,8 +65,8 @@ export class TeamsEditModalComponent implements OnInit, OnChanges {
       this.hydrateFromInput();
     }
 
-    if (!this.emojiCatalogLoaded) {
-      this.loadEmojiCatalog();
+    if (changes['isOpen']) {
+      this.ensureEmojiCatalog();
     }
   }
 
@@ -264,6 +267,7 @@ export class TeamsEditModalComponent implements OnInit, OnChanges {
     }
 
     this.selectedEmojiTeamIndex = teamIndex;
+    this.rebuildEmojiOwners();
     this.showEmojiPicker = true;
   }
 
@@ -295,31 +299,50 @@ export class TeamsEditModalComponent implements OnInit, OnChanges {
    * Returns true when emoji is already assigned to another team on this board.
    */
   isEmojiTakenInPicker(emoji: string): boolean {
-    return this.getEmojiTakenByTeamName(emoji) !== null;
+    return this.emojiOwners.has(this.normalizeEmoji(emoji));
   }
 
   /**
    * Returns the team name currently using the emoji in this picker context.
    */
   getEmojiTakenByTeamName(emoji: string): string | null {
+    return this.emojiOwners.get(this.normalizeEmoji(emoji)) ?? null;
+  }
+
+  /**
+   * Stable identity for team rows.
+   */
+  trackTeam(_index: number, team: EditableTeamDto): unknown {
+    return team.teamId ?? team;
+  }
+
+  /**
+   * Stable identity for emoji picker options.
+   */
+  trackEmoji(_index: number, emoji: string): string {
+    return emoji;
+  }
+
+  /**
+   * Precomputes emoji ownership for the currently open picker context.
+   */
+  private rebuildEmojiOwners(): void {
     const targetIndex = this.editingTeamIndex !== null
       ? this.editingTeamIndex
       : (this.selectedEmojiTeamIndex !== null && this.selectedEmojiTeamIndex >= 0 ? this.selectedEmojiTeamIndex : null);
-    const normalized = this.normalizeEmoji(emoji);
 
-    const owner = this.localTeams.find((team, index) => {
-      if (team._deleted) {
-        return false;
+    const owners = new Map<string, string>();
+    this.localTeams.forEach((team, index) => {
+      if (team._deleted || (targetIndex !== null && index === targetIndex)) {
+        return;
       }
 
-      if (targetIndex !== null && index === targetIndex) {
-        return false;
+      const normalized = this.normalizeEmoji(team.emoji);
+      if (!owners.has(normalized)) {
+        owners.set(normalized, team.name);
       }
-
-      return this.normalizeEmoji(team.emoji) === normalized;
     });
-
-    return owner?.name ?? null;
+    this.emojiOwners = owners;
   }
 
   /**
@@ -417,16 +440,23 @@ export class TeamsEditModalComponent implements OnInit, OnChanges {
     }, 0);
   }
 
-  private loadEmojiCatalog(): void {
+  private ensureEmojiCatalog(): void {
+    if (!this.isOpen || this.emojiCatalogLoaded || this.emojiCatalogLoading) {
+      return;
+    }
+
+    this.emojiCatalogLoading = true;
     this.botService.getEmojiCatalog().subscribe({
       next: (catalog) => {
         if (Array.isArray(catalog) && catalog.length > 0) {
           this.emojiSuggestions = Array.from(new Set(catalog.filter(e => typeof e === 'string' && e.trim().length > 0))).slice(0, 500);
         }
         this.emojiCatalogLoaded = true;
+        this.emojiCatalogLoading = false;
       },
       error: () => {
         this.emojiCatalogLoaded = true;
+        this.emojiCatalogLoading = false;
       }
     });
   }

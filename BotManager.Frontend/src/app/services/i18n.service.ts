@@ -324,7 +324,7 @@ export class I18nService {
      */
     setLang(lang: AppLang): void {
         localStorage.setItem('lang', lang);
-        this.langSubject.next(lang);
+        this.ensureLanguageLoaded(lang).subscribe(() => this.langSubject.next(lang));
     }
 
     /**

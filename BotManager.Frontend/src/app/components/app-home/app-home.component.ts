@@ -97,4 +97,11 @@ export class AppHomeComponent implements OnInit {
     if (m > 0) return `${m}m ${s}s`;
     return `${s}s`;
   }
+
+  /**
+   * Stable identity for bot cards.
+   */
+  trackByBot(_index: number, bot: BotPublicDto): number {
+    return bot.botId;
+  }
 }

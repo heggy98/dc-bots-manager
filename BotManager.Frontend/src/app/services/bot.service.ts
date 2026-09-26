@@ -1,11 +1,10 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, shareReplay } from 'rxjs';
 
 export interface BotPublicDto {
   botId: number;
   name: string;
-  ownerUserId: string;
   isPublic: boolean;
   discordBotName?: string;
   discordBotAvatarUrl?: string;
@@ -128,6 +127,8 @@ export interface CreateBoardConfigRequest {
   providedIn: 'root'
 })
 export class BotService {
+  private emojiCatalog$: Observable<string[]> | null = null;
+
   /**
    * Creates a new bot API service.
    */
@@ -265,7 +266,13 @@ export class BotService {
    * Loads a catalog of available emojis for team selection.
    */
   getEmojiCatalog(): Observable<string[]> {
-    return this.http.get<string[]>('/api/bot/admin/emoji-catalog');
+    if (!this.emojiCatalog$) {
+      const request$ = this.http.get<string[]>('/api/bot/admin/emoji-catalog').pipe(shareReplay(1));
+      this.emojiCatalog$ = request$;
+      // Drop the cached observable on failure so a later call can retry.
+      request$.subscribe({ error: () => { if (this.emojiCatalog$ === request$) this.emojiCatalog$ = null; } });
+    }
+    return this.emojiCatalog$;
   }
 
   /**

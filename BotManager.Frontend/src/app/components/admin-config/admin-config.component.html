@@ -6,7 +6,7 @@
 </div>
 
 <div class="config-grid">
-    <div class="panel config-item" *ngFor="let cfg of configs">
+    <div class="panel config-item" *ngFor="let cfg of configs; trackBy: trackByConfig">
         <div class="config-meta">
             <h4>{{ cfg.key }}</h4>
             <p class="text-muted" *ngIf="cfg.description">{{ cfg.description }}</p>

@@ -88,6 +88,7 @@
   "bot.token_refresh_title": "Discord token expired or unauthorized",
   "bot.token_refresh_desc": "This bot token is no longer authorized by Discord API. Enter a new token to continue.",
   "bot.token_refresh_save": "Save new token",
+  "bot.token_refresh_error": "Token is invalid or not authorized by Discord API.",
   "bot.running": "Running",
   "bot.last_online": "Last online",
   "bot.boards": "Board Configurations",

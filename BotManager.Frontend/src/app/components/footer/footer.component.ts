@@ -38,7 +38,7 @@ export class FooterComponent implements OnInit, OnDestroy {
             error: () => { this.uptimeText = '—'; }
         });
 
-        this.intervalId = setInterval(() => this.updateText(), 1000);
+        this.intervalId = setInterval(() => this.updateText(), 60000);
     }
 
     /**

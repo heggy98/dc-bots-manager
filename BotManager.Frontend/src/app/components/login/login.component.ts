@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { AuthService } from '../../services/auth.service';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { I18nService } from '../../services/i18n.service';
@@ -27,6 +27,7 @@ export class LoginComponent implements OnInit {
   constructor(
     private authService: AuthService,
     private router: Router,
+    private route: ActivatedRoute,
     private toastr: ToastrService,
     public i18n: I18nService
   ) { }
@@ -59,7 +60,7 @@ export class LoginComponent implements OnInit {
       next: (res) => {
         this.authService.saveToken(res.token);
         this.toastr.success(this.i18n.t('login.success'), this.i18n.t('login.title'));
-        this.router.navigate(['/admin']);
+        this.router.navigateByUrl(this.getReturnUrl());
       },
       error: (err) => {
         this.isLoading = false;
@@ -73,6 +74,17 @@ export class LoginComponent implements OnInit {
         this.toastr.error(this.errorMessage, this.i18n.t('login.title'));
       }
     });
+  }
+
+  /**
+   * Returns a safe in-app return URL from the query string, defaulting to the admin home.
+   */
+  private getReturnUrl(): string {
+    const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
+    if (returnUrl && returnUrl.startsWith('/') && !returnUrl.startsWith('//') && !returnUrl.startsWith('/login')) {
+      return returnUrl;
+    }
+    return '/admin';
   }
 
   /**

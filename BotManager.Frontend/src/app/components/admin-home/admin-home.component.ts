@@ -190,4 +190,11 @@ export class AdminHomeComponent implements OnInit {
     if (m > 0) return `${m}m ${s}s`;
     return `${s}s`;
   }
+
+  /**
+   * Stable identity for bot cards.
+   */
+  trackByBot(_index: number, bot: AdminBotDto): number {
+    return bot.botId;
+  }
 }
