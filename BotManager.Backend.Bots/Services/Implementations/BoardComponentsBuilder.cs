@@ -101,19 +101,20 @@ namespace BotManager.Backend.Bots.Services.Implementations
                 builder.WithSelectMenu(select, row: menuIndex);
             }
 
-            // Admin action buttons request row 4. Discord.Net appends a new row when the requested
-            // row does not exist yet, so with fewer than 4 menus the buttons land on rows after the menus.
+            // Both admin buttons share the first row after the menus (row 4 on a full board).
+            var adminRow = Math.Min(menuCount, AdminActionRow);
+
             builder.WithButton(new ButtonBuilder()
                 .WithLabel("Add Team")
                 .WithCustomId(BoardAddTeamActionId)
                 .WithStyle(ButtonStyle.Success)
-                .WithEmote(new Emoji("➕")), row: AdminActionRow);
+                .WithEmote(new Emoji("➕")), row: adminRow);
 
             builder.WithButton(new ButtonBuilder()
                 .WithLabel("Refresh Board")
                 .WithCustomId(BoardRefreshActionId)
                 .WithStyle(ButtonStyle.Secondary)
-                .WithEmote(new Emoji("🔄")), row: AdminActionRow);
+                .WithEmote(new Emoji("🔄")), row: adminRow);
 
             return builder;
         }

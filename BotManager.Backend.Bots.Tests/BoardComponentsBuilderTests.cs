@@ -61,8 +61,8 @@ public class BoardComponentsBuilderTests
         Assert.Equal(expectedMenus, menus.Count);
         Assert.All(menus, m => Assert.InRange(m.Options.Count, 1, BoardComponentsBuilder.MaxOptionsPerMenu));
         Assert.Equal(teamCount, menus.Sum(m => m.Options.Count));
-        // Menus occupy the leading rows; admin buttons follow; Discord allows at most 5 rows.
-        Assert.InRange(message.Components.Count, expectedMenus + 1, 5);
+        // Menus occupy the leading rows; both admin buttons share the single row after them.
+        Assert.Equal(expectedMenus + 1, message.Components.Count);
         var rows = message.Components.ToList();
         for (var i = 0; i < expectedMenus; i++)
         {
