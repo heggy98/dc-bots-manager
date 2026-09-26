@@ -178,6 +178,8 @@ try
     builder.Services.AddSingleton<IBotNotificationService, BotNotificationService>();
     // Bot down/recovery alerts (Alerts:DiscordWebhookUrl and/or Alerts:Smtp:*; all optional).
     builder.Services.AddBotAlerts(builder.Configuration);
+    // OpenTelemetry metrics/traces (Metrics:Enabled -> /metrics, OpenTelemetry:OtlpEndpoint -> OTLP); off by default.
+    builder.AddBotManagerObservability();
 
     var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
     if (corsOrigins == null || corsOrigins.Length == 0)
@@ -327,6 +329,8 @@ try
     }
 
     app.UseForwardedHeaders();
+    // Prometheus scrape endpoint: internal (non-proxied) requests or Metrics:ApiKey bearer only.
+    app.UseBotManagerMetricsEndpoint();
     app.UseMiddleware<SecurityHeadersMiddleware>((IEnumerable<string>)corsOrigins);
 
     if (app.Environment.IsDevelopment())

@@ -27,6 +27,7 @@ namespace BotManager.Backend.Bots.Services.Implementations
         private readonly DiscordInteractionDispatcher _interactionDispatcher;
         private readonly DiscordReactionDispatcher _reactionDispatcher;
         private readonly GatewayStatusTracker _statusTracker;
+        private readonly BotManagerMetrics _metrics;
         private volatile bool _isRunning = false;
         private volatile bool _isStopping = false;
         private int? _currentBotId;
@@ -47,14 +48,16 @@ namespace BotManager.Backend.Bots.Services.Implementations
             IPluginRegistry pluginRegistry,
             IBoardMessageLocator boardMessageLocator,
             IBotNotificationService notificationService,
-            IBotAlertService alertService)
+            IBotAlertService alertService,
+            BotManagerMetrics metrics)
         {
             _botId = botId;
+            _metrics = metrics;
             _logger = logger;
             _scopeFactory = scopeFactory;
             _pluginHost = new BoardPluginHost(logger, pluginRegistry);
             _reactionDispatcher = new DiscordReactionDispatcher(botId, logger, scopeFactory, _pluginHost, HasCurrentBot, () => _client);
-            _interactionDispatcher = new DiscordInteractionDispatcher(botId, logger, scopeFactory, _pluginHost, HasCurrentBot);
+            _interactionDispatcher = new DiscordInteractionDispatcher(botId, logger, scopeFactory, _pluginHost, HasCurrentBot, metrics);
             _boardPublisher = new BoardMessagePublisher(logger, scopeFactory, boardMessageLocator, _reactionDispatcher.InvalidateBoardMessageIds);
             _statusTracker = new GatewayStatusTracker(botId, logger, scopeFactory, notificationService, alertService);
         }
@@ -235,6 +238,11 @@ namespace BotManager.Backend.Bots.Services.Implementations
         }
 
         /// <summary>
+        /// Current gateway heartbeat latency in milliseconds (0 without a client).
+        /// </summary>
+        public int Latency => _client?.Latency ?? 0;
+
+        /// <summary>
         /// Gets a textual representation of current runtime connection state.
         /// </summary>
         public string GetStatus()
@@ -369,6 +377,7 @@ namespace BotManager.Backend.Bots.Services.Implementations
             }
 
             var isGatewayReconnect = ex is Discord.WebSocket.GatewayReconnectException;
+            _metrics.RecordDisconnect(_botId);
 
             if (ex != null)
             {

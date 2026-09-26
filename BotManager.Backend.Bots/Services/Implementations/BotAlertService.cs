@@ -37,6 +37,7 @@ namespace BotManager.Backend.Bots.Services.Implementations
         private readonly BotAlertOptions _options;
         private readonly ILogger<BotAlertService> _logger;
         private readonly TimeProvider _timeProvider;
+        private readonly BotManagerMetrics? _metrics;
         private readonly Uri? _webhookUri;
         private readonly bool _smtpEnabled;
         private readonly ConcurrentDictionary<int, BotAlertState> _states = new();
@@ -48,8 +49,10 @@ namespace BotManager.Backend.Bots.Services.Implementations
             IHttpClientFactory httpClientFactory,
             IOptions<BotAlertOptions> options,
             ILogger<BotAlertService> logger,
-            TimeProvider? timeProvider = null)
+            TimeProvider? timeProvider = null,
+            BotManagerMetrics? metrics = null)
         {
+            _metrics = metrics;
             _httpClientFactory = httpClientFactory;
             _options = options.Value;
             _logger = logger;
@@ -159,12 +162,15 @@ namespace BotManager.Backend.Bots.Services.Implementations
                 {
                     _logger.LogWarning("Discord alert webhook returned {StatusCode} for bot {BotId}", (int)response.StatusCode, alert.BotId);
                 }
+
+                _metrics?.RecordAlertSent(alert.Kind, "discord", response.IsSuccessStatusCode);
             }
             catch (Exception ex)
             {
                 // Log the exception type/message only: HttpRequestException messages never contain the URL path,
                 // but the webhook URL itself (it embeds the secret) is never logged.
                 _logger.LogWarning("Failed to post Discord alert for bot {BotId}: {Error}", alert.BotId, ex.GetType().Name + ": " + ex.Message);
+                _metrics?.RecordAlertSent(alert.Kind, "discord", false);
             }
         }
 
@@ -202,10 +208,12 @@ namespace BotManager.Backend.Bots.Services.Implementations
                 }
 
                 await client.SendMailAsync(message, cancellationToken);
+                _metrics?.RecordAlertSent(alert.Kind, "email", true);
             }
             catch (Exception ex)
             {
                 _logger.LogWarning("Failed to send alert e-mail for bot {BotId}: {Error}", alert.BotId, ex.GetType().Name + ": " + ex.Message);
+                _metrics?.RecordAlertSent(alert.Kind, "email", false);
             }
         }
 

@@ -20,6 +20,7 @@ namespace BotManager.Backend.Bots.Services.Implementations
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly BoardPluginHost _pluginHost;
         private readonly Func<bool> _isSessionActive;
+        private readonly BotManagerMetrics _metrics;
 
         /// <summary>
         /// Creates a new interaction dispatcher.
@@ -30,8 +31,10 @@ namespace BotManager.Backend.Bots.Services.Implementations
             ILogger logger,
             IServiceScopeFactory scopeFactory,
             BoardPluginHost pluginHost,
-            Func<bool> isSessionActive)
+            Func<bool> isSessionActive,
+            BotManagerMetrics metrics)
         {
+            _metrics = metrics;
             _botId = botId;
             _logger = logger;
             _scopeFactory = scopeFactory;
@@ -230,6 +233,7 @@ namespace BotManager.Backend.Bots.Services.Implementations
                 var setup = _pluginHost.TryPreparePluginContext(serviceProvider, bot, db, command.CommandName);
                 if (!setup.Success || setup.Plugin == null || setup.PluginContext == null)
                 {
+                    _metrics.RecordCommandExecuted(command.CommandName, success: false);
                     await SendInteractionMessageAsync(command, setup.UserMessage);
                     return;
                 }
@@ -237,6 +241,7 @@ namespace BotManager.Backend.Bots.Services.Implementations
                 await _pluginHost.EnsurePluginInitializedAsync(setup.Plugin, setup.PluginContext);
 
                 var handled = await setup.Plugin.HandleCommandAsync(command, setup.PluginContext);
+                _metrics.RecordCommandExecuted(command.CommandName, handled);
                 if (!handled)
                 {
                     _logger.LogWarning("Command {CommandName} was not handled by plugin", command.CommandName);
@@ -251,6 +256,7 @@ namespace BotManager.Backend.Bots.Services.Implementations
             }
             catch (Exception ex)
             {
+                _metrics.RecordCommandExecuted(command.CommandName, success: false);
                 _logger.LogError(ex, "Unhandled error while dispatching slash command {CommandName} to plugin", command.CommandName);
                 await SendInteractionMessageAsync(command, "Nastala chyba při zpracování příkazu.");
             }

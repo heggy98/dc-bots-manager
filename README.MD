@@ -101,6 +101,11 @@ Optional settings:
 - `Alerts:DebounceMinutes` – at most one down alert per bot within this window (default 10); a "back online" alert is
   only sent after a delivered down alert, so a flapping bot cannot spam. `Alerts:NotifyRecovery` (default `true`)
   toggles recovery alerts. Alerts never contain tokens; delivery failures are only logged.
+- `Metrics:Enabled` – serves Prometheus metrics at `/metrics` (default `false`; `true` in docker-compose). Only direct,
+  non-proxied requests are answered (requests carrying `X-Forwarded-*` get 404), or – when `Metrics:ApiKey` is set – only
+  requests with `Authorization: Bearer <key>`. nginx and Caddy never expose `/metrics`.
+- `OpenTelemetry:OtlpEndpoint` / `OtlpProtocol` (`grpc` or `http/protobuf`) / `ServiceName` – export traces
+  (ASP.NET Core, HttpClient, SQL) and metrics to an OTLP collector. Discord webhook/interaction URLs are never traced.
 - `DataProtection:CertificatePath` / `DataProtection:CertificatePassword` – certificate used to encrypt the
   Data Protection key ring. Keys are stored in the database (`DataProtectionKeys`); on Windows they are protected
   with DPAPI automatically, on Linux/containers configure a certificate.
@@ -165,6 +170,26 @@ docker compose up -d --build
 
 The app runs at `http://localhost:8080` (nginx serves the SPA and proxies `/api` and `/hubs` to the API on the same
 origin). Health: `GET /health` (API incl. database), `GET /health/live`.
+
+### Monitoring (Prometheus + Grafana)
+
+```bash
+# .env: GRAFANA_ADMIN_PASSWORD=<strong password>, METRICS_ENABLED=true (default)
+docker compose --profile monitoring up -d
+```
+
+Prometheus scrapes `api:8080/metrics` on the internal network (not published); Grafana runs on `http://127.0.0.1:3000`
+with a provisioned Prometheus datasource and the "BotManager overview" dashboard. Custom metrics (meter `BotManager`):
+
+| Metric | Type | Labels |
+| --- | --- | --- |
+| `bots_running` | gauge | – |
+| `gateway_latency_ms` | gauge | `bot_id` |
+| `commands_executed_total` | counter | `command`, `success` |
+| `bot_disconnects_total` | counter | `bot_id` |
+| `alerts_sent_total` | counter | `kind`, `channel`, `success` |
+
+plus ASP.NET Core (`http_server_request_duration_seconds`), HttpClient and .NET runtime metrics.
 
 ### HTTPS with Caddy (Let's Encrypt)
 
