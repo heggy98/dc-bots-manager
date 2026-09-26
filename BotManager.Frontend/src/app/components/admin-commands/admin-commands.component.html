@@ -8,21 +8,21 @@
   </div>
 </div>
 
-@if (saveMessage) {
-  <div class="success-alert">{{ saveMessage }}</div>
+@if (saveMessage()) {
+  <div class="success-alert">{{ saveMessage() }}</div>
 }
 
-@if (loading) {
+@if (loading()) {
   <div class="loading-spinner">{{ i18n.t('admin.loading') }}</div>
 }
 
-@if (!loading && commands.length === 0) {
+@if (!loading() && commands().length === 0) {
   <div class="loading-spinner">{{ i18n.t('commands.none') }}</div>
 }
 
-@if (!loading && commandGroups.length > 0) {
+@if (!loading() && commandGroups().length > 0) {
   <div class="commands-group-list">
-    @for (group of commandGroups; track trackByCommandGroup($index, group)) {
+    @for (group of commandGroups(); track trackByCommandGroup($index, group)) {
       <div class="panel command-group">
         <div class="cmd-header">
           <h3>/{{ group.commandName }}</h3>
@@ -78,8 +78,8 @@
 
 <!-- Modal -->
 <app-command-edit-modal
-  [isOpen]="showEditModal"
-  [command]="editingCommand"
+  [isOpen]="showEditModal()"
+  [command]="editingCommand()"
   (close)="closeEditModal()"
   (save)="saveCommand($event)">
 </app-command-edit-modal>

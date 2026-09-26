@@ -7,50 +7,50 @@
         }</h3>
         <button class="close-btn" (click)="closeModal()">✕</button>
       </div>
-      @if (draft) {
+      @if (draft(); as draft) {
         <div class="modal-body">
           <form (ngSubmit)="saveCommand()">
             <div class="form-group">
               <label>Description</label>
-              <input type="text" [(ngModel)]="draft.description" name="description" />
+              <input type="text" [ngModel]="draft.description" (ngModelChange)="updateDraft('description', $event)" name="description" />
             </div>
             <div class="form-group">
               <label>Permission Level</label>
-              <input type="number" min="0" max="10" [(ngModel)]="draft.minimumPermissionLevel" name="permissionLevel" />
+              <input type="number" min="0" max="10" [ngModel]="draft.minimumPermissionLevel" (ngModelChange)="updateDraft('minimumPermissionLevel', $event)" name="permissionLevel" />
               <p class="form-hint">0 = Public, higher = more restricted</p>
             </div>
             <div class="form-group inline-field">
-              <input type="checkbox" id="isEnabled" [(ngModel)]="draft.isEnabled" name="isEnabled" />
+              <input type="checkbox" id="isEnabled" [ngModel]="draft.isEnabled" (ngModelChange)="updateDraft('isEnabled', $event)" name="isEnabled" />
               <label for="isEnabled">Enabled</label>
             </div>
             <div class="form-group">
               <label>User Hint</label>
-              <input type="text" [(ngModel)]="draft.userHint" name="userHint" placeholder="Help text shown to users" />
+              <input type="text" [ngModel]="draft.userHint" (ngModelChange)="updateDraft('userHint', $event)" name="userHint" placeholder="Help text shown to users" />
             </div>
             <div class="form-divider">Messages</div>
             <div class="form-group">
               <label>Success Message</label>
-              <input type="text" [(ngModel)]="draft.successMessage" name="successMessage" />
+              <input type="text" [ngModel]="draft.successMessage" (ngModelChange)="updateDraft('successMessage', $event)" name="successMessage" />
             </div>
             <div class="form-group">
               <label>Permission Message</label>
-              <input type="text" [(ngModel)]="draft.permissionMessage" name="permissionMessage" />
+              <input type="text" [ngModel]="draft.permissionMessage" (ngModelChange)="updateDraft('permissionMessage', $event)" name="permissionMessage" />
             </div>
             <div class="form-group">
               <label>Error Message</label>
-              <input type="text" [(ngModel)]="draft.errorMessage" name="errorMessage" />
+              <input type="text" [ngModel]="draft.errorMessage" (ngModelChange)="updateDraft('errorMessage', $event)" name="errorMessage" />
             </div>
             <div class="form-group">
               <label>Admin-Only Message</label>
-              <input type="text" [(ngModel)]="draft.adminOnlyMessage" name="adminOnlyMessage" />
+              <input type="text" [ngModel]="draft.adminOnlyMessage" (ngModelChange)="updateDraft('adminOnlyMessage', $event)" name="adminOnlyMessage" />
             </div>
             <div class="form-group">
               <label>Invalid Arguments Message</label>
-              <input type="text" [(ngModel)]="draft.invalidArgumentsMessage" name="invalidArgumentsMessage" />
+              <input type="text" [ngModel]="draft.invalidArgumentsMessage" (ngModelChange)="updateDraft('invalidArgumentsMessage', $event)" name="invalidArgumentsMessage" />
             </div>
             <div style="display: flex; gap: 8px; margin-top: 24px;">
-              <button type="submit" class="btn btn-primary" [disabled]="loading">
-                {{ loading ? 'Saving...' : 'Save' }}
+              <button type="submit" class="btn btn-primary" [disabled]="loading()">
+                {{ loading() ? 'Saving...' : 'Save' }}
               </button>
               <button type="button" class="btn btn-outline" (click)="closeModal()">Cancel</button>
             </div>

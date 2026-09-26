@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject, signal } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 import { GlobalCommandDto, UpdateGlobalCommandDto } from '../../services/commands.service';
@@ -8,34 +8,52 @@ import { GlobalCommandDto, UpdateGlobalCommandDto } from '../../services/command
   standalone: true,
   imports: [FormsModule],
   templateUrl: './command-edit-modal.component.html',
-  styleUrl: './command-edit-modal.component.css'
+  styleUrl: './command-edit-modal.component.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class CommandEditModalComponent {
+export class CommandEditModalComponent implements OnChanges {
   @Input() isOpen = false;
   @Input() command: GlobalCommandDto | null = null;
   @Output() close = new EventEmitter<void>();
   @Output() save = new EventEmitter<UpdateGlobalCommandDto>();
 
-  draft: UpdateGlobalCommandDto | null = null;
-  loading = false;
+  readonly draft = signal<UpdateGlobalCommandDto | null>(null);
+  readonly loading = signal(false);
+
+  private saveTimer: ReturnType<typeof setTimeout> | null = null;
+
+  constructor() {
+    inject(DestroyRef).onDestroy(() => {
+      if (this.saveTimer) clearTimeout(this.saveTimer);
+    });
+  }
 
   /**
-   * Synchronizes local draft data when selected command changes.
+   * Synchronizes local draft data when the selected command changes or the modal is (re)opened.
    */
-  ngOnChanges(): void {
-    if (this.command) {
-      this.draft = {
-        description: this.command.description,
-        minimumPermissionLevel: this.command.minimumPermissionLevel,
-        isEnabled: this.command.isEnabled,
-        userHint: this.command.userHint,
-        successMessage: this.command.successMessage,
-        permissionMessage: this.command.permissionMessage,
-        errorMessage: this.command.errorMessage,
-        adminOnlyMessage: this.command.adminOnlyMessage,
-        invalidArgumentsMessage: this.command.invalidArgumentsMessage
-      };
+  ngOnChanges(changes: SimpleChanges): void {
+    const opened = !!changes['isOpen'] && this.isOpen;
+    if ((opened || changes['command']) && this.command) {
+      const command = this.command;
+      this.draft.set({
+        description: command.description,
+        minimumPermissionLevel: command.minimumPermissionLevel,
+        isEnabled: command.isEnabled,
+        userHint: command.userHint,
+        successMessage: command.successMessage,
+        permissionMessage: command.permissionMessage,
+        errorMessage: command.errorMessage,
+        adminOnlyMessage: command.adminOnlyMessage,
+        invalidArgumentsMessage: command.invalidArgumentsMessage
+      });
     }
+  }
+
+  /**
+   * Immutably updates a single draft field from a form control.
+   */
+  updateDraft<K extends keyof UpdateGlobalCommandDto>(key: K, value: UpdateGlobalCommandDto[K]): void {
+    this.draft.update(d => (d ? { ...d, [key]: value } : d));
   }
 
   /**
@@ -43,21 +61,23 @@ export class CommandEditModalComponent {
    */
   closeModal(): void {
     this.close.emit();
-    this.draft = null;
+    this.draft.set(null);
   }
 
   /**
    * Emits save event with current draft values.
    */
   saveCommand(): void {
-    if (!this.draft) {
+    const draft = this.draft();
+    if (!draft) {
       return;
     }
 
-    this.loading = true;
-    this.save.emit(this.draft);
-    setTimeout(() => {
-      this.loading = false;
+    this.loading.set(true);
+    this.save.emit(draft);
+    this.saveTimer = setTimeout(() => {
+      this.saveTimer = null;
+      this.loading.set(false);
       this.closeModal();
     }, 300);
   }

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CommandsService, GlobalCommandDto, UpdateGlobalCommandDto } from '../../services/commands.service';
@@ -15,16 +15,17 @@ interface CommandGroupVm {
   selector: 'app-admin-commands',
   standalone: true,
   imports: [CommonModule, FormsModule, CommandEditModalComponent],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-commands.component.html',
   styleUrl: './admin-commands.component.css'
 })
 export class AdminCommandsComponent implements OnInit {
-  commands: GlobalCommandDto[] = [];
-  commandGroups: CommandGroupVm[] = [];
-  loading = true;
-  saveMessage = '';
-  showEditModal = false;
-  editingCommand: GlobalCommandDto | null = null;
+  readonly commands = signal<GlobalCommandDto[]>([]);
+  readonly commandGroups = computed(() => this.buildCommandGroups(this.commands()));
+  readonly loading = signal(true);
+  readonly saveMessage = signal('');
+  readonly showEditModal = signal(false);
+  readonly editingCommand = signal<GlobalCommandDto | null>(null);
 
   /**
    * Creates a new admin commands component.
@@ -46,15 +47,14 @@ export class AdminCommandsComponent implements OnInit {
    * Loads and groups global commands for UI rendering.
    */
   loadCommands(): void {
-    this.loading = true;
+    this.loading.set(true);
     this.commandsService.getGlobalCommands().subscribe({
       next: (data) => {
-        this.commands = data;
-        this.commandGroups = this.buildCommandGroups(data);
-        this.loading = false;
+        this.commands.set(data);
+        this.loading.set(false);
       },
       error: () => {
-        this.loading = false;
+        this.loading.set(false);
       }
     });
   }
@@ -63,36 +63,37 @@ export class AdminCommandsComponent implements OnInit {
    * Opens the command edit modal.
    */
   openEditModal(command: GlobalCommandDto): void {
-    this.editingCommand = command;
-    this.showEditModal = true;
-    this.saveMessage = '';
+    this.editingCommand.set(command);
+    this.showEditModal.set(true);
+    this.saveMessage.set('');
   }
 
   /**
    * Closes the command edit modal.
    */
   closeEditModal(): void {
-    this.showEditModal = false;
-    this.editingCommand = null;
+    this.showEditModal.set(false);
+    this.editingCommand.set(null);
   }
 
   /**
    * Saves edited command settings.
    */
   saveCommand(draft: UpdateGlobalCommandDto): void {
-    if (!this.editingCommand) {
+    const command = this.editingCommand();
+    if (!command) {
       return;
     }
 
-    this.commandsService.updateGlobalCommand(this.editingCommand.commandName, this.editingCommand.subCommandName, draft).subscribe({
+    this.commandsService.updateGlobalCommand(command.commandName, command.subCommandName, draft).subscribe({
       next: (result) => {
-        this.saveMessage = `${this.i18n.t('commands.saved')}: ${result.updated}`;
-        this.toastr.success(this.saveMessage, this.i18n.t('commands.save'));
+        this.saveMessage.set(`${this.i18n.t('commands.saved')}: ${result.updated}`);
+        this.toastr.success(this.saveMessage(), this.i18n.t('commands.save'));
         this.loadCommands();
       },
       error: () => {
-        this.saveMessage = this.i18n.t('commands.save_error');
-        this.toastr.error(this.saveMessage, this.i18n.t('commands.save'));
+        this.saveMessage.set(this.i18n.t('commands.save_error'));
+        this.toastr.error(this.saveMessage(), this.i18n.t('commands.save'));
       }
     });
   }

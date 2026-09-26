@@ -6,7 +6,7 @@
 </div>
 
 <div class="config-grid">
-  @for (cfg of configs; track trackByConfig($index, cfg)) {
+  @for (cfg of configs(); track trackByConfig($index, cfg)) {
     <div class="panel config-item">
       <div class="config-meta">
         <h4>{{ cfg.key }}</h4>
@@ -16,13 +16,13 @@
       </div>
       <div class="config-control">
         @if (isMultiline(cfg.key)) {
-          <textarea [(ngModel)]="editValues[cfg.key]" rows="4"></textarea>
+          <textarea [ngModel]="editValues()[cfg.key]" (ngModelChange)="setEditValue(cfg.key, $event)" rows="4"></textarea>
         }
         @if (!isMultiline(cfg.key)) {
-          <input type="text" [(ngModel)]="editValues[cfg.key]" />
+          <input type="text" [ngModel]="editValues()[cfg.key]" (ngModelChange)="setEditValue(cfg.key, $event)" />
         }
         <button class="btn btn-primary btn-sm" (click)="save(cfg)">
-          {{ savedKey === cfg.key ? '\u2713' : i18n.t('config.save') }}
+          {{ savedKey() === cfg.key ? '\u2713' : i18n.t('config.save') }}
         </button>
       </div>
     </div>
