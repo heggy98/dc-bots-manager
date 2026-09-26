@@ -1,0 +1,15 @@
+:host { display: block; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border-color); }
+.transfer-title { font-weight: 700; margin-bottom: 8px; }
+.transfer-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.file-input { display: none; }
+.hint { font-size: 0.74rem; color: var(--text-muted); margin-top: 6px; }
+.transfer-errors { margin-top: 10px; font-size: 0.8rem; }
+.transfer-errors ul { margin: 6px 0 0; padding-left: 18px; }
+.file-name { font-family: var(--font-mono); font-size: 0.74rem; color: var(--text-muted); margin-left: 6px; word-break: break-all; }
+.preview { margin-top: 12px; padding: 12px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-glass); font-size: 0.82rem; }
+.preview-title { font-weight: 700; margin-bottom: 8px; }
+dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin-bottom: 10px; }
+dt { color: var(--text-muted); }
+dd { margin: 0; color: var(--text-primary); }
+.option { display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 8px; }
+.warnings { margin: 0 0 8px; padding-left: 18px; color: var(--warning); }

@@ -148,6 +148,7 @@
               />
             {{ i18n.t("bot.autostart") }}
           </label>
+          <app-bot-config-transfer [botId]="bot.botId" (imported)="loadBotDetails(); loadBoards()" />
         </div>
         <!-- Right: Stats + Logs + History -->
         <div class="right-col">

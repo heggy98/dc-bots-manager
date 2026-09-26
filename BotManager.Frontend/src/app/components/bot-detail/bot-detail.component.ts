@@ -14,10 +14,11 @@ import { BotEventsService } from '../../services/bot-events.service';
 import { forkJoin, Subscription } from 'rxjs';
 import { LiveDurationComponent } from '../live-duration/live-duration.component';
 import { UsageStatsComponent } from '../usage-stats/usage-stats.component';
+import { BotConfigTransferComponent } from '../bot-config-transfer/bot-config-transfer.component';
 
 @Component({
   selector: 'app-bot-detail',
-  imports: [CommonModule, FormsModule, RouterLink, TeamsEditModalComponent, JsonEditorModalComponent, ConfigEditModalComponent, BoardConfigEditModalComponent, LiveDurationComponent, UsageStatsComponent],
+  imports: [CommonModule, FormsModule, RouterLink, TeamsEditModalComponent, JsonEditorModalComponent, ConfigEditModalComponent, BoardConfigEditModalComponent, LiveDurationComponent, UsageStatsComponent, BotConfigTransferComponent],
   templateUrl: './bot-detail.component.html',
   styleUrl: './bot-detail.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush
