@@ -21,6 +21,8 @@ namespace BotManager.Backend.Bots.Services.Implementations
         private readonly IPluginRegistry _pluginRegistry;
         private readonly IBoardMessageLocator _boardMessageLocator;
         private readonly IBotNotificationService _notificationService;
+        private readonly IDiscordGatewayClientFactory _clientFactory;
+        private readonly DiscordRuntimeOptions _options;
 
         /// <summary>
         /// Creates a new Discord runtime service.
@@ -32,7 +34,26 @@ namespace BotManager.Backend.Bots.Services.Implementations
             IPluginRegistry pluginRegistry,
             IBoardMessageLocator boardMessageLocator,
             IBotNotificationService notificationService)
+            : this(logger, loggerFactory, scopeFactory, pluginRegistry, boardMessageLocator, notificationService,
+                DiscordSocketGatewayClientFactory.Instance, DiscordRuntimeOptions.Default)
         {
+        }
+
+        /// <summary>
+        /// Test seam: creates the runtime with a custom gateway client factory and timing options.
+        /// </summary>
+        internal DiscordBotRuntimeService(
+            ILogger<DiscordBotRuntimeService> logger,
+            ILoggerFactory loggerFactory,
+            IServiceScopeFactory scopeFactory,
+            IPluginRegistry pluginRegistry,
+            IBoardMessageLocator boardMessageLocator,
+            IBotNotificationService notificationService,
+            IDiscordGatewayClientFactory clientFactory,
+            DiscordRuntimeOptions options)
+        {
+            _clientFactory = clientFactory;
+            _options = options;
             _logger = logger;
             _loggerFactory = loggerFactory;
             _scopeFactory = scopeFactory;
@@ -70,7 +91,9 @@ namespace BotManager.Backend.Bots.Services.Implementations
                     _scopeFactory,
                     _pluginRegistry,
                     _boardMessageLocator,
-                    _notificationService);
+                    _notificationService,
+                    _clientFactory,
+                    _options);
 
                 try
                 {

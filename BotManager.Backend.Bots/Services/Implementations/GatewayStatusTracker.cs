@@ -23,6 +23,7 @@ namespace BotManager.Backend.Bots.Services.Implementations
         private readonly ILogger _logger;
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly IBotNotificationService _notificationService;
+        private readonly TimeSpan _disconnectGrace;
 
         /// <summary>
         /// Creates a new gateway status tracker.
@@ -31,8 +32,10 @@ namespace BotManager.Backend.Bots.Services.Implementations
             int botId,
             ILogger logger,
             IServiceScopeFactory scopeFactory,
-            IBotNotificationService notificationService)
+            IBotNotificationService notificationService,
+            TimeSpan? disconnectGrace = null)
         {
+            _disconnectGrace = disconnectGrace ?? TimeSpan.FromSeconds(DisconnectGraceSeconds);
             _botId = botId;
             _logger = logger;
             _scopeFactory = scopeFactory;
@@ -64,7 +67,7 @@ namespace BotManager.Backend.Bots.Services.Implementations
             Func<ConnectionState> getConnectionState,
             Action onMarkedNotRunning)
         {
-            await Task.Delay(TimeSpan.FromSeconds(DisconnectGraceSeconds));
+            await Task.Delay(_disconnectGrace);
 
             if (!GatewayDisconnectPolicy.ShouldMarkOffline(disconnectGeneration, getCurrentGeneration(), getConnectionState(), persistedStatus: null))
             {
@@ -97,9 +100,10 @@ namespace BotManager.Backend.Bots.Services.Implementations
                     .FirstOrDefaultAsync();
 
                 var stopAt = DateTime.UtcNow;
+                var graceSeconds = _disconnectGrace.TotalSeconds;
                 var reason = wasGatewayReconnect
-                    ? $"Gateway reconnect failed (>{DisconnectGraceSeconds}s timeout)"
-                    : $"Neočekávaný gateway disconnect (>{DisconnectGraceSeconds}s)";
+                    ? $"Gateway reconnect failed (>{graceSeconds}s timeout)"
+                    : $"Neočekávaný gateway disconnect (>{graceSeconds}s)";
                 var details = ex?.ToString() ?? "Gateway disconnected without exception details.";
 
                 bot.Status = BotStatus.Offline;
