@@ -11,6 +11,8 @@
   }}</button>
   <button class="tab" [class.active]="activeTab() === 'login'" (click)="setTab('login')">{{ i18n.t('logs.login_tab')
   }}</button>
+  <button class="tab" [class.active]="activeTab() === 'admin'" (click)="setTab('admin')">{{ i18n.t('logs.admin_tab')
+  }}</button>
 </div>
 
 @if (activeTab() === 'system') {
@@ -75,6 +77,42 @@
     @if (loginLogs().length === 0) {
       <p class="text-muted" style="text-align:center; padding:28px;">{{
       i18n.t('logs.no_login_logs') }}</p>
+    }
+  </div>
+}
+
+@if (activeTab() === 'admin') {
+  <div>
+    @if (adminLogs().length > 0) {
+      <div class="login-audit-table">
+        <table>
+          <thead>
+            <tr>
+              <th>{{ i18n.t('logs.col_time') }}</th>
+              <th>{{ i18n.t('logs.col_actor') }}</th>
+              <th>{{ i18n.t('logs.col_action') }}</th>
+              <th>{{ i18n.t('logs.col_target') }}</th>
+              <th>{{ i18n.t('logs.col_details') }}</th>
+              <th>{{ i18n.t('logs.col_ip') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (a of adminLogs(); track a.id) {
+              <tr>
+                <td>{{ a.timestamp | date:'dd.MM.yyyy HH:mm:ss' }}</td>
+                <td>{{ a.actorEmail }}</td>
+                <td><code>{{ a.action }}</code></td>
+                <td>{{ a.targetType ? a.targetType + (a.targetId ? ' #' + a.targetId : '') : '—' }}</td>
+                <td class="text-muted audit-details">{{ a.details || '—' }}</td>
+                <td>{{ a.ipAddress || '—' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+    @if (adminLogs().length === 0) {
+      <p class="text-muted" style="text-align:center; padding:28px;">{{ i18n.t('logs.no_admin_logs') }}</p>
     }
   </div>
 }

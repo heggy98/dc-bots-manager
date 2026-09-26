@@ -93,7 +93,8 @@ Optional settings:
 - `ReverseProxy:KnownNetworks` – trusted proxy networks in CIDR notation
 - `Cors:AllowedOrigins` – allowed frontend origins (default `http://localhost:4200`, `https://localhost:4200`)
 - `ReverseProxy:KnownProxies` – IPs of trusted reverse proxies; only these may set `X-Forwarded-For`
-- `LogRetention:SystemLogsDays` / `CommandUsageDays` / `LoginAuditDays` – log retention (defaults 30 / 90 / 90)
+- `LogRetention:SystemLogsDays` / `CommandUsageDays` / `LoginAuditDays` / `AdminAuditDays` – log retention (defaults 30 / 90 / 90 / 365). Admin actions (bot lifecycle, token/visibility changes, boards, teams, config, logout-all, 2FA changes) are recorded in the admin audit log (Logs page → Admin Audit tab, `GET /api/systemlogs/admin-audit`).
+- `Auth:TotpIssuer` – issuer name shown in authenticator apps (default `BotManager`). Two-factor authentication (TOTP, RFC 6238) for the admin account is managed on the **Security** page (`/admin/security`): the secret is stored encrypted with Data Protection in `SystemConfigs` (`Auth.Totp*`), 8 single-use recovery codes are stored only as SHA-256 hashes. When enabled, `POST /api/auth/login` (and Google login) additionally require `totpCode` or `recoveryCode`; otherwise they answer `401 { twoFactorRequired: true }`. Lost device and recovery codes: delete the `Auth.Totp*` rows from `SystemConfigs` to reset 2FA.
 - `Alerts:DiscordWebhookUrl` – Discord webhook that receives alerts when a bot goes down (marked Offline after the
   30 s disconnect grace period, or a failed start) and when it is back online
 - `Alerts:Smtp:Host` / `Port` / `User` / `Password` / `From` / `To` / `UseSsl` – the same alerts by e-mail (STARTTLS,

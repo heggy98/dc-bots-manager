@@ -55,3 +55,6 @@
     transform: translateY(0);
   }
 }
+
+.two-factor-links { display: flex; justify-content: space-between; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
+.link-button { background: none; border: none; padding: 0; color: var(--primary, inherit); cursor: pointer; text-decoration: underline; font-size: 0.88rem; }

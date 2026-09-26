@@ -149,6 +149,8 @@ try
     builder.Services.AddSingleton<TokenRevocationState>();
     builder.Services.AddSingleton<RecaptchaService>();
     builder.Services.AddScoped<SessionService>();
+    builder.Services.AddScoped<IAdminAuditService, AdminAuditService>();
+    builder.Services.AddScoped<TwoFactorService>();
     builder.Services.AddHostedService<LogRetentionService>();
     builder.Services.AddHostedService<BotAutoStartService>();
     builder.Services.AddHealthChecks()

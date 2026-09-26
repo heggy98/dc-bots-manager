@@ -5,6 +5,7 @@
 .login-audit-table table { width: 100%; border-collapse: collapse; font-size: 0.88rem; min-width: 620px; }
 .login-audit-table th, .login-audit-table td { padding: 10px 14px; border-bottom: 1px solid var(--border-color); text-align: left; }
 .login-audit-table th { color: var(--text-muted); font-weight: 600; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; }
+.audit-details { font-family: var(--font-mono, monospace); font-size: 0.8rem; word-break: break-word; max-width: 360px; }
 .row-fail { background: rgba(239, 68, 68, 0.04); }
 .row-bruteforce { background: rgba(239, 68, 68, 0.1); }
 

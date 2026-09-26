@@ -27,6 +27,11 @@ export const routes: Routes = [
         loadComponent: () => import('./components/admin-config/admin-config.component').then(m => m.AdminConfigComponent)
     },
     {
+        path: 'admin/security',
+        canActivate: [authGuard],
+        loadComponent: () => import('./components/admin-security/admin-security.component').then(m => m.AdminSecurityComponent)
+    },
+    {
         path: 'admin/commands',
         canActivate: [authGuard],
         loadComponent: () => import('./components/admin-commands/admin-commands.component').then(m => m.AdminCommandsComponent)

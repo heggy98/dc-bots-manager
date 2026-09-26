@@ -21,6 +21,17 @@ export interface LoginAuditDto {
     isBruteforceBlock: boolean;
 }
 
+export interface AdminAuditDto {
+    id: number;
+    timestamp: string;
+    actorEmail: string;
+    action: string;
+    targetType?: string | null;
+    targetId?: string | null;
+    details?: string | null;
+    ipAddress?: string | null;
+}
+
 @Injectable({
     providedIn: 'root'
 })
@@ -42,5 +53,12 @@ export class LogService {
      */
     getLoginAuditLogs(take: number = 100): Observable<LoginAuditDto[]> {
         return this.http.get<LoginAuditDto[]>(`/api/systemlogs/login-audit?take=${take}`);
+    }
+
+    /**
+     * Gets recent admin audit rows (who changed what).
+     */
+    getAdminAuditLogs(take: number = 200): Observable<AdminAuditDto[]> {
+        return this.http.get<AdminAuditDto[]>(`/api/systemlogs/admin-audit?take=${take}`);
     }
 }

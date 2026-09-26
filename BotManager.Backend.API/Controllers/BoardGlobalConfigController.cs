@@ -1,3 +1,4 @@
+using BotManager.Backend.API.Services;
 using BotManager.Backend.Entities;
 using BotManager.Backend.Entities.Entities;
 using Microsoft.AspNetCore.Authorization;
@@ -38,6 +39,7 @@ namespace BotManager.Backend.API.Controllers
         /// <summary>
         /// Updates board-global default rendering values.
         /// </summary>
+        [AdminAudit("boardglobal.update", "boardglobal")]
         [HttpPut]
         public async Task<IActionResult> Update([FromBody] BoardGlobalConfigDto request)
         {

@@ -243,6 +243,50 @@ public class ApiIntegrationTests
         Assert.NotNull(botScoped);
     }
 
+    [Fact]
+    public async Task AdminActions_AreWrittenToAdminAuditLog()
+    {
+        var client = _factory.CreateClientFrom("10.8.0.1");
+        await LoginAsync(client);
+
+        var request = new HttpRequestMessage(HttpMethod.Put, $"/api/bot/admin/{ApiFactory.LegacyBotId}/visibility")
+        {
+            Content = JsonContent.Create(new { isPublic = true })
+        };
+        request.Headers.Add("X-Requested-With", "BotManager");
+        Assert.Equal(HttpStatusCode.OK, (await client.SendAsync(request)).StatusCode);
+
+        // A failed (404) action must not be audited.
+        var missing = new HttpRequestMessage(HttpMethod.Put, "/api/bot/admin/999999/visibility")
+        {
+            Content = JsonContent.Create(new { isPublic = true })
+        };
+        missing.Headers.Add("X-Requested-With", "BotManager");
+        Assert.Equal(HttpStatusCode.NotFound, (await client.SendAsync(missing)).StatusCode);
+
+        await using (var db = _factory.CreateDbContext())
+        {
+            var entry = await db.AdminAuditLogs.AsNoTracking()
+                .Where(l => l.Action == "bot.visibility" && l.TargetId == ApiFactory.LegacyBotId.ToString())
+                .OrderByDescending(l => l.Id)
+                .FirstOrDefaultAsync();
+            Assert.NotNull(entry);
+            Assert.Equal("bot", entry!.TargetType);
+            Assert.Equal(ApiFactory.AdminEmail, entry.ActorEmail);
+            Assert.Equal("10.8.0.1", entry.IpAddress);
+            Assert.Contains("\"isPublic\":true", entry.Details);
+            Assert.False(await db.AdminAuditLogs.AnyAsync(l => l.TargetId == "999999"));
+        }
+
+        var json = await client.GetFromJsonAsync<JsonElement>("/api/systemlogs/admin-audit?take=5000");
+        Assert.True(json.GetArrayLength() is > 0 and <= 500);
+        var first = json.EnumerateArray().First(e => e.GetProperty("action").GetString() == "bot.visibility");
+        Assert.EndsWith("Z", first.GetProperty("timestamp").GetString());
+
+        Assert.Equal(HttpStatusCode.Unauthorized,
+            (await _factory.CreateClientFrom("10.8.0.2").GetAsync("/api/systemlogs/admin-audit")).StatusCode);
+    }
+
     private static async Task<HttpResponseMessage> LoginAsync(HttpClient client)
         => await client.PostAsJsonAsync("/api/auth/login",
             new { email = ApiFactory.AdminEmail, password = ApiFactory.AdminPassword });

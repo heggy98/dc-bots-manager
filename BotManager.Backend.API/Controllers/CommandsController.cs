@@ -83,6 +83,7 @@ namespace BotManager.Backend.API.Controllers
         /// <summary>
         /// Updates a command definition across all bots owned by the current user.
         /// </summary>
+        [AdminAudit("command.update", "command", TargetIdRouteKey = "commandName", DetailArguments = ["subCommandName"])]
         [HttpPut("global/{commandName}")]
         public async Task<IActionResult> UpdateGlobalCommand(string commandName, [FromQuery] string? subCommandName, [FromBody] UpdateGlobalCommandDto request)
         {

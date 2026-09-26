@@ -21,6 +21,7 @@ namespace BotManager.Backend.API.Controllers
         private readonly TokenRevocationState _tokenRevocation;
         private readonly RecaptchaService _recaptcha;
         private readonly ISystemConfigService _systemConfig;
+        private readonly TwoFactorService _twoFactor;
         private readonly ILogger<AuthController> _logger;
 
         /// <summary>
@@ -29,7 +30,7 @@ namespace BotManager.Backend.API.Controllers
         public AuthController(IBruteforceProtectionService bruteforceProtection, AuthService authService,
             AdminCredentialsService adminCredentials, SessionService sessionService,
             TokenRevocationState tokenRevocation, RecaptchaService recaptcha,
-            ISystemConfigService systemConfig, ILogger<AuthController> logger)
+            ISystemConfigService systemConfig, TwoFactorService twoFactor, ILogger<AuthController> logger)
         {
             _bruteforceProtection = bruteforceProtection;
             _authService = authService;
@@ -38,6 +39,7 @@ namespace BotManager.Backend.API.Controllers
             _tokenRevocation = tokenRevocation;
             _recaptcha = recaptcha;
             _systemConfig = systemConfig;
+            _twoFactor = twoFactor;
             _logger = logger;
         }
 
@@ -92,6 +94,12 @@ namespace BotManager.Backend.API.Controllers
             if (_adminCredentials.Verify(request.Email, request.Password))
             {
                 var email = _adminCredentials.AdminEmail;
+                var secondFactorFailure = await CheckSecondFactorAsync(request, ip, accountKey, email);
+                if (secondFactorFailure != null)
+                {
+                    return secondFactorFailure;
+                }
+
                 _bruteforceProtection.RegisterSuccess(ip);
                 _bruteforceProtection.RegisterSuccess(accountKey);
                 await _authService.LogLoginAttemptAsync(email, ip, true);
@@ -143,6 +151,12 @@ namespace BotManager.Backend.API.Controllers
             }
 
             var email = _adminCredentials.AdminEmail;
+            var secondFactorFailure = await CheckSecondFactorAsync(request, ip, GetAccountKey(email), email);
+            if (secondFactorFailure != null)
+            {
+                return secondFactorFailure;
+            }
+
             _bruteforceProtection.RegisterSuccess(ip);
             await _authService.LogLoginAttemptAsync(email, ip, true);
             _logger.LogInformation("User {Email} logged in via Google from {Ip}", email, ip);
@@ -196,6 +210,7 @@ namespace BotManager.Backend.API.Controllers
         /// every access token issued so far.
         /// </summary>
         [Authorize]
+        [AdminAudit("auth.logout_all", "auth")]
         [HttpPost("logout-all")]
         public async Task<IActionResult> LogoutAll()
         {
@@ -204,6 +219,40 @@ namespace BotManager.Backend.API.Controllers
             _sessionService.ClearCookies(Response);
             _logger.LogWarning("All sessions revoked by {Email} ({Count} refresh tokens)", _adminCredentials.AdminEmail, revoked);
             return NoContent();
+        }
+
+        /// <summary>
+        /// When 2FA is enabled, requires a valid TOTP or recovery code. Returns null when the login may proceed,
+        /// otherwise a 401 with { twoFactorRequired: true } (no session is created). A wrong code counts as a
+        /// failed attempt; a missing code (first step after the password) does not.
+        /// </summary>
+        private async Task<IActionResult?> CheckSecondFactorAsync(LoginRequest request, string ip, string accountKey, string email)
+        {
+            if (!await _twoFactor.IsEnabledAsync())
+            {
+                return null;
+            }
+
+            if (string.IsNullOrWhiteSpace(request.TotpCode) && string.IsNullOrWhiteSpace(request.RecoveryCode))
+            {
+                return Unauthorized(new { twoFactorRequired = true, message = "Two-factor code required." });
+            }
+
+            var result = await _twoFactor.VerifyAsync(request.TotpCode, request.RecoveryCode);
+            if (result == TwoFactorCheckResult.Invalid)
+            {
+                await RegisterFailureAsync(ip, accountKey);
+                await _authService.LogLoginAttemptAsync(email, ip, false, "Neplatný 2FA kód");
+                _logger.LogWarning("Invalid two-factor code for {Email} from {Ip}", email, ip);
+                return Unauthorized(new { twoFactorRequired = true, invalidCode = true, message = "Invalid two-factor code." });
+            }
+
+            if (result == TwoFactorCheckResult.ValidRecoveryCode)
+            {
+                _logger.LogWarning("Recovery code used to sign in {Email} from {Ip}", email, ip);
+            }
+
+            return null;
         }
 
         /// <summary>

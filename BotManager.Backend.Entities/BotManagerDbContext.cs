@@ -28,6 +28,7 @@ namespace BotManager.Backend.Entities
         public DbSet<SystemLog> SystemLogs { get; set; }
         public DbSet<SystemConfig> SystemConfigs { get; set; }
         public DbSet<RefreshToken> RefreshTokens { get; set; }
+        public DbSet<AdminAuditLog> AdminAuditLogs { get; set; }
 
         /// <summary>ASP.NET Core Data Protection key ring (used to encrypt bot tokens at rest).</summary>
         public DbSet<DataProtectionKey> DataProtectionKeys { get; set; }
@@ -100,6 +101,11 @@ namespace BotManager.Backend.Entities
 
             modelBuilder.Entity<LoginAuditLog>()
                 .HasIndex(l => l.Timestamp);
+
+            modelBuilder.Entity<AdminAuditLog>()
+                .HasIndex(l => l.Timestamp);
+            modelBuilder.Entity<AdminAuditLog>()
+                .HasIndex(l => new { l.TargetType, l.TargetId });
 
             modelBuilder.Entity<BotCommand>()
                 .HasIndex(c => new { c.BotId, c.CommandName, c.SubCommandName });

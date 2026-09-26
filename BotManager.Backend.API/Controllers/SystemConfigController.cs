@@ -24,15 +24,18 @@ namespace BotManager.Backend.API.Controllers
         private readonly BotManagerDbContext _db;
         private readonly ISystemConfigService _configService;
         private readonly ILogger<SystemConfigController> _logger;
+        private readonly IAdminAuditService _audit;
 
         /// <summary>
         /// Creates a new system configuration controller.
         /// </summary>
-        public SystemConfigController(BotManagerDbContext db, ISystemConfigService configService, ILogger<SystemConfigController> logger)
+        public SystemConfigController(BotManagerDbContext db, ISystemConfigService configService, ILogger<SystemConfigController> logger,
+            IAdminAuditService audit)
         {
             _db = db;
             _configService = configService;
             _logger = logger;
+            _audit = audit;
         }
 
         /// <summary>
@@ -45,6 +48,7 @@ namespace BotManager.Backend.API.Controllers
             var boardGlobalConfig = await GetOrCreateBoardGlobalConfigAsync();
 
             var all = configs
+                .Where(c => !IsProtectedKey(c.Key))
                 .Select(c => new ConfigListItemDto
                 {
                     Id = c.Id,
@@ -92,6 +96,11 @@ namespace BotManager.Backend.API.Controllers
         [HttpPut]
         public async Task<IActionResult> Update([FromBody] ConfigUpdateDto dto)
         {
+            if (IsProtectedKey(dto.Key))
+            {
+                return BadRequest("This configuration key is managed by the security settings.");
+            }
+
             if (TryMapBoardGlobalKey(dto.Key, out var targetField))
             {
                 var boardGlobalConfig = await GetOrCreateBoardGlobalConfigAsync();
@@ -115,11 +124,13 @@ namespace BotManager.Backend.API.Controllers
 
                 await _db.SaveChangesAsync();
                 _logger.LogInformation("Board global config updated: {Key} = {Value}", dto.Key, dto.Value);
+                await _audit.LogAsync(HttpContext, "config.update", "config", dto.Key);
                 return Ok();
             }
 
             await _configService.SetValueAsync(dto.Key, dto.Value);
             _logger.LogInformation("System config updated: {Key} = {Value}", dto.Key, dto.Value);
+            await _audit.LogAsync(HttpContext, "config.update", "config", dto.Key);
             return Ok();
         }
 
@@ -164,6 +175,12 @@ namespace BotManager.Backend.API.Controllers
 
             return field != BoardGlobalField.Unknown;
         }
+
+        /// <summary>
+        /// Keys owned by the 2FA settings (encrypted secret, recovery code hashes) are neither listed nor writable here.
+        /// </summary>
+        private static bool IsProtectedKey(string? key)
+            => key != null && key.StartsWith(TwoFactorService.KeyPrefix, StringComparison.OrdinalIgnoreCase);
 
         /// <summary>
         /// Converts empty string values to null before persistence.

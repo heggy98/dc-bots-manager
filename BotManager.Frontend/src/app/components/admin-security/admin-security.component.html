@@ -1,0 +1,96 @@
+<div class="page-header">
+  <div>
+    <h2>{{ i18n.t('security.title') }}</h2>
+    <p class="text-muted">{{ i18n.t('security.subtitle') }}</p>
+  </div>
+</div>
+
+@if (error()) {
+  <div class="error-alert">{{ error() }}</div>
+}
+
+@if (recoveryCodes(); as codes) {
+  <div class="panel security-panel recovery-panel">
+    <h3>{{ i18n.t('security.recovery_title') }}</h3>
+    <p class="text-muted">{{ i18n.t('security.recovery_hint') }}</p>
+    <ul class="recovery-codes">
+      @for (code of codes; track code) {
+        <li><code>{{ code }}</code></li>
+      }
+    </ul>
+    <div class="actions">
+      <button type="button" class="btn btn-outline" (click)="copyRecoveryCodes()">{{ i18n.t('security.copy') }}</button>
+      <button type="button" class="btn btn-primary" (click)="dismissRecoveryCodes()">{{ i18n.t('security.saved_codes') }}</button>
+    </div>
+  </div>
+}
+
+<div class="panel security-panel">
+  <div class="panel-title">
+    <h3>{{ i18n.t('security.twofa_title') }}</h3>
+    @if (status(); as s) {
+      <span class="status-badge" [class.online]="s.enabled" [class.offline]="!s.enabled">
+        {{ s.enabled ? i18n.t('security.enabled') : i18n.t('security.disabled') }}
+      </span>
+    }
+  </div>
+  <p class="text-muted">{{ i18n.t('security.twofa_hint') }}</p>
+
+  @if (status(); as s) {
+    @if (!s.enabled) {
+      @if (setup(); as st) {
+        <ol class="setup-steps">
+          <li>{{ i18n.t('security.step_scan') }}</li>
+        </ol>
+        <div class="qr-wrapper">
+          @if (qrDataUrl()) {
+            <img [src]="qrDataUrl()" width="220" height="220" [alt]="i18n.t('security.qr_alt')" />
+          }
+          <div class="secret">
+            <label>{{ i18n.t('security.manual_secret') }}</label>
+            <code class="secret-value">{{ st.secret }}</code>
+          </div>
+        </div>
+        <form (ngSubmit)="enable()" class="inline-form">
+          <div class="form-group">
+            <label for="enableCode">{{ i18n.t('security.step_confirm') }}</label>
+            <input id="enableCode" name="enableCode" [(ngModel)]="enableCode" inputmode="numeric"
+              autocomplete="one-time-code" maxlength="7" placeholder="123456" />
+          </div>
+          <div class="actions">
+            <button type="submit" class="btn btn-primary" [disabled]="busy()">{{ i18n.t('security.enable') }}</button>
+            <button type="button" class="btn btn-outline" (click)="cancelSetup()">{{ i18n.t('admin.cancel') }}</button>
+          </div>
+        </form>
+      } @else {
+        <button type="button" class="btn btn-primary" (click)="startSetup()" [disabled]="busy()">
+          {{ i18n.t('security.start_setup') }}
+        </button>
+      }
+    } @else {
+      <p>{{ i18n.t('security.recovery_remaining') }}: <strong>{{ s.recoveryCodesRemaining }}</strong></p>
+      <form (ngSubmit)="disable()" class="inline-form">
+        <h4>{{ i18n.t('security.disable_title') }}</h4>
+        <div class="form-group">
+          <label for="disablePassword">{{ i18n.t('login.password') }}</label>
+          <input id="disablePassword" name="disablePassword" type="password" [(ngModel)]="disablePassword"
+            autocomplete="current-password" />
+        </div>
+        <div class="form-group">
+          <label for="disableCode">
+            {{ useRecoveryForDisable ? i18n.t('login.recovery_code') : i18n.t('login.totp_code') }}
+          </label>
+          <input id="disableCode" name="disableCode" [(ngModel)]="disableCode" autocomplete="one-time-code"
+            [attr.inputmode]="useRecoveryForDisable ? null : 'numeric'" />
+          <label class="checkbox">
+            <input type="checkbox" name="useRecoveryForDisable" [(ngModel)]="useRecoveryForDisable" />
+            {{ i18n.t('login.use_recovery') }}
+          </label>
+        </div>
+        <button type="submit" class="btn btn-outline-red" [disabled]="busy()">{{ i18n.t('security.disable') }}</button>
+      </form>
+    }
+  } @else {
+    <div class="loading-spinner">{{ i18n.t('admin.loading') }}</div>
+  }
+</div>
