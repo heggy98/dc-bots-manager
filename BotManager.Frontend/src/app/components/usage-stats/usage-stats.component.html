@@ -1,0 +1,69 @@
+<section class="panel usage-stats" [attr.aria-labelledby]="isBotScope() ? 'bot-stats-title' : 'usage-stats-title'" [attr.aria-busy]="loading()">
+  <div class="stats-header">
+    <div>
+      <h3 [id]="isBotScope() ? 'bot-stats-title' : 'usage-stats-title'">
+        {{ i18n.t(isBotScope() ? 'stats.bot_title' : 'stats.title') }}
+      </h3>
+      <p class="text-muted subtitle">{{ i18n.t('stats.subtitle_utc') }}</p>
+    </div>
+    <app-stats-range-selector [value]="range()" (valueChange)="setRange($event)" />
+  </div>
+
+  @if (error() && !stats()) {
+    <div class="error-alert stats-error">
+      {{ i18n.t('stats.load_error') }}
+      <button type="button" class="btn btn-outline btn-sm" (click)="reload()">{{ i18n.t('stats.retry') }}</button>
+    </div>
+  }
+
+  @if (!stats() && loading()) {
+    <p class="text-muted">{{ i18n.t('stats.loading') }}</p>
+  }
+
+  @if (stats(); as s) {
+    <div class="stats-body" [class.refreshing]="loading()">
+      <div class="tiles">
+        <div class="tile">
+          <span class="tile-label">{{ i18n.t('stats.commands') }}</span>
+          <span class="tile-value">{{ s.totals.commands | number }}</span>
+        </div>
+        <div class="tile">
+          <span class="tile-label">{{ i18n.t('stats.errors') }}</span>
+          <span class="tile-value">{{ s.totals.errors | number }}</span>
+          @if (errorRate() !== null) {
+            <span class="tile-note">{{ errorRate() | number: '1.0-1' }} % {{ i18n.t('stats.error_rate') }}</span>
+          }
+        </div>
+        @if (isBotScope()) {
+          <div class="tile">
+            <span class="tile-label">{{ i18n.t('stats.uptime') }}</span>
+            <span class="tile-value">{{ (botUptime()?.uptimePercent ?? 0) | number: '1.0-1' }} %</span>
+          </div>
+        }
+        <div class="tile">
+          <span class="tile-label">{{ i18n.t('stats.joins_leaves') }}</span>
+          <span class="tile-value">{{ s.totals.joins | number }} / {{ s.totals.leaves | number }}</span>
+          <span class="tile-note">{{ i18n.t('stats.joins_hint') }}</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h4>{{ i18n.t('stats.daily_title') }}</h4>
+        <app-daily-usage-chart [data]="s.daily" />
+      </div>
+
+      <div class="columns" [class.single]="isBotScope()">
+        <div class="block">
+          <h4>{{ i18n.t('stats.top_commands') }}</h4>
+          <app-bar-list [items]="topCommandItems()" [label]="i18n.t('stats.top_commands')" [emptyText]="i18n.t('stats.no_data')" />
+        </div>
+        @if (!isBotScope()) {
+          <div class="block">
+            <h4>{{ i18n.t('stats.uptime_per_bot') }}</h4>
+            <app-bar-list variant="meter" [max]="100" [items]="uptimeItems()" [label]="i18n.t('stats.uptime_per_bot')" [emptyText]="i18n.t('stats.no_data')" />
+          </div>
+        }
+      </div>
+    </div>
+  }
+</section>

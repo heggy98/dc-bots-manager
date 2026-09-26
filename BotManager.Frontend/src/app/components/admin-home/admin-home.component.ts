@@ -7,10 +7,11 @@ import { Router, RouterLink } from '@angular/router';
 import { I18nService } from '../../services/i18n.service';
 import { ToastrService } from 'ngx-toastr';
 import { LiveDurationComponent, parseApiDate } from '../live-duration/live-duration.component';
+import { UsageStatsComponent } from '../usage-stats/usage-stats.component';
 
 @Component({
   selector: 'app-admin-home',
-  imports: [CommonModule, FormsModule, RouterLink, LiveDurationComponent],
+  imports: [CommonModule, FormsModule, RouterLink, LiveDurationComponent, UsageStatsComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-home.component.html',
   styleUrl: './admin-home.component.css'

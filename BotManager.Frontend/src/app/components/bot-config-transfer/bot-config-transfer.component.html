@@ -1,0 +1,50 @@
+<div class="transfer">
+  <p class="server-count transfer-title">{{ i18n.t('transfer.title') }}</p>
+  <div class="transfer-actions">
+    <button type="button" class="btn btn-outline btn-sm" [disabled]="exporting()" (click)="exportConfig()">
+      {{ i18n.t('transfer.export') }}
+    </button>
+    <button type="button" class="btn btn-outline btn-sm" [disabled]="busy()" (click)="fileInput.click()">
+      {{ i18n.t('transfer.import') }}
+    </button>
+    <input #fileInput type="file" accept="application/json,.json" class="file-input" (change)="onFileSelected($event)"
+      [attr.aria-label]="i18n.t('transfer.import')" tabindex="-1" />
+  </div>
+  <p class="hint">{{ i18n.t('transfer.hint') }}</p>
+
+  @if (errors().length > 0) {
+    <div class="error-alert transfer-errors" role="alert">
+      <strong>{{ i18n.t('transfer.invalid') }}</strong>
+      @if (fileName()) { <span class="file-name">{{ fileName() }}</span> }
+      <ul>
+        @for (e of errors(); track $index) { <li>{{ e }}</li> }
+      </ul>
+    </div>
+  }
+
+  @if (preview(); as p) {
+    <div class="preview" role="region" [attr.aria-label]="i18n.t('transfer.preview')">
+      <p class="preview-title">{{ i18n.t('transfer.preview') }} <span class="file-name">{{ fileName() }}</span></p>
+      <dl>
+        <dt>{{ i18n.t('transfer.bot_name') }}</dt><dd>{{ p.botName }}</dd>
+        <dt>{{ i18n.t('transfer.boards') }}</dt><dd>{{ p.boardsImported }} ({{ i18n.t('transfer.replacing') }} {{ p.boardsRemoved }})</dd>
+        <dt>{{ i18n.t('transfer.teams') }}</dt><dd>{{ p.teamsImported }}</dd>
+        <dt>{{ i18n.t('transfer.commands') }}</dt><dd>{{ p.commandsUpdated }} {{ i18n.t('transfer.updated') }}, {{ p.commandsCreated }} {{ i18n.t('transfer.created') }}</dd>
+      </dl>
+      <label class="option">
+        <input type="checkbox" [checked]="applyDiscordIds()" [disabled]="busy()" (change)="setApplyDiscordIds($any($event.target).checked)" />
+        {{ i18n.t('transfer.apply_ids') }}
+      </label>
+      @if (p.warnings.length > 0) {
+        <ul class="warnings">
+          @for (w of p.warnings; track $index) { <li>{{ w }}</li> }
+        </ul>
+      }
+      <p class="hint">{{ i18n.t('transfer.replace_warning') }}</p>
+      <div class="transfer-actions">
+        <button type="button" class="btn btn-primary btn-sm" [disabled]="busy()" (click)="confirmImport()">{{ i18n.t('transfer.confirm') }}</button>
+        <button type="button" class="btn btn-outline btn-sm" [disabled]="busy()" (click)="cancel()">{{ i18n.t('admin.cancel') }}</button>
+      </div>
+    </div>
+  }
+</div>

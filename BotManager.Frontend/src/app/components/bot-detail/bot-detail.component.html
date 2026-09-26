@@ -148,6 +148,7 @@
               />
             {{ i18n.t("bot.autostart") }}
           </label>
+          <app-bot-config-transfer [botId]="bot.botId" (imported)="loadBotDetails(); loadBoards()" />
         </div>
         <!-- Right: Stats + Logs + History -->
         <div class="right-col">
@@ -273,6 +274,7 @@
                 </div>
               </div>
             </div>
+            <app-usage-stats class="mt-4" [botId]="bot.botId" />
             <!-- Boards Section -->
             @if (isBoardEnabledBot()) {
               <div class="boards-section mt-4">
