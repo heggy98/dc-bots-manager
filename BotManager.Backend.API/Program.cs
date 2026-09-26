@@ -19,10 +19,8 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Serilog;
+using Serilog.Configuration;
 using Serilog.Events;
-using Serilog.Sinks.MSSqlServer;
-using System.Collections.ObjectModel;
-using System.Data;
 using System.Net;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading;
@@ -67,42 +65,27 @@ try
 {
     var builder = WebApplication.CreateBuilder(args);
 
-    // Serilog: read from config and add MSSqlServer sink for SystemLogs table
     var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-
-    // The SystemLogs table schema is owned by EF migrations; lengths match the entity so the
-    // sink truncates long messages/stack traces instead of failing the whole batch.
-    var columnOptions = new ColumnOptions();
-    columnOptions.Store.Remove(StandardColumn.Properties);
-    columnOptions.Store.Remove(StandardColumn.MessageTemplate);
-    // SqlBulkCopy column mapping is case-sensitive: the EF column is "Timestamp" (sink default "TimeStamp").
-    columnOptions.TimeStamp.ColumnName = "Timestamp";
-    columnOptions.TimeStamp.ConvertToUtc = true;
-    columnOptions.Message.DataLength = 4000;
-    columnOptions.Exception.DataLength = 4000;
-    columnOptions.Level.DataLength = 50;
-    columnOptions.AdditionalColumns = new Collection<SqlColumn>
+    var databaseProvider = DatabaseSetup.GetProvider(builder.Configuration);
+    if (databaseProvider == DatabaseProvider.PostgreSql)
     {
-        new SqlColumn { ColumnName = "Category", PropertyName = "SourceContext", DataType = SqlDbType.NVarChar, DataLength = 500, AllowNull = true },
-        new SqlColumn { ColumnName = "BotId", DataType = SqlDbType.Int, AllowNull = true }
-    };
+        DatabaseSetup.ConfigureNpgsqlCompatibility();
+    }
 
-    builder.Host.UseSerilog((ctx, lc) => lc
+    builder.Host.UseSerilog((ctx, services, lc) => lc
         .ReadFrom.Configuration(ctx.Configuration)
         .Enrich.FromLogContext()
         .WriteTo.Console()
-        // Persist warnings/errors plus bot-scoped events (shown in the bot detail); skip general chatter.
+        // Persist warnings/errors plus bot-scoped events (shown in the bot detail) to SystemLogs via EF,
+        // which works for every database provider.
         .WriteTo.Logger(sql => sql
-            .Filter.ByIncludingOnly(e => e.Level >= LogEventLevel.Warning || e.Properties.ContainsKey("BotId"))
-            .WriteTo.MSSqlServer(
-                connectionString: connectionString,
-                sinkOptions: new MSSqlServerSinkOptions
-                {
-                    TableName = "SystemLogs",
-                    AutoCreateSqlTable = false
-                },
-                columnOptions: columnOptions
-            )));
+            .Filter.ByIncludingOnly(SystemLogDbSink.ShouldPersist)
+            .WriteTo.Sink(new SystemLogDbSink(services), new BatchingOptions
+            {
+                BatchSizeLimit = 100,
+                BufferingTimeLimit = TimeSpan.FromSeconds(2),
+                QueueLimit = 10_000
+            })));
 
     builder.Services.AddControllers();
     builder.Services.AddOpenApi();
@@ -129,17 +112,11 @@ try
         options.EnableDetailedErrors = builder.Environment.IsDevelopment();
     });
 
-    // SQL Server distributed cache (L2 cache surviving restarts)
-    builder.Services.AddDistributedSqlServerCache(options =>
-    {
-        options.ConnectionString = connectionString;
-        options.SchemaName = "dbo";
-        options.TableName = "BotDistributedCache";
-        options.DefaultSlidingExpiration = TimeSpan.FromMinutes(30);
-    });
+    // Distributed cache (used by the emoji catalog); in-memory is sufficient for a single instance.
+    builder.Services.AddDistributedMemoryCache();
 
     builder.Services.AddDbContext<BotManagerDbContext>(options =>
-        options.UseSqlServer(connectionString));
+        DatabaseSetup.Configure(options, databaseProvider, connectionString));
 
     // Register services
     builder.Services.AddSingleton<IBruteforceProtectionService, BruteforceProtectionService>();
@@ -359,26 +336,6 @@ try
     {
         Predicate = _ => false
     });
-
-    // Ensure distributed cache table exists.
-    using (var scope = app.Services.CreateScope())
-    {
-        var db = scope.ServiceProvider.GetRequiredService<BotManagerDbContext>();
-        db.Database.ExecuteSqlRaw(@"
-            IF OBJECT_ID(N'dbo.BotDistributedCache', N'U') IS NULL
-            BEGIN
-                CREATE TABLE [dbo].[BotDistributedCache] (
-                    [Id]                         NVARCHAR(449)    NOT NULL,
-                    [Value]                      VARBINARY(MAX)   NOT NULL,
-                    [ExpiresAtTime]              DATETIMEOFFSET   NOT NULL,
-                    [SlidingExpirationInSeconds] BIGINT           NULL,
-                    [AbsoluteExpiration]         DATETIMEOFFSET   NULL,
-                    CONSTRAINT [pk_BotDistributedCache] PRIMARY KEY ([Id])
-                );
-                CREATE NONCLUSTERED INDEX [Index_ExpiresAtTime]
-                    ON [dbo].[BotDistributedCache] ([ExpiresAtTime]);
-            END");
-    }
 
     Log.Information("BotManager API started");
     app.Run();

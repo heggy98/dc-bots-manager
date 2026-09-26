@@ -21,6 +21,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BotManager.Backend.API.Test
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BotManager.Backend.API.IntegrationTests", "BotManager.Backend.API.IntegrationTests\BotManager.Backend.API.IntegrationTests.csproj", "{C038010B-AF99-46F0-BD18-82266089F15A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BotManager.Backend.Entities.PostgreSql", "BotManager.Backend.Entities.PostgreSql\BotManager.Backend.Entities.PostgreSql.csproj", "{6DF4C8D8-C1D2-4409-B9C5-EB366FB504D2}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -127,6 +129,18 @@ Global
 		{C038010B-AF99-46F0-BD18-82266089F15A}.Release|x64.Build.0 = Release|Any CPU
 		{C038010B-AF99-46F0-BD18-82266089F15A}.Release|x86.ActiveCfg = Release|Any CPU
 		{C038010B-AF99-46F0-BD18-82266089F15A}.Release|x86.Build.0 = Release|Any CPU
+		{6DF4C8D8-C1D2-4409-B9C5-EB366FB504D2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6DF4C8D8-C1D2-4409-B9C5-EB366FB504D2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6DF4C8D8-C1D2-4409-B9C5-EB366FB504D2}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{6DF4C8D8-C1D2-4409-B9C5-EB366FB504D2}.Debug|x64.Build.0 = Debug|Any CPU
+		{6DF4C8D8-C1D2-4409-B9C5-EB366FB504D2}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{6DF4C8D8-C1D2-4409-B9C5-EB366FB504D2}.Debug|x86.Build.0 = Debug|Any CPU
+		{6DF4C8D8-C1D2-4409-B9C5-EB366FB504D2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6DF4C8D8-C1D2-4409-B9C5-EB366FB504D2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6DF4C8D8-C1D2-4409-B9C5-EB366FB504D2}.Release|x64.ActiveCfg = Release|Any CPU
+		{6DF4C8D8-C1D2-4409-B9C5-EB366FB504D2}.Release|x64.Build.0 = Release|Any CPU
+		{6DF4C8D8-C1D2-4409-B9C5-EB366FB504D2}.Release|x86.ActiveCfg = Release|Any CPU
+		{6DF4C8D8-C1D2-4409-B9C5-EB366FB504D2}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

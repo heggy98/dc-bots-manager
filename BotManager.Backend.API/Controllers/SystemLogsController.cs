@@ -77,23 +77,24 @@ namespace BotManager.Backend.API.Controllers
                 }
             }
 
-            var logs = await query
+            var rows = await query
                 .OrderByDescending(l => l.Timestamp)
                 .ThenByDescending(l => l.Id)
                 .Take(take)
-                .Select(l => new
-                {
-                    l.Id,
-                    // Stored as UTC; mark it so the JSON carries a "Z" suffix.
-                    Timestamp = DateTime.SpecifyKind(l.Timestamp, DateTimeKind.Utc),
-                    l.ActorEmail,
-                    l.Action,
-                    l.TargetType,
-                    l.TargetId,
-                    l.Details,
-                    l.IpAddress
-                })
                 .ToListAsync();
+
+            // Stored as UTC; mark it client-side (provider-independent) so the JSON carries a "Z" suffix.
+            var logs = rows.Select(l => new
+            {
+                l.Id,
+                Timestamp = DateTime.SpecifyKind(l.Timestamp, DateTimeKind.Utc),
+                l.ActorEmail,
+                l.Action,
+                l.TargetType,
+                l.TargetId,
+                l.Details,
+                l.IpAddress
+            });
             return Ok(logs);
         }
     }

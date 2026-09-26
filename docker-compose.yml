@@ -1,5 +1,7 @@
 # Local/self-hosted stack: SQL Server + API + SPA (nginx on http://localhost:8080).
 # Copy .env.example to .env and fill in the secrets first.
+# PostgreSQL instead of SQL Server (e.g. ARM64 / Oracle Cloud Always Free):
+#   docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d
 name: botmanager
 
 services:
@@ -7,7 +9,7 @@ services:
     image: mcr.microsoft.com/mssql/server:2022-latest
     environment:
       ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?set MSSQL_SA_PASSWORD in .env}
+      MSSQL_SA_PASSWORD: ${DB_PASSWORD:-${MSSQL_SA_PASSWORD:?set DB_PASSWORD in .env}}
     volumes:
       - mssql-data:/var/opt/mssql
     healthcheck:
@@ -25,7 +27,7 @@ services:
       db:
         condition: service_healthy
     environment:
-      ConnectionStrings__DefaultConnection: "Server=db,1433;Database=BotManagerDb;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;MultipleActiveResultSets=true"
+      ConnectionStrings__DefaultConnection: "Server=db,1433;Database=BotManagerDb;User Id=sa;Password=${DB_PASSWORD:-${MSSQL_SA_PASSWORD:-}};TrustServerCertificate=True;MultipleActiveResultSets=true"
       JwtSettings__Secret: ${JWT_SECRET:?set JWT_SECRET in .env}
       AdminCredentials__Email: ${ADMIN_EMAIL:?set ADMIN_EMAIL in .env}
       AdminCredentials__PasswordHash: ${ADMIN_PASSWORD_HASH:?set ADMIN_PASSWORD_HASH in .env}

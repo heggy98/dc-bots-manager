@@ -31,6 +31,10 @@ jobs:
           --filter "FullyQualifiedName!~IntegrationTests"
       - name: Integration tests (SQL Server via Testcontainers)
         run: dotnet test BotManager.Backend.API.IntegrationTests --no-build -c Release
+      - name: Integration tests (PostgreSQL via Testcontainers)
+        run: dotnet test BotManager.Backend.API.IntegrationTests --no-build -c Release
+        env:
+          IT_DB_PROVIDER: PostgreSql
       - name: Vulnerable packages
         run: |
           dotnet list BotManager.sln package --vulnerable --include-transitive | tee vulnerable.txt

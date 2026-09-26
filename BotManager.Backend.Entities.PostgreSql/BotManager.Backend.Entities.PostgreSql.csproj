@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- EF Core migrations for the PostgreSQL provider (Database:Provider=PostgreSql).
+       The model itself lives in BotManager.Backend.Entities; SQL Server migrations stay there. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BotManager.Backend.Entities\BotManager.Backend.Entities.csproj" />
+  </ItemGroup>
+</Project>

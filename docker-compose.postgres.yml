@@ -1,0 +1,26 @@
+# Override: run the stack on PostgreSQL instead of SQL Server.
+# Works on ARM64 hosts (e.g. Oracle Cloud Always Free Ampere VMs), where the SQL Server image is not available.
+#   docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d
+# Combine with docker-compose.https.yml for TLS. DB_PASSWORD must not contain ';'.
+services:
+  db:
+    image: postgres:17-alpine
+    environment: !override
+      POSTGRES_DB: botmanager
+      POSTGRES_USER: botmanager
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+    volumes: !override
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U botmanager -d botmanager"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    environment:
+      Database__Provider: PostgreSql
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=botmanager;Username=botmanager;Password=${DB_PASSWORD}"
+
+volumes:
+  pg-data:
