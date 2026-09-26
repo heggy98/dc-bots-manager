@@ -47,7 +47,9 @@ namespace BotManager.Backend.API.Services
         }
 
         /// <summary>
-        /// Replaces persisted teams with a new set of team records.
+        /// Synchronizes the board's persisted teams with the given set: rows matched by TeamId are updated in place
+        /// (keeping their TeamId and role binding), teams without a known TeamId are inserted and rows that are no
+        /// longer present are deleted.
         /// </summary>
         public async Task SaveAsync(int botId, BotTeamsDto data, int? boardConfigurationId = null)
         {
@@ -76,25 +78,48 @@ namespace BotManager.Backend.API.Services
                 throw new InvalidOperationException($"Duplicate team emojis are not allowed on one board: {string.Join(", ", duplicateEmojis)}");
             }
 
-            // Clear existing teams
             var existingTeams = await _db.Teams
                 .Where(t => t.BoardConfigurationId == boardConfiguration.BoardConfigurationId)
                 .ToListAsync();
-            _db.Teams.RemoveRange(existingTeams);
 
-            // Teams are re-created on save; keep their role binding (clients never send RoleId).
-            var roleIdsByTeamId = existingTeams
-                .Where(t => t.RoleId.HasValue)
-                .ToDictionary(t => t.TeamId, t => t.RoleId);
-            var roleIdsByName = existingTeams
+            // Only rows of this board can be matched by id; an id of another board's team is treated as a new team.
+            var existingById = existingTeams.ToDictionary(t => t.TeamId);
+            var matchedTeamIds = new HashSet<int>();
+            var teamsToInsert = new List<TeamDto>();
+
+            foreach (var teamDto in normalizedTeams)
+            {
+                if (teamDto.TeamId is int teamId
+                    && existingById.TryGetValue(teamId, out var existing)
+                    && matchedTeamIds.Add(teamId))
+                {
+                    existing.Name = teamDto.Name;
+                    existing.LeaderName = teamDto.LeaderName;
+                    existing.CommanderContact = teamDto.Contact;
+                    existing.Emoji = teamDto.Emoji;
+                    // Clients never send RoleId; keep the stored binding unless a caller sets one explicitly.
+                    existing.RoleId = teamDto.RoleId ?? existing.RoleId;
+                }
+                else
+                {
+                    teamsToInsert.Add(teamDto);
+                }
+            }
+
+            var removedTeams = existingTeams
+                .Where(t => !matchedTeamIds.Contains(t.TeamId))
+                .ToList();
+            _db.Teams.RemoveRange(removedTeams);
+
+            // A new row may replace a removed one (e.g. a client that dropped the id); keep its role binding by name.
+            var removedRoleIdsByName = removedTeams
                 .Where(t => t.RoleId.HasValue)
                 .GroupBy(t => t.Name, StringComparer.Ordinal)
                 .ToDictionary(g => g.Key, g => g.First().RoleId, StringComparer.Ordinal);
 
-            // Add new teams
-            foreach (var teamDto in normalizedTeams)
+            foreach (var teamDto in teamsToInsert)
             {
-                var team = new Team
+                _db.Teams.Add(new Team
                 {
                     BoardConfigurationId = boardConfiguration.BoardConfigurationId,
                     Name = teamDto.Name,
@@ -102,10 +127,8 @@ namespace BotManager.Backend.API.Services
                     CommanderContact = teamDto.Contact,
                     Emoji = teamDto.Emoji,
                     RoleId = teamDto.RoleId
-                        ?? (teamDto.TeamId is int teamId && roleIdsByTeamId.TryGetValue(teamId, out var byId) ? byId : null)
-                        ?? (roleIdsByName.TryGetValue(teamDto.Name, out var byName) ? byName : null)
-                };
-                _db.Teams.Add(team);
+                        ?? (removedRoleIdsByName.TryGetValue(teamDto.Name, out var byName) ? byName : null)
+                });
             }
 
             await _db.SaveChangesAsync();
