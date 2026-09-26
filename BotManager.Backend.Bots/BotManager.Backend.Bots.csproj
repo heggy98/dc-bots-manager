@@ -17,6 +17,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="BotManager.Backend.Bots.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\BotManager.Backend.Shared\BotManager.Backend.Shared.csproj" />
     <ProjectReference Include="..\BotManager.Backend.Entities\BotManager.Backend.Entities.csproj" />
   </ItemGroup>
