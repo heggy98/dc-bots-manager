@@ -1,92 +1,117 @@
 <div class="page-header">
-    <div>
-        <h2>{{ i18n.t('admin.title') }}</h2>
-        <p class="text-muted">{{ i18n.t('admin.subtitle') }}</p>
-    </div>
-    <div class="header-actions">
-        <button class="btn btn-primary" (click)="toggleAddBot()">
-            {{ showForm ? i18n.t('admin.cancel') : i18n.t('admin.add_bot') }}
-        </button>
-        <button class="btn btn-outline" (click)="logout()">{{ i18n.t('nav.logout') }}</button>
-    </div>
+  <div>
+    <h2>{{ i18n.t('admin.title') }}</h2>
+    <p class="text-muted">{{ i18n.t('admin.subtitle') }}</p>
+  </div>
+  <div class="header-actions">
+    <button class="btn btn-primary" (click)="toggleAddBot()">
+      {{ showForm() ? i18n.t('admin.cancel') : i18n.t('admin.add_bot') }}
+    </button>
+    <button class="btn btn-outline" (click)="logout()">{{ i18n.t('nav.logout') }}</button>
+  </div>
 </div>
 
-<div class="panel form-panel" *ngIf="showForm">
+@if (showForm()) {
+  <div class="panel form-panel">
     <h3>{{ i18n.t('admin.register_bot') }}</h3>
-    <div *ngIf="formError" class="error-alert">{{ formError }}</div>
+    @if (formError()) {
+      <div class="error-alert">{{ formError() }}</div>
+    }
     <form (ngSubmit)="createBot()">
-        <div class="form-group">
-            <label>{{ i18n.t('admin.bot_name') }}</label>
-            <input type="text" [(ngModel)]="newBotName" name="botName" placeholder="My Discord Bot" required />
-        </div>
-        <div class="form-group">
-            <label>{{ i18n.t('admin.bot_token') }}</label>
-            <input type="password" [(ngModel)]="newBotToken" name="botToken" placeholder="Discord developer token"
-                required />
-        </div>
-        <div class="form-group" style="display:flex; align-items:center; gap:8px;">
-            <input type="checkbox" [(ngModel)]="newBotIsPublic" name="botIsPublic" id="botIsPublic" />
-            <label for="botIsPublic" style="margin:0;">{{ i18n.t('admin.public_bot') }}</label>
-        </div>
-        <button type="submit" class="btn btn-primary w-100" [disabled]="formLoading">
-            {{ formLoading ? i18n.t('admin.creating') : i18n.t('admin.register') }}
-        </button>
+      <div class="form-group">
+        <label>{{ i18n.t('admin.bot_name') }}</label>
+        <input type="text" [(ngModel)]="newBotName" name="botName" placeholder="My Discord Bot" required />
+      </div>
+      <div class="form-group">
+        <label>{{ i18n.t('admin.bot_token') }}</label>
+        <input type="password" [(ngModel)]="newBotToken" name="botToken" placeholder="Discord developer token"
+          required />
+      </div>
+      <div class="form-group" style="display:flex; align-items:center; gap:8px;">
+        <input type="checkbox" [(ngModel)]="newBotIsPublic" name="botIsPublic" id="botIsPublic" />
+        <label for="botIsPublic" style="margin:0;">{{ i18n.t('admin.public_bot') }}</label>
+      </div>
+      <button type="submit" class="btn btn-primary w-100" [disabled]="formLoading()">
+        {{ formLoading() ? i18n.t('admin.creating') : i18n.t('admin.register') }}
+      </button>
     </form>
-</div>
+  </div>
+}
 
-<div *ngIf="loading" class="loading-spinner">{{ i18n.t('admin.loading') }}</div>
+@if (loading()) {
+  <div class="loading-spinner">{{ i18n.t('admin.loading') }}</div>
+}
 
-<div *ngIf="!loading && bots.length === 0" class="loading-spinner">{{ i18n.t('admin.no_bots') }}</div>
+@if (!loading() && bots().length === 0) {
+  <div class="loading-spinner">{{ i18n.t('admin.no_bots') }}</div>
+}
 
-<div class="bot-grid" *ngIf="!loading && bots.length > 0">
-    <div class="card bot-admin-card" *ngFor="let bot of bots; trackBy: trackByBot">
+@if (!loading() && bots().length > 0) {
+  <div class="bot-grid">
+    @for (bot of bots(); track trackByBot($index, bot)) {
+      <div class="card bot-admin-card">
         <div class="bot-card-top">
-            <div class="bot-avatar">
-                <img *ngIf="bot.discordBotAvatarUrl; else fallbackAvatar" [src]="bot.discordBotAvatarUrl" [alt]="bot.name" />
-                <ng-template #fallbackAvatar>🤖</ng-template>
-            </div>
-            <div class="bot-name-status">
-                <h3>{{ bot.name }}</h3>
-                <p class="discord-subtitle" *ngIf="bot.discordBotName">{{ bot.discordBotName }}</p>
-                <p class="server-count" *ngIf="bot.serverCount">{{ i18n.t('bot.servers') }}: {{ bot.serverCount }}</p>
-                <p class="server-count">{{ i18n.t('admin.owner') }}: {{ bot.ownerUserId }}</p>
-                <p class="server-count">{{ i18n.t('admin.visibility') }}: {{ bot.isPublic ? i18n.t('admin.public') : i18n.t('admin.private') }}</p>
-                <span class="status-badge" [ngClass]="bot.status.toLowerCase()">{{ i18n.t('status.' + bot.status)
-                    }}</span>
-                <span class="uptime-label" *ngIf="getStatusTimestamp(bot)">
-                    {{ i18n.t(isOnline(bot) ? 'bot.running' : 'bot.last_online') }}:
-                    {{ getStatusTimestamp(bot) | date:'dd.MM.yyyy HH:mm' }}
-                    <span *ngIf="getStatusDurationText(bot) !== '—'">({{ getStatusDurationText(bot) }})</span>
-                </span>
-            </div>
+          <div class="bot-avatar">
+            @if (bot.discordBotAvatarUrl) {
+              <img [src]="bot.discordBotAvatarUrl" [alt]="bot.name" />
+            } @else {
+              🤖
+            }
+          </div>
+          <div class="bot-name-status">
+            <h3>{{ bot.name }}</h3>
+            @if (bot.discordBotName) {
+              <p class="discord-subtitle">{{ bot.discordBotName }}</p>
+            }
+            @if (bot.serverCount) {
+              <p class="server-count">{{ i18n.t('bot.servers') }}: {{ bot.serverCount }}</p>
+            }
+            <p class="server-count">{{ i18n.t('admin.owner') }}: {{ bot.ownerUserId }}</p>
+            <p class="server-count">{{ i18n.t('admin.visibility') }}: {{ bot.isPublic ? i18n.t('admin.public') : i18n.t('admin.private') }}</p>
+            <span class="status-badge" [ngClass]="bot.status.toLowerCase()">{{ i18n.t('status.' + bot.status)
+            }}</span>
+            @if (getStatusTimestamp(bot)) {
+              <span class="uptime-label">
+                {{ i18n.t(isOnline(bot) ? 'bot.running' : 'bot.last_online') }}:
+                {{ getStatusTimestamp(bot) | date:'dd.MM.yyyy HH:mm' }}
+                @if (getStatusDurationText(bot) !== '—') {
+                  <span>({{ getStatusDurationText(bot) }})</span>
+                }
+              </span>
+            }
+          </div>
         </div>
         <div class="bot-stats-row">
-            <div class="stat-box">
-                <span class="stat-label">{{ i18n.t('admin.requests_24h') }}</span>
-                <span class="stat-value text-blue">{{ bot.requests24h | number }}</span>
-            </div>
-            <div class="stat-box">
-                <span class="stat-label">{{ i18n.t('admin.errors_24h') }}</span>
-                <span class="stat-value text-red">{{ bot.errors24h | number }}</span>
-            </div>
+          <div class="stat-box">
+            <span class="stat-label">{{ i18n.t('admin.requests_24h') }}</span>
+            <span class="stat-value text-blue">{{ bot.requests24h | number }}</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">{{ i18n.t('admin.errors_24h') }}</span>
+            <span class="stat-value text-red">{{ bot.errors24h | number }}</span>
+          </div>
         </div>
         <div class="bot-stats-row" style="margin-bottom:12px;">
+          @if (!isOnline(bot)) {
             <button
-                class="btn btn-primary"
-                *ngIf="!isOnline(bot)"
-                [disabled]="actionLoadingBotId === bot.botId"
-                (click)="startBot(bot.botId)">
-                {{ i18n.t('bot.start') }}
+              class="btn btn-primary"
+              [disabled]="actionLoadingBotId() === bot.botId"
+              (click)="startBot(bot.botId)">
+              {{ i18n.t('bot.start') }}
             </button>
+          }
+          @if (isOnline(bot)) {
             <button
-                class="btn btn-outline-red"
-                *ngIf="isOnline(bot)"
-                [disabled]="actionLoadingBotId === bot.botId"
-                (click)="stopBot(bot.botId)">
-                {{ i18n.t('bot.stop') }}
+              class="btn btn-outline-red"
+              [disabled]="actionLoadingBotId() === bot.botId"
+              (click)="stopBot(bot.botId)">
+              {{ i18n.t('bot.stop') }}
             </button>
+          }
         </div>
         <button class="btn btn-outline w-100" [routerLink]="['/admin/bot', bot.botId]">{{ i18n.t('admin.manage')
-            }}</button>
-    </div>
-</div>
+        }}</button>
+      </div>
+    }
+  </div>
+}

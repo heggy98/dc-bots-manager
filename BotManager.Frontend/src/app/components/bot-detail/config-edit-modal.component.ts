@@ -1,14 +1,15 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, Output, EventEmitter, inject } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { BotConfigurationDto } from '../../services/bot.service';
 
 @Component({
   selector: 'app-config-edit-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   templateUrl: './config-edit-modal.component.html',
-  styleUrl: './config-edit-modal.component.css'
+  styleUrl: './config-edit-modal.component.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ConfigEditModalComponent {
   @Input() isOpen = false;
@@ -18,6 +19,7 @@ export class ConfigEditModalComponent {
 
   localConfig: BotConfigurationDto = {};
   loading = false;
+  private readonly cdr = inject(ChangeDetectorRef);
 
   /**
    * Copies input config into local editable state when inputs change.
@@ -43,6 +45,7 @@ export class ConfigEditModalComponent {
     this.save.emit(this.localConfig);
     setTimeout(() => {
       this.loading = false;
+      this.cdr.markForCheck();
       this.closeModal();
     }, 300);
   }

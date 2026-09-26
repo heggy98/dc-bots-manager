@@ -1,14 +1,15 @@
-import { Component, Input, Output, EventEmitter, OnChanges } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { ChangeDetectionStrategy, Component, Input, Output, EventEmitter, OnChanges } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { I18nService } from '../../services/i18n.service';
 import { BoardConfigListItemDto, UpdateBoardConfigRequest } from '../../services/bot.service';
 
 @Component({
   selector: 'app-board-config-edit-modal',
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   templateUrl: './board-config-edit-modal.component.html',
-  styleUrl: './board-config-edit-modal.component.css'
+  styleUrl: './board-config-edit-modal.component.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class BoardConfigEditModalComponent implements OnChanges {
   @Input() isOpen = false;

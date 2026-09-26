@@ -1,5 +1,5 @@
-import { Component, Input, Output, EventEmitter, OnInit, OnChanges, SimpleChanges } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, Output, EventEmitter, OnInit, OnChanges, SimpleChanges, inject } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { TeamDto, BotTeamsDto, BotService } from '../../services/bot.service';
 
@@ -11,9 +11,10 @@ type EditableTeamDto = TeamDto & {
 @Component({
   selector: 'app-teams-edit-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   templateUrl: './teams-edit-modal.component.html',
-  styleUrl: './teams-edit-modal.component.css'
+  styleUrl: './teams-edit-modal.component.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class TeamsEditModalComponent implements OnInit, OnChanges {
   @Input() isOpen = false;
@@ -46,6 +47,10 @@ export class TeamsEditModalComponent implements OnInit, OnChanges {
     '💀', '🌑', '🌊', '🐺', '🎯', '🎖️', '⭐', '💥',
     '🚀', '🏆', '⚙️', '🔱', '🗡️', '🎪', '🎭', '🎸'
   ];
+
+  // OnPush: state changes from inputs and DOM events refresh the view automatically;
+  // the async paths below (timers, emoji catalog HTTP) call markForCheck().
+  private readonly cdr = inject(ChangeDetectorRef);
 
   constructor(private botService: BotService) {}
 
@@ -436,7 +441,11 @@ export class TeamsEditModalComponent implements OnInit, OnChanges {
     this.shakeSaveButton = false;
     setTimeout(() => {
       this.shakeSaveButton = true;
-      setTimeout(() => (this.shakeSaveButton = false), 500);
+      this.cdr.markForCheck();
+      setTimeout(() => {
+        this.shakeSaveButton = false;
+        this.cdr.markForCheck();
+      }, 500);
     }, 0);
   }
 
@@ -453,6 +462,7 @@ export class TeamsEditModalComponent implements OnInit, OnChanges {
         }
         this.emojiCatalogLoaded = true;
         this.emojiCatalogLoading = false;
+        this.cdr.markForCheck();
       },
       error: () => {
         this.emojiCatalogLoaded = true;

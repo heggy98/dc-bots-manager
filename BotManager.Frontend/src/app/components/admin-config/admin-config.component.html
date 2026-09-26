@@ -1,22 +1,30 @@
 <div class="page-header">
-    <div>
-        <h2>{{ i18n.t('config.title') }}</h2>
-        <p class="text-muted">{{ i18n.t('config.subtitle') }}</p>
-    </div>
+  <div>
+    <h2>{{ i18n.t('config.title') }}</h2>
+    <p class="text-muted">{{ i18n.t('config.subtitle') }}</p>
+  </div>
 </div>
 
 <div class="config-grid">
-    <div class="panel config-item" *ngFor="let cfg of configs; trackBy: trackByConfig">
-        <div class="config-meta">
-            <h4>{{ cfg.key }}</h4>
-            <p class="text-muted" *ngIf="cfg.description">{{ cfg.description }}</p>
-        </div>
-        <div class="config-control">
-            <textarea *ngIf="isMultiline(cfg.key)" [(ngModel)]="editValues[cfg.key]" rows="4"></textarea>
-            <input *ngIf="!isMultiline(cfg.key)" type="text" [(ngModel)]="editValues[cfg.key]" />
-            <button class="btn btn-primary btn-sm" (click)="save(cfg)">
-                {{ savedKey === cfg.key ? '\u2713' : i18n.t('config.save') }}
-            </button>
-        </div>
+  @for (cfg of configs; track trackByConfig($index, cfg)) {
+    <div class="panel config-item">
+      <div class="config-meta">
+        <h4>{{ cfg.key }}</h4>
+        @if (cfg.description) {
+          <p class="text-muted">{{ cfg.description }}</p>
+        }
+      </div>
+      <div class="config-control">
+        @if (isMultiline(cfg.key)) {
+          <textarea [(ngModel)]="editValues[cfg.key]" rows="4"></textarea>
+        }
+        @if (!isMultiline(cfg.key)) {
+          <input type="text" [(ngModel)]="editValues[cfg.key]" />
+        }
+        <button class="btn btn-primary btn-sm" (click)="save(cfg)">
+          {{ savedKey === cfg.key ? '\u2713' : i18n.t('config.save') }}
+        </button>
+      </div>
     </div>
+  }
 </div>

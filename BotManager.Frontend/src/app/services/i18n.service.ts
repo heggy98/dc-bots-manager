@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
 import { BehaviorSubject, catchError, of, tap } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 
@@ -299,7 +299,18 @@ const EN: Translations = {
 export class I18nService {
     private langSubject = new BehaviorSubject<AppLang>(this.getSavedLang());
     lang$ = this.langSubject.asObservable();
-    
+
+    /**
+     * Active language as a signal. `t()` reads it (together with `revision`), so every
+     * template calling `i18n.t(...)` re-renders on a language switch or when a
+     * translation file finishes loading - including OnPush components.
+     */
+    private readonly langSignal = signal<AppLang>(this.langSubject.value);
+    readonly lang = this.langSignal.asReadonly();
+
+    /** Bumped whenever a translation dictionary finishes loading. */
+    private readonly revision = signal(0);
+
     private loadedTranslations: { [key in AppLang]?: Translations } = {};
 
     /**
@@ -317,14 +328,17 @@ export class I18nService {
     /**
      * Returns currently selected language.
      */
-    get currentLang(): AppLang { return this.langSubject.value; }
+    get currentLang(): AppLang { return this.langSignal(); }
 
     /**
      * Persists and publishes active language selection.
      */
     setLang(lang: AppLang): void {
         localStorage.setItem('lang', lang);
-        this.ensureLanguageLoaded(lang).subscribe(() => this.langSubject.next(lang));
+        this.ensureLanguageLoaded(lang).subscribe(() => {
+            this.langSubject.next(lang);
+            this.langSignal.set(lang);
+        });
     }
 
     /**
@@ -339,10 +353,12 @@ export class I18nService {
         return this.http.get<Translations>(filePath).pipe(
             tap(translations => {
                 this.loadedTranslations[lang] = translations;
+                this.revision.update(v => v + 1);
             }),
             catchError(() => {
                 // Fallback to hardcoded translations if JSON load fails
                 this.loadedTranslations[lang] = lang === 'cs' ? CS : EN;
+                this.revision.update(v => v + 1);
                 return of(null);
             })
         );
@@ -350,9 +366,11 @@ export class I18nService {
 
     /**
      * Resolves a translation string for the active language.
+     * Reads signals, so calling templates are tracked reactively (OnPush-safe).
      */
     t(key: string): string {
-        const lang = this.currentLang;
+        const lang = this.langSignal();
+        this.revision();
         const dict = this.loadedTranslations[lang] || (lang === 'cs' ? CS : EN);
         return dict[key] || key;
     }

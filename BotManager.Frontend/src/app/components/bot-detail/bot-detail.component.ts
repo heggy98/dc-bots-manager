@@ -1,4 +1,4 @@
-import { Component, DestroyRef, OnDestroy, OnInit, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { BotService, AdminBotDetailDto, BotTeamsDto, TeamDto, BotConfigurationDto, BoardConfigListItemDto, UpdateBoardConfigRequest, BotHistoryDto, BotLogDto } from '../../services/bot.service';
@@ -12,50 +12,55 @@ import { BoardConfigEditModalComponent } from './board-config-edit-modal.compone
 import { ToastrService } from 'ngx-toastr';
 import { BotEventsService } from '../../services/bot-events.service';
 import { forkJoin, Subscription } from 'rxjs';
+import { ClockService } from '../../services/clock.service';
 
 @Component({
   selector: 'app-bot-detail',
   imports: [CommonModule, FormsModule, RouterLink, TeamsEditModalComponent, JsonEditorModalComponent, ConfigEditModalComponent, BoardConfigEditModalComponent],
   templateUrl: './bot-detail.component.html',
-  styleUrl: './bot-detail.component.css'
+  styleUrl: './bot-detail.component.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class BotDetailComponent implements OnInit, OnDestroy {
   botId!: number;
-  bot: AdminBotDetailDto | null = null;
-  loading = true;
-  error = '';  // Change from Singleton to allow multiple connections
-  configLoading = false;
-  configMessage = '';
-  visibilityLoading = false;
-  requireTokenRefresh = false;
-  newBotToken = '';
-  tokenRefreshLoading = false;
-  tokenRefreshError = '';
+  // Template state lives in signals so OnPush picks up updates coming from HTTP
+  // callbacks, SignalR subjects, timers and intervals. `bot` is updated immutably.
+  readonly bot = signal<AdminBotDetailDto | null>(null);
+  readonly loading = signal(true);
+  readonly error = signal('');
+  readonly configLoading = signal(false);
+  readonly configMessage = signal('');
+  readonly visibilityLoading = signal(false);
+  readonly requireTokenRefresh = signal(false);
+  readonly newBotToken = signal('');
+  readonly tokenRefreshLoading = signal(false);
+  readonly tokenRefreshError = signal('');
   private botEventsSubscription = new Subscription();
   private fallbackSyncIntervalId: ReturnType<typeof setInterval> | null = null;
   private configMessageTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly destroyRef = inject(DestroyRef);
+  private readonly clock = inject(ClockService);
 
   // Config Modal
-  showConfigModal = false;
+  readonly showConfigModal = signal(false);
 
   // Boards
-  boards: BoardConfigListItemDto[] = [];
-  boardsLoading = false;
-  selectedBoardForConfig: BoardConfigListItemDto | null = null;
-  showBoardConfigModal = false;
+  readonly boards = signal<BoardConfigListItemDto[]>([]);
+  readonly boardsLoading = signal(false);
+  readonly selectedBoardForConfig = signal<BoardConfigListItemDto | null>(null);
+  readonly showBoardConfigModal = signal(false);
   activeBoardIdForTeams: number | null = null;
 
   // Teams and Emojis
-  teamsData: BotTeamsDto | null = null;
-  teamsLoading = false;
-  showTeamsModal = false;
-  teamsSaveInProgress = false;
-  teamsSavePhase: 'idle' | 'saving' | 'syncing' = 'idle';
+  readonly teamsData = signal<BotTeamsDto | null>(null);
+  readonly teamsLoading = signal(false);
+  readonly showTeamsModal = signal(false);
+  readonly teamsSaveInProgress = signal(false);
+  readonly teamsSavePhase = signal<'idle' | 'saving' | 'syncing'>('idle');
   private teamsSavePhaseTimer: ReturnType<typeof setTimeout> | null = null;
-  showJsonEditor = false;
-  jsonEditorType: 'teams' | 'emojis' = 'teams';
-  jsonEditorData: any = null;
+  readonly showJsonEditor = signal(false);
+  readonly jsonEditorType = signal<'teams' | 'emojis'>('teams');
+  readonly jsonEditorData = signal<any>(null);
 
   /**
    * Creates a new bot detail component.
@@ -78,7 +83,7 @@ export class BotDetailComponent implements OnInit, OnDestroy {
       this.loadBotDetails();
       this.connectRealtime();
     }
-    else { this.error = 'Invalid bot ID.'; this.loading = false; }
+    else { this.error.set('Invalid bot ID.'); this.loading.set(false); }
   }
 
   /**
@@ -99,16 +104,15 @@ export class BotDetailComponent implements OnInit, OnDestroy {
    * Loads bot details and normalizes loaded timestamps.
    */
   loadBotDetails(): void {
-    this.loading = true;
+    this.loading.set(true);
     this.botService.getBotDetail(this.botId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (data) => {
-        this.bot = data;
-        this.requireTokenRefresh = !data.isTokenAuthorized;
-        this.tokenRefreshError = '';
+        this.requireTokenRefresh.set(!data.isTokenAuthorized);
+        this.tokenRefreshError.set('');
 
-        if (!this.bot.configuration) this.bot.configuration = {};
-        if (this.bot.histories) {
-          this.bot.histories.forEach(history => {
+        if (!data.configuration) data.configuration = {};
+        if (data.histories) {
+          data.histories.forEach(history => {
             if (history.startedAt && typeof history.startedAt === 'string') {
               history.startedAt = new Date(history.startedAt).toString();
             }
@@ -117,7 +121,8 @@ export class BotDetailComponent implements OnInit, OnDestroy {
             }
           });
         }
-        this.loading = false;
+        this.bot.set(data);
+        this.loading.set(false);
 
         // Parallel follow-up requests for board related data.
         if (this.isBoardEnabledBot()) {
@@ -126,20 +131,20 @@ export class BotDetailComponent implements OnInit, OnDestroy {
             boards: this.botService.getBoards(this.botId)
           }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
             next: (res) => {
-              this.teamsData = res.teams;
-              this.boards = res.boards;
-              this.teamsLoading = false;
-              this.boardsLoading = false;
+              this.teamsData.set(res.teams);
+              this.boards.set(res.boards);
+              this.teamsLoading.set(false);
+              this.boardsLoading.set(false);
             },
             error: () => {
               this.toastr.error('Failed to load board data.', 'Error');
-              this.teamsLoading = false;
-              this.boardsLoading = false;
+              this.teamsLoading.set(false);
+              this.boardsLoading.set(false);
             }
           });
         }
       },
-      error: () => { this.error = 'Failed to load bot details.'; this.loading = false; }
+      error: () => { this.error.set('Failed to load bot details.'); this.loading.set(false); }
     });
   }
 
@@ -147,25 +152,25 @@ export class BotDetailComponent implements OnInit, OnDestroy {
    * Updates token when current stored token is no longer authorized.
    */
   submitTokenRefresh(): void {
-    if (!this.newBotToken || this.tokenRefreshLoading) {
+    if (!this.newBotToken() || this.tokenRefreshLoading()) {
       return;
     }
 
-    this.tokenRefreshLoading = true;
-    this.tokenRefreshError = '';
+    this.tokenRefreshLoading.set(true);
+    this.tokenRefreshError.set('');
 
-    this.botService.updateBotToken(this.botId, { botToken: this.newBotToken }).subscribe({
+    this.botService.updateBotToken(this.botId, { botToken: this.newBotToken() }).subscribe({
       next: () => {
-        this.newBotToken = '';
-        this.tokenRefreshLoading = false;
-        this.requireTokenRefresh = false;
+        this.newBotToken.set('');
+        this.tokenRefreshLoading.set(false);
+        this.requireTokenRefresh.set(false);
         this.toastr.success('Bot token updated and authorized.', 'Updated');
         this.loadBotDetails();
       },
       error: () => {
-        this.tokenRefreshLoading = false;
-        this.tokenRefreshError = this.i18n.t('bot.token_refresh_error');
-        this.toastr.error(this.tokenRefreshError, 'Update Failed');
+        this.tokenRefreshLoading.set(false);
+        this.tokenRefreshError.set(this.i18n.t('bot.token_refresh_error'));
+        this.toastr.error(this.tokenRefreshError(), 'Update Failed');
       }
     });
   }
@@ -174,12 +179,12 @@ export class BotDetailComponent implements OnInit, OnDestroy {
    * Loads teams and emoji data for the current bot, optionally scoped to a board.
    */
   loadTeamsAndEmojis(boardConfigurationId?: number): void {
-    this.teamsLoading = true;
+    this.teamsLoading.set(true);
     this.botService.getTeams(this.botId, boardConfigurationId).subscribe({
-      next: (data) => { this.teamsData = data; this.teamsLoading = false; },
+      next: (data) => { this.teamsData.set(data); this.teamsLoading.set(false); },
       error: () => {
         this.toastr.error('Failed to load teams.', 'Error');
-        this.teamsLoading = false;
+        this.teamsLoading.set(false);
       }
     });
   }
@@ -188,12 +193,12 @@ export class BotDetailComponent implements OnInit, OnDestroy {
    * Loads board configurations for the current bot.
    */
   loadBoards(): void {
-    this.boardsLoading = true;
+    this.boardsLoading.set(true);
     this.botService.getBoards(this.botId).subscribe({
-      next: (data) => { this.boards = data; this.boardsLoading = false; },
+      next: (data) => { this.boards.set(data); this.boardsLoading.set(false); },
       error: () => {
         this.toastr.error('Failed to load boards.', 'Error');
-        this.boardsLoading = false;
+        this.boardsLoading.set(false);
       }
     });
   }
@@ -202,24 +207,25 @@ export class BotDetailComponent implements OnInit, OnDestroy {
    * Opens the board config edit modal for a specific board.
    */
   openBoardConfigModal(board: BoardConfigListItemDto): void {
-    this.selectedBoardForConfig = board;
-    this.showBoardConfigModal = true;
+    this.selectedBoardForConfig.set(board);
+    this.showBoardConfigModal.set(true);
   }
 
   /**
    * Closes the board config edit modal.
    */
   closeBoardConfigModal(): void {
-    this.showBoardConfigModal = false;
-    this.selectedBoardForConfig = null;
+    this.showBoardConfigModal.set(false);
+    this.selectedBoardForConfig.set(null);
   }
 
   /**
    * Saves board configuration and refreshes board list.
    */
   saveBoardConfig(request: UpdateBoardConfigRequest): void {
-    if (!this.selectedBoardForConfig) return;
-    const boardId = this.selectedBoardForConfig.boardConfigurationId;
+    const selected = this.selectedBoardForConfig();
+    if (!selected) return;
+    const boardId = selected.boardConfigurationId;
     this.botService.updateBoard(this.botId, boardId, request).subscribe({
       next: () => {
         this.closeBoardConfigModal();
@@ -236,7 +242,7 @@ export class BotDetailComponent implements OnInit, OnDestroy {
   openTeamsForBoard(board: BoardConfigListItemDto): void {
     this.activeBoardIdForTeams = board.boardConfigurationId;
     this.loadTeamsAndEmojis(board.boardConfigurationId);
-    this.showTeamsModal = true;
+    this.showTeamsModal.set(true);
   }
 
   /**
@@ -291,15 +297,15 @@ export class BotDetailComponent implements OnInit, OnDestroy {
    */
   openTeamsModal(): void {
     this.activeBoardIdForTeams = null;
-    this.showTeamsModal = true;
+    this.showTeamsModal.set(true);
   }
 
   /**
    * Closes the teams edit modal.
    */
   closeTeamsModal(): void {
-    if (this.teamsSaveInProgress) return;
-    this.showTeamsModal = false;
+    if (this.teamsSaveInProgress()) return;
+    this.showTeamsModal.set(false);
     this.activeBoardIdForTeams = null;
   }
 
@@ -307,28 +313,28 @@ export class BotDetailComponent implements OnInit, OnDestroy {
    * Saves teams and refreshes displayed teams after save.
    */
   saveTeamsAndEmojis(data: BotTeamsDto): void {
-    this.teamsSaveInProgress = true;
-    this.teamsSavePhase = 'saving';
+    this.teamsSaveInProgress.set(true);
+    this.teamsSavePhase.set('saving');
     this.clearTeamsSavePhaseTimer();
 
     // This remains one HTTP call; phase switch is UX-only while backend processes reaction sync.
     this.teamsSavePhaseTimer = setTimeout(() => {
-      this.teamsSavePhase = 'syncing';
+      this.teamsSavePhase.set('syncing');
     }, 700);
 
     this.botService.saveTeams(this.botId, data, this.activeBoardIdForTeams ?? undefined).subscribe({
       next: () => {
         this.clearTeamsSavePhaseTimer();
-        this.teamsSaveInProgress = false;
-        this.teamsSavePhase = 'idle';
+        this.teamsSaveInProgress.set(false);
+        this.teamsSavePhase.set('idle');
         this.loadTeamsAndEmojis(this.activeBoardIdForTeams ?? undefined);
         this.closeTeamsModal();
         this.toastr.success('Teams saved.', 'Saved');
       },
       error: () => {
         this.clearTeamsSavePhaseTimer();
-        this.teamsSaveInProgress = false;
-        this.teamsSavePhase = 'idle';
+        this.teamsSaveInProgress.set(false);
+        this.teamsSavePhase.set('idle');
         this.toastr.error('Failed to save teams.', 'Save Failed');
       }
     });
@@ -345,23 +351,23 @@ export class BotDetailComponent implements OnInit, OnDestroy {
    * Opens the JSON editor modal with selected payload.
    */
   openJsonEditor(event: { type: 'teams' | 'emojis', data: any }): void {
-    this.jsonEditorType = event.type;
-    this.jsonEditorData = event.data;
-    this.showJsonEditor = true;
+    this.jsonEditorType.set(event.type);
+    this.jsonEditorData.set(event.data);
+    this.showJsonEditor.set(true);
   }
 
   /**
    * Closes the JSON editor modal.
    */
   closeJsonEditor(): void {
-    this.showJsonEditor = false;
+    this.showJsonEditor.set(false);
   }
 
   /**
    * Saves data from JSON editor when editing teams payload.
    */
   saveJsonData(data: any): void {
-    if (this.jsonEditorType === 'teams') {
+    if (this.jsonEditorType() === 'teams') {
       const normalized = this.normalizeTeamsPayload(data);
       this.botService.saveTeams(this.botId, normalized, this.activeBoardIdForTeams ?? undefined).subscribe({
         next: () => {
@@ -422,38 +428,36 @@ export class BotDetailComponent implements OnInit, OnDestroy {
    * Opens the configuration edit modal.
    */
   openConfigModal(): void {
-    this.showConfigModal = true;
+    this.showConfigModal.set(true);
   }
 
   /**
    * Closes the configuration edit modal.
    */
   closeConfigModal(): void {
-    this.showConfigModal = false;
+    this.showConfigModal.set(false);
   }
 
   /**
    * Saves bot configuration and updates UI state.
    */
   saveConfig(config: BotConfigurationDto): void {
-    this.configLoading = true;
+    this.configLoading.set(true);
     this.botService.updateBotConfig(this.botId, config).subscribe({
       next: () => {
-        if (this.bot) {
-          this.bot.configuration = config;
-        }
-        this.configMessage = '✓';
-        this.configLoading = false;
+        this.bot.update(b => b && { ...b, configuration: config });
+        this.configMessage.set('✓');
+        this.configLoading.set(false);
         this.toastr.success('Bot configuration saved.', 'Saved');
         if (this.configMessageTimer) clearTimeout(this.configMessageTimer);
         this.configMessageTimer = setTimeout(() => {
-          this.configMessage = '';
+          this.configMessage.set('');
           this.configMessageTimer = null;
         }, 3000);
       },
       error: () => {
-        this.configMessage = '✗';
-        this.configLoading = false;
+        this.configMessage.set('✗');
+        this.configLoading.set(false);
         this.toastr.error('Failed to save bot configuration.', 'Save Failed');
       }
     });
@@ -463,22 +467,23 @@ export class BotDetailComponent implements OnInit, OnDestroy {
    * Updates whether the bot is publicly listed.
    */
   setPublicVisibility(isPublic: boolean): void {
-    if (!this.bot || this.visibilityLoading || this.bot.isPublic === isPublic) {
+    const bot = this.bot();
+    if (!bot || this.visibilityLoading() || bot.isPublic === isPublic) {
       return;
     }
 
-    const previous = this.bot.isPublic;
-    this.bot.isPublic = isPublic;
-    this.visibilityLoading = true;
+    const previous = bot.isPublic;
+    this.bot.update(b => b && { ...b, isPublic });
+    this.visibilityLoading.set(true);
 
     this.botService.updateBotVisibility(this.botId, { isPublic }).subscribe({
       next: () => {
-        this.visibilityLoading = false;
+        this.visibilityLoading.set(false);
         this.toastr.success('Bot visibility updated.', 'Updated');
       },
       error: () => {
-        this.visibilityLoading = false;
-        this.bot!.isPublic = previous;
+        this.visibilityLoading.set(false);
+        this.bot.update(b => b && { ...b, isPublic: previous });
         this.toastr.error('Failed to update bot visibility.', 'Update Failed');
       }
     });
@@ -495,7 +500,7 @@ export class BotDetailComponent implements OnInit, OnDestroy {
     this.botService.clearLogs(this.botId).subscribe({
       next: () => this.loadBotDetails(),
       error: () => {
-        this.error = this.i18n.t('bot.clear_logs_error');
+        this.error.set(this.i18n.t('bot.clear_logs_error'));
       }
     });
   }
@@ -511,7 +516,7 @@ export class BotDetailComponent implements OnInit, OnDestroy {
     this.botService.clearHistory(this.botId).subscribe({
       next: () => this.loadBotDetails(),
       error: () => {
-        this.error = this.i18n.t('bot.clear_history_error');
+        this.error.set(this.i18n.t('bot.clear_history_error'));
       }
     });
   }
@@ -560,41 +565,43 @@ export class BotDetailComponent implements OnInit, OnDestroy {
    * Returns status timestamp for current bot based on online/offline state.
    */
   getStatusTimestamp(): Date | null {
-    if (!this.bot) {
+    const bot = this.bot();
+    if (!bot) {
       return null;
     }
 
     if (this.isOnline()) {
-      return this.toDate(this.bot.lastStartedAt);
+      return this.toDate(bot.lastStartedAt);
     }
 
-    return this.toDate(this.bot.lastStoppedAt ?? this.bot.lastStartedAt);
+    return this.toDate(bot.lastStoppedAt ?? bot.lastStartedAt);
   }
 
   /**
    * Returns elapsed time text for current status reference point.
    */
   getStatusDurationText(): string {
-    if (!this.bot) {
+    const bot = this.bot();
+    if (!bot) {
       return '—';
     }
 
     if (this.isOnline()) {
-      const startedAt = this.toDate(this.bot.lastStartedAt);
+      const startedAt = this.toDate(bot.lastStartedAt);
       if (!startedAt) {
         return '—';
       }
 
-      const seconds = Math.floor((Date.now() - startedAt.getTime()) / 1000);
+      const seconds = Math.floor((this.clock.now() - startedAt.getTime()) / 1000);
       return this.formatDuration(seconds);
     }
 
-    const stoppedAt = this.toDate(this.bot.lastStoppedAt);
+    const stoppedAt = this.toDate(bot.lastStoppedAt);
     if (!stoppedAt) {
       return '—';
     }
 
-    const seconds = Math.floor((Date.now() - stoppedAt.getTime()) / 1000);
+    const seconds = Math.floor((this.clock.now() - stoppedAt.getTime()) / 1000);
     if (seconds < 0) {
       return '—';
     }
@@ -606,7 +613,7 @@ export class BotDetailComponent implements OnInit, OnDestroy {
    * Returns whether current bot is online.
    */
   private isOnline(): boolean {
-    return this.isRunningState(this.bot?.status);
+    return this.isRunningState(this.bot()?.status);
   }
 
   isRunningState(status?: string | null): boolean {
@@ -670,27 +677,29 @@ export class BotDetailComponent implements OnInit, OnDestroy {
 
     this.botEventsSubscription.add(
       this.botEventsService.statusChanged$.subscribe((event) => {
-        if (!this.bot || event.botId !== this.botId) return;
-        this.bot.status = event.statusText;
+        if (event.botId !== this.botId) return;
+        this.bot.update(b => b && { ...b, status: event.statusText });
       })
     );
 
     this.botEventsSubscription.add(
       this.botEventsService.newLog$.subscribe((event) => {
-        if (!this.bot || event.botId !== this.botId) return;
-        this.bot.logs = [{
-          timestamp: event.timestamp,
-          level: event.level,
-          message: event.message
-        }, ...(this.bot.logs ?? [])].slice(0, 300);
+        if (event.botId !== this.botId) return;
+        this.bot.update(b => b && {
+          ...b,
+          logs: [{
+            timestamp: event.timestamp,
+            level: event.level,
+            message: event.message
+          }, ...(b.logs ?? [])].slice(0, 300)
+        });
       })
     );
 
     this.botEventsSubscription.add(
       this.botEventsService.statsUpdated$.subscribe((event) => {
-        if (!this.bot || event.botId !== this.botId) return;
-        this.bot.requests24h = event.requests24h;
-        this.bot.errors24h = event.errors24h;
+        if (event.botId !== this.botId) return;
+        this.bot.update(b => b && { ...b, requests24h: event.requests24h, errors24h: event.errors24h });
       })
     );
 
@@ -725,25 +734,28 @@ export class BotDetailComponent implements OnInit, OnDestroy {
   }
 
   private refreshRuntimeSnapshot(): void {
-    if (!this.botId || !this.bot) {
+    if (!this.botId || !this.bot()) {
       return;
     }
 
     this.botService.getBotDetail(this.botId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (data) => {
-        if (!this.bot) {
+        if (!this.bot()) {
           return;
         }
 
-        this.requireTokenRefresh = !data.isTokenAuthorized;
+        this.requireTokenRefresh.set(!data.isTokenAuthorized);
 
-        this.bot.status = data.status;
-        this.bot.requests24h = data.requests24h;
-        this.bot.errors24h = data.errors24h;
-        this.bot.histories = data.histories;
-        this.bot.lastStartedAt = data.lastStartedAt;
-        this.bot.lastStoppedAt = data.lastStoppedAt;
-        this.bot.isTokenAuthorized = data.isTokenAuthorized;
+        this.bot.update(b => b && {
+          ...b,
+          status: data.status,
+          requests24h: data.requests24h,
+          errors24h: data.errors24h,
+          histories: data.histories,
+          lastStartedAt: data.lastStartedAt,
+          lastStoppedAt: data.lastStoppedAt,
+          isTokenAuthorized: data.isTokenAuthorized
+        });
       }
     });
   }

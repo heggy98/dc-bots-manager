@@ -1,70 +1,62 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { ChangeDetectionStrategy, Component, OnInit, computed, signal } from '@angular/core';
+
 import { SystemService } from '../../services/system.service';
 import { I18nService } from '../../services/i18n.service';
+import { ClockService } from '../../services/clock.service';
 
 @Component({
     selector: 'app-footer',
     standalone: true,
-    imports: [CommonModule],
+    imports: [],
+    changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
     <footer class="app-footer">
       <span class="uptime-dot"></span>
-      <span>{{ i18n.t('footer.uptime') }}: {{ uptimeText }}</span>
+      <span>{{ i18n.t('footer.uptime') }}: {{ uptimeText() }}</span>
     </footer>
   `
 })
-export class FooterComponent implements OnInit, OnDestroy {
-    uptimeText = '...';
-    private intervalId: any;
-    private serverUptimeSeconds = 0;
-    private lastFetch = Date.now();
+export class FooterComponent implements OnInit {
+    /** Server uptime baseline and the local time it was fetched at; null until loaded. */
+    private readonly baseline = signal<{ uptimeSeconds: number; fetchedAt: number } | null>(null);
+    private readonly failed = signal(false);
 
-    /**
-     * Creates a new footer component.
-     */
-    constructor(public i18n: I18nService, private systemService: SystemService) { }
+    /** Formatted uptime, recomputed from the baseline on every clock tick. */
+    readonly uptimeText = computed(() => {
+        if (this.failed()) return '—';
+        const baseline = this.baseline();
+        if (!baseline) return '...';
 
-    /**
-     * Loads server uptime baseline and starts local ticking.
-     */
-    ngOnInit(): void {
-        this.systemService.getUptime().subscribe({
-            next: (data) => {
-                this.serverUptimeSeconds = data.uptimeSeconds;
-                this.lastFetch = Date.now();
-                this.updateText();
-            },
-            error: () => { this.uptimeText = '—'; }
-        });
-
-        this.intervalId = setInterval(() => this.updateText(), 60000);
-    }
-
-    /**
-     * Stops the local uptime timer.
-     */
-    ngOnDestroy(): void {
-        clearInterval(this.intervalId);
-    }
-
-    /**
-     * Recomputes formatted uptime text from baseline and elapsed local time.
-     */
-    private updateText(): void {
-        const elapsed = Math.floor((Date.now() - this.lastFetch) / 1000);
-        const total = this.serverUptimeSeconds + elapsed;
+        const elapsed = Math.max(0, Math.floor((this.clock.now() - baseline.fetchedAt) / 1000));
+        const total = baseline.uptimeSeconds + elapsed;
 
         const days = Math.floor(total / 86400);
         const hours = Math.floor((total % 86400) / 3600);
         const minutes = Math.floor((total % 3600) / 60);
 
-        if (days > 0) {
-            this.uptimeText = `${days}d ${hours}h ${minutes}m`;
-        } else if (hours > 0) {
-            this.uptimeText = `${hours}h ${minutes}m`;
-        } else {
-            this.uptimeText = `${minutes}m`;
-        }
+        if (days > 0) return `${days}d ${hours}h ${minutes}m`;
+        if (hours > 0) return `${hours}h ${minutes}m`;
+        return `${minutes}m`;
+    });
+
+    /**
+     * Creates a new footer component.
+     */
+    constructor(
+        public i18n: I18nService,
+        private systemService: SystemService,
+        private clock: ClockService
+    ) { }
+
+    /**
+     * Loads server uptime baseline; the shared clock drives local ticking.
+     */
+    ngOnInit(): void {
+        this.systemService.getUptime().subscribe({
+            next: (data) => {
+                this.baseline.set({ uptimeSeconds: data.uptimeSeconds, fetchedAt: Date.now() });
+            },
+            error: () => { this.failed.set(true); }
+        });
     }
 }

@@ -1,12 +1,12 @@
 import { Component, Input, Output, EventEmitter } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { GlobalCommandDto, UpdateGlobalCommandDto } from '../../services/commands.service';
 
 @Component({
   selector: 'app-command-edit-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   templateUrl: './command-edit-modal.component.html',
   styleUrl: './command-edit-modal.component.css'
 })

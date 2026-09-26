@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, signal } from '@angular/core';
 import { AdminBotDto, BotService } from '../../services/bot.service';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -6,23 +6,25 @@ import { AuthService } from '../../services/auth.service';
 import { Router, RouterLink } from '@angular/router';
 import { I18nService } from '../../services/i18n.service';
 import { ToastrService } from 'ngx-toastr';
+import { ClockService } from '../../services/clock.service';
 
 @Component({
   selector: 'app-admin-home',
   imports: [CommonModule, FormsModule, RouterLink],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-home.component.html',
   styleUrl: './admin-home.component.css'
 })
 export class AdminHomeComponent implements OnInit {
-  bots: AdminBotDto[] = [];
-  loading = true;
-  showForm = false;
-  newBotName = '';
-  newBotToken = '';
-  newBotIsPublic = false;
-  formError = '';
-  formLoading = false;
-  actionLoadingBotId: number | null = null;
+  readonly bots = signal<AdminBotDto[]>([]);
+  readonly loading = signal(true);
+  readonly showForm = signal(false);
+  readonly newBotName = signal('');
+  readonly newBotToken = signal('');
+  readonly newBotIsPublic = signal(false);
+  readonly formError = signal('');
+  readonly formLoading = signal(false);
+  readonly actionLoadingBotId = signal<number | null>(null);
 
   /**
    * Creates a new admin home component.
@@ -32,7 +34,8 @@ export class AdminHomeComponent implements OnInit {
     public authService: AuthService,
     private router: Router,
     private toastr: ToastrService,
-    public i18n: I18nService
+    public i18n: I18nService,
+    private clock: ClockService
   ) { }
 
   /**
@@ -44,12 +47,12 @@ export class AdminHomeComponent implements OnInit {
    * Loads bots owned by the current user.
    */
   loadBots(): void {
-    this.loading = true;
+    this.loading.set(true);
     this.botService.getMyBots().subscribe({
-      next: (data) => { this.bots = data; this.loading = false; },
+      next: (data) => { this.bots.set(data); this.loading.set(false); },
       error: (err) => {
         if (err.status === 401) { this.authService.logout(); this.router.navigate(['/login']); }
-        this.loading = false;
+        this.loading.set(false);
       }
     });
   }
@@ -62,28 +65,28 @@ export class AdminHomeComponent implements OnInit {
   /**
    * Toggles the create-bot form visibility.
    */
-  toggleAddBot(): void { this.showForm = !this.showForm; this.formError = ''; }
+  toggleAddBot(): void { this.showForm.update(v => !v); this.formError.set(''); }
 
   /**
    * Submits a new bot creation request.
    */
   createBot(): void {
-    if (!this.newBotName || !this.newBotToken) { this.formError = this.i18n.t('admin.fill_fields'); return; }
-    this.formLoading = true;
-    this.botService.createBot({ name: this.newBotName, botToken: this.newBotToken, isPublic: this.newBotIsPublic }).subscribe({
+    if (!this.newBotName() || !this.newBotToken()) { this.formError.set(this.i18n.t('admin.fill_fields')); return; }
+    this.formLoading.set(true);
+    this.botService.createBot({ name: this.newBotName(), botToken: this.newBotToken(), isPublic: this.newBotIsPublic() }).subscribe({
       next: () => {
-        this.newBotName = '';
-        this.newBotToken = '';
-        this.newBotIsPublic = false;
-        this.showForm = false;
-        this.formLoading = false;
+        this.newBotName.set('');
+        this.newBotToken.set('');
+        this.newBotIsPublic.set(false);
+        this.showForm.set(false);
+        this.formLoading.set(false);
         this.toastr.success(this.i18n.t('admin.create_success'), this.i18n.t('admin.register'));
         this.loadBots();
       },
       error: (err) => {
-        this.formError = err?.error ?? this.i18n.t('admin.create_error');
-        this.formLoading = false;
-        this.toastr.error(this.formError, this.i18n.t('admin.register'));
+        this.formError.set(err?.error ?? this.i18n.t('admin.create_error'));
+        this.formLoading.set(false);
+        this.toastr.error(this.formError(), this.i18n.t('admin.register'));
       }
     });
   }
@@ -99,15 +102,15 @@ export class AdminHomeComponent implements OnInit {
    * Starts a bot from dashboard card actions.
    */
   startBot(botId: number): void {
-    this.actionLoadingBotId = botId;
+    this.actionLoadingBotId.set(botId);
     this.botService.startBot(botId).subscribe({
       next: () => {
-        this.actionLoadingBotId = null;
+        this.actionLoadingBotId.set(null);
         this.toastr.success(this.i18n.t('bot.start_success'), this.i18n.t('bot.start'));
         this.loadBots();
       },
       error: () => {
-        this.actionLoadingBotId = null;
+        this.actionLoadingBotId.set(null);
         this.toastr.error(this.i18n.t('bot.start_error'), this.i18n.t('bot.start'));
       }
     });
@@ -117,15 +120,15 @@ export class AdminHomeComponent implements OnInit {
    * Stops a bot from dashboard card actions.
    */
   stopBot(botId: number): void {
-    this.actionLoadingBotId = botId;
+    this.actionLoadingBotId.set(botId);
     this.botService.stopBot(botId).subscribe({
       next: () => {
-        this.actionLoadingBotId = null;
+        this.actionLoadingBotId.set(null);
         this.toastr.success(this.i18n.t('bot.stop_success'), this.i18n.t('bot.stop'));
         this.loadBots();
       },
       error: () => {
-        this.actionLoadingBotId = null;
+        this.actionLoadingBotId.set(null);
         this.toastr.error(this.i18n.t('bot.stop_error'), this.i18n.t('bot.stop'));
       }
     });
@@ -154,13 +157,13 @@ export class AdminHomeComponent implements OnInit {
     if (this.isOnline(bot)) {
       const startedAt = this.toDate(bot.lastStartedAt);
       if (!startedAt) return '—';
-      const seconds = Math.floor((Date.now() - startedAt.getTime()) / 1000);
+      const seconds = Math.floor((this.clock.now() - startedAt.getTime()) / 1000);
       return this.formatDuration(seconds);
     }
 
     const stoppedAt = this.toDate(bot.lastStoppedAt);
     if (!stoppedAt) return '—';
-    const seconds = Math.floor((Date.now() - stoppedAt.getTime()) / 1000);
+    const seconds = Math.floor((this.clock.now() - stoppedAt.getTime()) / 1000);
     if (seconds < 0) return '—';
     return this.formatDuration(seconds);
   }
