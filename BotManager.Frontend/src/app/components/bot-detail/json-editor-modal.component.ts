@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, Input, Output, EventEmitter } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input, Output, EventEmitter, OnChanges, SimpleChanges } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 
@@ -10,7 +10,7 @@ import { FormsModule } from '@angular/forms';
   styleUrl: './json-editor-modal.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class JsonEditorModalComponent {
+export class JsonEditorModalComponent implements OnChanges {
   @Input() isOpen = false;
   @Input() type: 'teams' | 'emojis' = 'teams';
   @Input() data: any = null;
@@ -23,9 +23,22 @@ export class JsonEditorModalComponent {
   isJsonValid = false;
 
   /**
-   * Initializes local JSON text whenever input payload changes.
+   * Re-initializes local JSON text from the current input payload whenever the modal
+   * is opened or the payload changes while open. Closing resets the local editor state,
+   * so reopening with the same (unchanged) data must re-read it here.
    */
-  ngOnChanges(): void {
+  ngOnChanges(changes: SimpleChanges): void {
+    const opened = !!changes['isOpen'] && this.isOpen;
+    const dataChanged = !!changes['data'];
+    if (opened || (dataChanged && this.isOpen) || (dataChanged && changes['data'].firstChange)) {
+      this.initFromData();
+    }
+  }
+
+  /**
+   * Loads the current input payload into the editor text and validates it.
+   */
+  private initFromData(): void {
     if (this.data) {
       try {
         this.jsonText = JSON.stringify(this.data, null, 2);
