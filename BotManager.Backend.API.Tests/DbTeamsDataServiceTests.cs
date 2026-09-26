@@ -150,6 +150,146 @@ public class DbTeamsDataServiceTests
         Assert.Null(teams.Single(t => t.Name == "Beta").RoleId);
     }
 
+    [Fact]
+    public async Task SaveAsync_KeepsTeamIdsStableAcrossSaves()
+    {
+        await using var db = CreateContext();
+        db.Bots.Add(CreateBot(205));
+        db.BoardConfigurations.Add(new BoardConfiguration { BoardConfigurationId = 1, BotId = 205, BoardType = "teams" });
+        await db.SaveChangesAsync();
+
+        var sut = new DbTeamsDataService(db);
+
+        await sut.SaveAsync(205, new BotTeamsDto
+        {
+            Teams =
+            [
+                new TeamDto { Name = "Alpha", Emoji = "✅" },
+                new TeamDto { Name = "Beta", Emoji = "🎯" }
+            ]
+        });
+
+        var firstLoad = (await sut.GetAsync(205)).Teams;
+        var alphaId = firstLoad.Single(t => t.Name == "Alpha").TeamId;
+        var betaId = firstLoad.Single(t => t.Name == "Beta").TeamId;
+        Assert.NotNull(alphaId);
+        Assert.NotNull(betaId);
+
+        // Round-trip what the client loaded, with edits (rename, emoji swap) and one new team.
+        firstLoad.Single(t => t.TeamId == alphaId).Name = "Alpha renamed";
+        firstLoad.Single(t => t.TeamId == alphaId).Emoji = "🎯";
+        firstLoad.Single(t => t.TeamId == betaId).Emoji = "✅";
+        firstLoad.Add(new TeamDto { Name = "Gamma", Emoji = "🔥" });
+        await sut.SaveAsync(205, new BotTeamsDto { Teams = firstLoad });
+
+        var secondLoad = (await sut.GetAsync(205)).Teams;
+        Assert.Equal(3, secondLoad.Count);
+        var alpha = secondLoad.Single(t => t.TeamId == alphaId);
+        Assert.Equal("Alpha renamed", alpha.Name);
+        Assert.Equal("🎯", alpha.Emoji);
+        Assert.Equal("✅", secondLoad.Single(t => t.TeamId == betaId).Emoji);
+        var gamma = secondLoad.Single(t => t.Name == "Gamma");
+        Assert.NotNull(gamma.TeamId);
+        Assert.DoesNotContain(gamma.TeamId, new[] { alphaId, betaId });
+    }
+
+    [Fact]
+    public async Task SaveAsync_RemovedTeamIsDeleted_AndRemainingTeamKeepsRoleBinding()
+    {
+        await using var db = CreateContext();
+        db.Bots.Add(CreateBot(206));
+        db.BoardConfigurations.Add(new BoardConfiguration { BoardConfigurationId = 1, BotId = 206, BoardType = "teams" });
+        db.Teams.AddRange(
+            new Team { TeamId = 20, BoardConfigurationId = 1, Name = "Alpha", Emoji = "✅", RoleId = 111UL },
+            new Team { TeamId = 21, BoardConfigurationId = 1, Name = "Beta", Emoji = "🎯", RoleId = 222UL });
+        await db.SaveChangesAsync();
+
+        var sut = new DbTeamsDataService(db);
+
+        await sut.SaveAsync(206, new BotTeamsDto
+        {
+            Teams = [new TeamDto { TeamId = 21, Name = "Beta", Emoji = "🎯" }]
+        });
+
+        var teams = await db.Teams.AsNoTracking().Where(t => t.BoardConfigurationId == 1).ToListAsync();
+        var remaining = Assert.Single(teams);
+        Assert.Equal(21, remaining.TeamId);
+        Assert.Equal(222UL, remaining.RoleId);
+        Assert.False(await db.Teams.AnyAsync(t => t.TeamId == 20));
+    }
+
+    [Fact]
+    public async Task SaveAsync_TeamIdOfAnotherBoard_IsTreatedAsNewTeam()
+    {
+        await using var db = CreateContext();
+        db.Bots.Add(CreateBot(207));
+        db.Bots.Add(CreateBot(208));
+        db.BoardConfigurations.Add(new BoardConfiguration { BoardConfigurationId = 1, BotId = 207, BoardType = "teams" });
+        db.BoardConfigurations.Add(new BoardConfiguration { BoardConfigurationId = 2, BotId = 208, BoardType = "teams" });
+        db.Teams.Add(new Team { TeamId = 30, BoardConfigurationId = 2, Name = "Foreign", Emoji = "✅", RoleId = 333UL });
+        await db.SaveChangesAsync();
+
+        var sut = new DbTeamsDataService(db);
+
+        // Bot 207 tries to save a team carrying the id of bot 208's team.
+        await sut.SaveAsync(207, new BotTeamsDto
+        {
+            Teams = [new TeamDto { TeamId = 30, Name = "Hijacked", Emoji = "🎯" }]
+        });
+
+        var foreign = await db.Teams.AsNoTracking().SingleAsync(t => t.TeamId == 30);
+        Assert.Equal(2, foreign.BoardConfigurationId);
+        Assert.Equal("Foreign", foreign.Name);
+        Assert.Equal("✅", foreign.Emoji);
+        Assert.Equal(333UL, foreign.RoleId);
+
+        var own = Assert.Single(await db.Teams.AsNoTracking().Where(t => t.BoardConfigurationId == 1).ToListAsync());
+        Assert.NotEqual(30, own.TeamId);
+        Assert.Equal("Hijacked", own.Name);
+        Assert.Null(own.RoleId);
+    }
+
+    [Fact]
+    public async Task SaveAsync_NewTeamWithoutId_InheritsRoleOfRemovedTeamWithSameName()
+    {
+        await using var db = CreateContext();
+        db.Bots.Add(CreateBot(209));
+        db.BoardConfigurations.Add(new BoardConfiguration { BoardConfigurationId = 1, BotId = 209, BoardType = "teams" });
+        db.Teams.Add(new Team { TeamId = 40, BoardConfigurationId = 1, Name = "Alpha", Emoji = "✅", RoleId = 444UL });
+        await db.SaveChangesAsync();
+
+        var sut = new DbTeamsDataService(db);
+
+        // A client that does not send ids at all.
+        await sut.SaveAsync(209, new BotTeamsDto
+        {
+            Teams = [new TeamDto { Name = "Alpha", Emoji = "✅" }]
+        });
+
+        var team = Assert.Single(await db.Teams.AsNoTracking().Where(t => t.BoardConfigurationId == 1).ToListAsync());
+        Assert.Equal(444UL, team.RoleId);
+    }
+
+    [Fact]
+    public async Task SaveAsync_ExplicitRoleIdOverridesStoredBinding()
+    {
+        await using var db = CreateContext();
+        db.Bots.Add(CreateBot(210));
+        db.BoardConfigurations.Add(new BoardConfiguration { BoardConfigurationId = 1, BotId = 210, BoardType = "teams" });
+        db.Teams.Add(new Team { TeamId = 50, BoardConfigurationId = 1, Name = "Alpha", Emoji = "✅", RoleId = 555UL });
+        await db.SaveChangesAsync();
+
+        var sut = new DbTeamsDataService(db);
+
+        await sut.SaveAsync(210, new BotTeamsDto
+        {
+            Teams = [new TeamDto { TeamId = 50, Name = "Alpha", Emoji = "✅", RoleId = 666UL }]
+        });
+
+        var team = await db.Teams.AsNoTracking().SingleAsync(t => t.TeamId == 50);
+        Assert.Equal(666UL, team.RoleId);
+    }
+
     private static BotManagerDbContext CreateContext()
     {
         var options = new DbContextOptionsBuilder<BotManagerDbContext>()
