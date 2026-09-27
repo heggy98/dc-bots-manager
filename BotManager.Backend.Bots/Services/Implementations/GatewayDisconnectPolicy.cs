@@ -26,12 +26,10 @@ namespace BotManager.Backend.Bots.Services.Implementations
                 return false;
             }
 
-            // DB already reflects an online state restored by reconnect handling.
-            if (persistedStatus == BotStatus.Online)
-            {
-                return false;
-            }
-
+            // Note: the persisted status is intentionally not used to skip the transition. A plain
+            // (non-gateway-reconnect) disconnect leaves the stored status Online, and a real reconnect
+            // always bumps the generation counter / connection state checked above.
+            _ = persistedStatus;
             return true;
         }
     }

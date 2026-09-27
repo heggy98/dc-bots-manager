@@ -94,13 +94,32 @@ public class BotStatsDebouncerTests
                 return Task.CompletedTask;
             });
 
+        // Poll instead of fixed sleeps so the test is stable on busy CI machines.
         debouncer.Schedule(4);
-        await Task.Delay(180);
+        Assert.True(await WaitUntilAsync(() => Volatile.Read(ref invocationCount) >= 1));
 
         debouncer.Schedule(4);
-        await Task.Delay(180);
+        Assert.True(await WaitUntilAsync(() => Volatile.Read(ref invocationCount) >= 2));
 
-        Assert.Equal(2, invocationCount);
+        // No extra invocations afterwards.
+        await Task.Delay(120);
+        Assert.Equal(2, Volatile.Read(ref invocationCount));
+    }
+
+    private static async Task<bool> WaitUntilAsync(Func<bool> condition, int timeoutMs = 5000)
+    {
+        var deadline = Environment.TickCount64 + timeoutMs;
+        while (Environment.TickCount64 < deadline)
+        {
+            if (condition())
+            {
+                return true;
+            }
+
+            await Task.Delay(10);
+        }
+
+        return condition();
     }
 
     [Fact]

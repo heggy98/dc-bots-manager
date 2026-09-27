@@ -147,6 +147,9 @@ public class DiscordBotRuntimeServiceTests
         Assert.Equal(BotStatus.Online, (await h.GetBotAsync(1)).Status);
         Assert.DoesNotContain(h.Notifications.StatusChanges, c => c.Status == BotStatus.Offline);
         Assert.True(await h.Runtime.IsRunningAsync(1));
+
+        // The run continues: exactly one history row, still open (no duplicate open rows after reconnect).
+        Assert.Null(Assert.Single(await h.GetHistoriesAsync(1)).StoppedAt);
     }
 
     [Fact]
@@ -184,7 +187,7 @@ public class DiscordBotRuntimeServiceTests
     /// nothing marks the bot Reconnecting, so after the grace period the persisted status is still Online and
     /// <see cref="GatewayDisconnectPolicy"/> treats that as "already restored" — the bot is never persisted Offline.
     /// </summary>
-    [Fact(Skip = "Known gap: a prolonged non-reconnect disconnect never persists Offline (GatewayDisconnectPolicy sees the pre-disconnect Online status).")]
+    [Fact]
     public async Task PlainDisconnect_BeyondGrace_PersistsOffline()
     {
         await using var h = new RuntimeHarness();

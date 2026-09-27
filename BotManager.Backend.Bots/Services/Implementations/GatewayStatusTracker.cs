@@ -154,12 +154,21 @@ namespace BotManager.Backend.Bots.Services.Implementations
 
                 if (bot.Status is not (BotStatus.Offline or BotStatus.Reconnecting)) return;
 
+                var wasOffline = bot.Status == BotStatus.Offline;
                 bot.Status = BotStatus.Online;
-                bot.LastStartedAt = DateTime.UtcNow;
                 bot.LastStoppedAt = null;
 
-                // Open a fresh history entry for the resumed session.
-                db.BotRunHistories.Add(new BotRunHistory { BotId = _botId, StartedAt = DateTime.UtcNow });
+                // After a short Reconnecting phase the run is still open; only an Offline transition
+                // closed it, so open a fresh history entry just in that case (avoids two open rows).
+                var hasOpenHistory = await db.BotRunHistories.AnyAsync(h => h.BotId == _botId && h.StoppedAt == null);
+                if (wasOffline || !hasOpenHistory)
+                {
+                    bot.LastStartedAt = DateTime.UtcNow;
+                    if (!hasOpenHistory)
+                    {
+                        db.BotRunHistories.Add(new BotRunHistory { BotId = _botId, StartedAt = DateTime.UtcNow });
+                    }
+                }
 
                 await db.SaveChangesAsync();
 

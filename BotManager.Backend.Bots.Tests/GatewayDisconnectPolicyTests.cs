@@ -32,15 +32,17 @@ public class GatewayDisconnectPolicyTests
     }
 
     [Fact]
-    public void ShouldMarkOffline_ReturnsFalse_WhenPersistedStatusWasRestoredToOnline()
+    public void ShouldMarkOffline_ReturnsTrue_ForPlainDisconnectWhileStoredStatusIsStillOnline()
     {
+        // A plain disconnect (no gateway reconnect) never sets Reconnecting, so the stored status is still
+        // Online; the bot must nevertheless be marked Offline once the grace period expires.
         var shouldMark = GatewayDisconnectPolicy.ShouldMarkOffline(
             disconnectGeneration: 5,
             currentGeneration: 5,
             connectionState: ConnectionState.Disconnected,
             persistedStatus: BotStatus.Online);
 
-        Assert.False(shouldMark);
+        Assert.True(shouldMark);
     }
 
     [Fact]
