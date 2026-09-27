@@ -1,0 +1,27 @@
+#cloud-config
+# Oracle Cloud (Ubuntu 24.04, Ampere A1 / aarch64): installs Docker + Compose, opens HTTP/HTTPS,
+# enables automatic security updates. Paste into "Advanced options → Management → Cloud-init script".
+package_update: true
+package_upgrade: true
+packages:
+  - ca-certificates
+  - curl
+  - git
+  - unattended-upgrades
+  - iptables-persistent
+
+runcmd:
+  # Docker Engine + Compose plugin from Docker's official repository (multi-arch, works on ARM64).
+  - install -m 0755 -d /etc/apt/keyrings
+  - curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+  - chmod a+r /etc/apt/keyrings/docker.asc
+  - echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" > /etc/apt/sources.list.d/docker.list
+  - apt-get update
+  - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  - usermod -aG docker ubuntu
+  - systemctl enable --now docker
+  # Oracle's Ubuntu images ship restrictive iptables rules: allow HTTP/HTTPS (also open them in the VCN security list).
+  - iptables -I INPUT 6 -m state --state NEW -p tcp --dport 80 -j ACCEPT
+  - iptables -I INPUT 6 -m state --state NEW -p tcp --dport 443 -j ACCEPT
+  - netfilter-persistent save
+  - dpkg-reconfigure -f noninteractive unattended-upgrades

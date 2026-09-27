@@ -24,7 +24,7 @@ A full-stack Discord bot management platform with:
 
 - .NET 10
 - ASP.NET Core Web API + SignalR
-- Entity Framework Core (SQL Server)
+- Entity Framework Core (SQL Server or PostgreSQL)
 - Serilog (+ SQL sink)
 - Discord.Net runtime integration
 - Angular 21
@@ -33,7 +33,7 @@ A full-stack Discord bot management platform with:
 
 - .NET SDK 10.x
 - Node.js 20+ and npm
-- SQL Server LocalDB or SQL Server instance
+- SQL Server (LocalDB / instance) or PostgreSQL 14+
 - (Optional) Visual Studio 2022 / VS Code
 
 ## Quick Start (Local Development)
@@ -66,6 +66,7 @@ Use one of these approaches:
 Minimum required settings for backend:
 
 - `ConnectionStrings:DefaultConnection`
+- `Database:Provider` – `SqlServer` (default) or `PostgreSql`
 - `JwtSettings:Secret` (random, at least 32 bytes; the app refuses to start otherwise)
 - `JwtSettings:Issuer`
 - `JwtSettings:Audience`
@@ -171,6 +172,23 @@ docker compose up -d --build
 
 The app runs at `http://localhost:8080` (nginx serves the SPA and proxies `/api` and `/hubs` to the API on the same
 origin). Health: `GET /health` (API incl. database), `GET /health/live`.
+
+PostgreSQL instead of SQL Server (required on ARM64 hosts):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d --build
+```
+
+Free hosting on Oracle Cloud Always Free (ARM VM, PostgreSQL, HTTPS, backups): see
+[`deploy/oracle/README.md`](deploy/oracle/README.md).
+
+PostgreSQL migrations live in `BotManager.Backend.Entities.PostgreSql`; add new ones for both providers:
+
+```bash
+dotnet ef migrations add <Name> --project BotManager.Backend.Entities --startup-project BotManager.Backend.API
+Database__Provider=PostgreSql ConnectionStrings__DefaultConnection="Host=localhost;Database=x;Username=x;Password=x" \
+  dotnet ef migrations add <Name> --project BotManager.Backend.Entities.PostgreSql --startup-project BotManager.Backend.API --output-dir Migrations
+```
 
 ### Monitoring (Prometheus + Grafana)
 
