@@ -1,0 +1,18 @@
+{
+  "name": "botmanager-e2e",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Playwright end-to-end tests for BotManager (run against docker compose or a local dev stack).",
+  "type": "module",
+  "scripts": {
+    "e2e": "playwright test",
+    "e2e:report": "playwright show-report",
+    "seed": "node scripts/seed.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1",
+    "@types/node": "^22.0.0",
+    "typescript": "~5.9.0"
+  }
+}

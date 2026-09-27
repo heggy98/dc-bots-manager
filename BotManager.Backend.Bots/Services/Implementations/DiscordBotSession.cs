@@ -19,7 +19,9 @@ namespace BotManager.Backend.Bots.Services.Implementations
     /// </summary>
     internal sealed class DiscordBotSession : IAsyncDisposable
     {
-        private DiscordSocketClient? _client;
+        private IDiscordGatewayClient? _client;
+        private readonly IDiscordGatewayClientFactory _clientFactory;
+        private readonly DiscordRuntimeOptions _options;
         private readonly ILogger _logger;
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly BoardPluginHost _pluginHost;
@@ -36,7 +38,6 @@ namespace BotManager.Backend.Bots.Services.Implementations
         private CancellationTokenSource? _cancellationTokenSource;
         private TaskCompletionSource<bool>? _readyTcs;
         private int _connectionGeneration = 0;
-        private const int ReadyTimeoutSeconds = 30;
 
         /// <summary>
         /// Creates a new Discord bot session.
@@ -49,17 +50,21 @@ namespace BotManager.Backend.Bots.Services.Implementations
             IBoardMessageLocator boardMessageLocator,
             IBotNotificationService notificationService,
             IBotAlertService alertService,
-            BotManagerMetrics metrics)
+            BotManagerMetrics metrics,
+            IDiscordGatewayClientFactory? clientFactory = null,
+            DiscordRuntimeOptions? options = null)
         {
             _botId = botId;
             _metrics = metrics;
+            _clientFactory = clientFactory ?? DiscordSocketGatewayClientFactory.Instance;
+            _options = options ?? DiscordRuntimeOptions.Default;
             _logger = logger;
             _scopeFactory = scopeFactory;
             _pluginHost = new BoardPluginHost(logger, pluginRegistry);
-            _reactionDispatcher = new DiscordReactionDispatcher(botId, logger, scopeFactory, _pluginHost, HasCurrentBot, () => _client);
+            _reactionDispatcher = new DiscordReactionDispatcher(botId, logger, scopeFactory, _pluginHost, HasCurrentBot, () => _client?.SocketClient);
             _interactionDispatcher = new DiscordInteractionDispatcher(botId, logger, scopeFactory, _pluginHost, HasCurrentBot, metrics);
             _boardPublisher = new BoardMessagePublisher(logger, scopeFactory, boardMessageLocator, _reactionDispatcher.InvalidateBoardMessageIds);
-            _statusTracker = new GatewayStatusTracker(botId, logger, scopeFactory, notificationService, alertService);
+            _statusTracker = new GatewayStatusTracker(botId, logger, scopeFactory, notificationService, alertService, _options.DisconnectGrace);
         }
 
         /// <summary>
@@ -105,17 +110,21 @@ namespace BotManager.Backend.Bots.Services.Implementations
                     LogGatewayIntentWarnings = true
                 };
 
-                _client = new DiscordSocketClient(config);
+                _client = _clientFactory.Create(config);
 
                 _client.Log += LogAsync;
                 _client.Ready += ReadyAsync;
                 _client.Connected += ConnectedAsync;
                 _client.Disconnected += DisconnectedAsync;
                 _client.LatencyUpdated += LatencyUpdatedAsync;
-                _client.InteractionCreated += _interactionDispatcher.HandleInteractionCreatedAsync;
-                _client.SlashCommandExecuted += _interactionDispatcher.HandleSlashCommandExecutedAsync;
-                _client.ReactionAdded += _reactionDispatcher.HandleReactionAddedEventAsync;
-                _client.ReactionRemoved += _reactionDispatcher.HandleReactionRemovedEventAsync;
+                var socketClient = _client.SocketClient;
+                if (socketClient != null)
+                {
+                    socketClient.InteractionCreated += _interactionDispatcher.HandleInteractionCreatedAsync;
+                    socketClient.SlashCommandExecuted += _interactionDispatcher.HandleSlashCommandExecutedAsync;
+                    socketClient.ReactionAdded += _reactionDispatcher.HandleReactionAddedEventAsync;
+                    socketClient.ReactionRemoved += _reactionDispatcher.HandleReactionRemovedEventAsync;
+                }
                 _logger.LogInformation("Subscribed Discord event handlers including reaction role events.");
 
                 var startupStopwatch = Stopwatch.StartNew();
@@ -127,15 +136,15 @@ namespace BotManager.Backend.Bots.Services.Implementations
                 await _client.StartAsync();
                 _logger.LogInformation("Discord StartAsync completed. State={State}. Waiting for READY event (timeout {TimeoutSeconds}s)",
                     _client.ConnectionState,
-                    ReadyTimeoutSeconds);
+                    _options.ReadyTimeout.TotalSeconds);
 
                 var readyTask = _readyTcs.Task;
-                var timeoutTask = Task.Delay(TimeSpan.FromSeconds(ReadyTimeoutSeconds), _cancellationTokenSource.Token);
+                var timeoutTask = Task.Delay(_options.ReadyTimeout, _cancellationTokenSource.Token);
                 var completed = await Task.WhenAny(readyTask, timeoutTask);
 
                 if (completed != readyTask)
                 {
-                    var msg = $"Discord READY event timeout after {ReadyTimeoutSeconds}s. Current state={_client.ConnectionState}";
+                    var msg = $"Discord READY event timeout after {_options.ReadyTimeout.TotalSeconds}s. Current state={_client.ConnectionState}";
                     _logger.LogError(msg);
                     throw new TimeoutException(msg);
                 }
@@ -274,7 +283,12 @@ namespace BotManager.Backend.Bots.Services.Implementations
                 return Task.FromResult(false);
             }
 
-            return _boardPublisher.RefreshBoardMessageAsync(client, botId, boardMessage, boardConfigurationId);
+            if (client.SocketClient == null)
+            {
+                return Task.FromResult(false);
+            }
+
+            return _boardPublisher.RefreshBoardMessageAsync(client.SocketClient, botId, boardMessage, boardConfigurationId);
         }
 
         /// <summary>
@@ -289,7 +303,12 @@ namespace BotManager.Backend.Bots.Services.Implementations
                 return Task.FromResult(false);
             }
 
-            return _boardPublisher.SyncBoardReactionsIfPresentAsync(client, botId, emojis, boardConfigurationId);
+            if (client.SocketClient == null)
+            {
+                return Task.FromResult(false);
+            }
+
+            return _boardPublisher.SyncBoardReactionsIfPresentAsync(client.SocketClient, botId, emojis, boardConfigurationId);
         }
 
 
@@ -307,9 +326,9 @@ namespace BotManager.Backend.Bots.Services.Implementations
             _isRunning = true;
 
             _logger.LogInformation("Discord bot is ready. Bot={Username} ({UserId}), Guilds={GuildCount}, State={State}",
-                _client.CurrentUser?.Username,
-                _client.CurrentUser?.Id,
-                _client.Guilds.Count,
+                _client.SocketClient?.CurrentUser?.Username,
+                _client.SocketClient?.CurrentUser?.Id,
+                _client.SocketClient?.Guilds.Count ?? 0,
                 _client.ConnectionState);
 
             // Register commands in the background so the gateway handler is not blocked by
@@ -503,7 +522,8 @@ namespace BotManager.Backend.Bots.Services.Implementations
         /// </summary>
         private async Task RegisterCommandsViaProviderAsync()
         {
-            if (_client == null)
+            var socketClient = _client?.SocketClient;
+            if (socketClient == null)
             {
                 return;
             }
@@ -518,7 +538,7 @@ namespace BotManager.Backend.Bots.Services.Implementations
 
             var commands = provider.BuildCommands();
 
-            foreach (var guild in _client.Guilds)
+            foreach (var guild in socketClient.Guilds)
             {
                 try
                 {
@@ -551,10 +571,14 @@ namespace BotManager.Backend.Bots.Services.Implementations
             _client.Connected -= ConnectedAsync;
             _client.Disconnected -= DisconnectedAsync;
             _client.LatencyUpdated -= LatencyUpdatedAsync;
-            _client.InteractionCreated -= _interactionDispatcher.HandleInteractionCreatedAsync;
-            _client.SlashCommandExecuted -= _interactionDispatcher.HandleSlashCommandExecutedAsync;
-            _client.ReactionAdded -= _reactionDispatcher.HandleReactionAddedEventAsync;
-            _client.ReactionRemoved -= _reactionDispatcher.HandleReactionRemovedEventAsync;
+            var socketClient = _client.SocketClient;
+            if (socketClient != null)
+            {
+                socketClient.InteractionCreated -= _interactionDispatcher.HandleInteractionCreatedAsync;
+                socketClient.SlashCommandExecuted -= _interactionDispatcher.HandleSlashCommandExecutedAsync;
+                socketClient.ReactionAdded -= _reactionDispatcher.HandleReactionAddedEventAsync;
+                socketClient.ReactionRemoved -= _reactionDispatcher.HandleReactionRemovedEventAsync;
+            }
         }
 
     }
